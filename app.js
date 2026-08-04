@@ -1,0 +1,1464 @@
+const APP_CONFIG = window.__APP_CONFIG__ || {};
+const API_BASE_URL = String(APP_CONFIG.apiBaseUrl || "").replace(/\/$/, "");
+const routeToView = {
+  "/": "home",
+  "/login": "home",
+  "/dashboard": "home",
+  "/practice": "practice",
+  "/diagnosis": "diagnosis",
+  "/review": "knowledgeReview",
+  "/similar-training": "similarTraining",
+  "/original-retry": "originalRetry",
+  "/report": "improvement",
+  "/ability-profile": "profile"
+};
+const viewToRoute = Object.fromEntries(Object.entries(routeToView).map(([path, view]) => [view, path]));
+const demoSessionId = localStorage.getItem("demoSessionId") || crypto.randomUUID();
+localStorage.setItem("demoSessionId", demoSessionId);
+
+const api = (url, options = {}) => fetch(`${API_BASE_URL}${url}`, {
+  ...options,
+  headers: { "content-type": "application/json", ...(options.headers || {}) }
+}).then(async (res) => {
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || "请求失败");
+  return data;
+}).catch((error) => {
+  if (error instanceof TypeError) throw new Error("服务暂时不可用，请稍后重试。");
+  throw error;
+});
+
+const trainingModes = {
+  foundation: {
+    name: "基础训练",
+    stage: "基础阶段",
+    count: 10,
+    difficulty: "mode",
+    sourceType: "all",
+    description: "按章节补概念、公式、基本计算和常见入口。",
+    difficultyLabel: "1-2星 基础题组"
+  },
+  reinforce: {
+    name: "强化训练",
+    stage: "强化阶段",
+    count: 20,
+    difficulty: "mode",
+    sourceType: "all",
+    description: "集中处理易错、综合、方法选择和计算稳定性。",
+    difficultyLabel: "3-4星 强化题组"
+  },
+  mock: {
+    name: "模拟考试",
+    stage: "模拟考试",
+    count: 20,
+    difficulty: "mode",
+    sourceType: "all",
+    description: "跨章节混合出题，按考试节奏提交并生成薄弱诊断。",
+    difficultyLabel: "1-5星 混合题组"
+  }
+};
+
+const state = {
+  student: JSON.parse(localStorage.getItem("student") || "null"),
+  view: routeToView[location.pathname] || localStorage.getItem("view") || "home",
+  selectedMathType: localStorage.getItem("selectedMathType") || "数学二",
+  trainingMode: localStorage.getItem("trainingMode") || "reinforce",
+  paperExam: null,
+  chapters: [],
+  pastExamSources: null,
+  questions: [],
+  collectionItems: [],
+  chapterId: "integral",
+  questionCount: Number(localStorage.getItem("questionCount") || 20),
+  difficulty: localStorage.getItem("difficulty") || "all",
+  sourceType: localStorage.getItem("sourceType") || "all",
+  current: 0,
+  responses: {},
+  lastResults: null,
+  scratchTool: localStorage.getItem("scratchTool") || "pen",
+  scratchColor: localStorage.getItem("scratchColor") || "#172033",
+  scratchWidth: Number(localStorage.getItem("scratchWidth") || 3),
+  strokeCount: 0,
+  strokes: [],
+  startedAt: Date.now()
+};
+
+const navs = [
+  ["home", "训练入口"],
+  ["chapters", "章节训练"],
+  ["practice", "刷题"],
+  ["diagnosis", "AI诊断"],
+  ["knowledgeReview", "知识点复习"],
+  ["understandingCheck", "理解检查"],
+  ["similarTraining", "相似题训练"],
+  ["originalRetry", "原题重做"],
+  ["masteryVerify", "掌握验证"],
+  ["improvement", "提升报告"],
+  ["profile", "能力画像"],
+  ["pastExams", "真题库"],
+  ["report", "报告"],
+  ["collection", "做题集"]
+];
+const sourceOptions = [
+  ["all", "全部题源"],
+  ["past_exam", "历年考研数学真题"],
+  ["inhouse_original", "自研原创题"],
+  ["teacher_original", "签约教师原创题"],
+  ["ai_teacher_reviewed", "AI生成后教师审核变式题"]
+];
+const difficultyOptions = [
+  ["mode", "按当前题组"],
+  ["all", "全部难度"],
+  ["1", "1星 基础"],
+  ["2", "2星 计算"],
+  ["3", "3星 易错"],
+  ["4", "4星 综合"],
+  ["5", "5星 拓展"]
+];
+
+const $ = (selector) => document.querySelector(selector);
+
+function mode() {
+  return trainingModes[state.trainingMode] || trainingModes.reinforce;
+}
+
+function setView(view) {
+  state.view = view;
+  localStorage.setItem("view", view);
+  const nextPath = viewToRoute[view] || "/";
+  if (location.pathname !== nextPath) history.pushState({ view }, "", nextPath);
+  render();
+}
+
+function selectMode(key) {
+  state.trainingMode = key;
+  localStorage.setItem("trainingMode", key);
+  const picked = mode();
+  state.questionCount = picked.count;
+  state.difficulty = picked.difficulty;
+  state.sourceType = picked.sourceType;
+  localStorage.setItem("questionCount", String(state.questionCount));
+  localStorage.setItem("difficulty", state.difficulty);
+  localStorage.setItem("sourceType", state.sourceType);
+  if (state.student) {
+    state.student.stage = picked.stage;
+    localStorage.setItem("student", JSON.stringify(state.student));
+  }
+}
+
+function saveStudent(student) {
+  state.student = student;
+  localStorage.setItem("student", JSON.stringify(student));
+}
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+async function init() {
+  const boot = await api("/api/bootstrap");
+  state.chapters = boot.chapters;
+  state.pastExamSources = boot.pastExamSources;
+  render();
+}
+
+function shell(title, body) {
+  $("#title").textContent = title;
+  $("#sub").textContent = state.student
+    ? `${state.student.name} · ${state.student.mathType} · ${mode().name}`
+    : `先选择数学一/二/三，再进入训练`;
+  $("#logout").style.display = state.student ? "block" : "none";
+  $("#nav").innerHTML = state.student
+    ? navs.map(([id, label]) => `<button class="${state.view === id ? "active" : ""}" data-view="${id}">${label}</button>`).join("")
+    : "";
+  $("#view").innerHTML = body;
+  document.querySelectorAll("[data-view]").forEach((button) => button.onclick = () => setView(button.dataset.view));
+}
+
+function render() {
+  if (!state.student) return renderLogin();
+  const map = {
+    home: renderHome,
+    chapters: renderChapters,
+    practice: renderPractice,
+    grading: renderGrading,
+    roundResults: renderRoundResults,
+    diagnosis: renderDiagnosis,
+    knowledgeReview: renderKnowledgeReview,
+    understandingCheck: renderUnderstandingCheck,
+    similarTraining: renderSimilarTraining,
+    originalRetry: renderOriginalRetry,
+    masteryVerify: renderMasteryVerify,
+    trainingPlan: renderSimilarTraining,
+    retest: renderOriginalRetry,
+    improvement: renderImprovement,
+    profile: renderProfile,
+    paperExam: renderPaperExam,
+    pastExams: renderPastExams,
+    report: renderReport,
+    collection: renderCollection
+  };
+  return (map[state.view] || renderHome)();
+}
+
+function renderLogin() {
+  const mathTypes = ["数学一", "数学二", "数学三"].map((name) => `<button class="select-card ${state.selectedMathType === name ? "active" : ""}" data-math="${name}">
+    <strong>${name}</strong>
+    <span>${name === "数学一" ? "高数 + 线代 + 概率 + 级数/空间" : name === "数学二" ? "高数 + 线代，强调计算与综合" : "高数 + 线代 + 概率，偏经管应用"}</span>
+  </button>`).join("");
+
+  shell("选择考试类型", `<section class="panel entrance">
+    <h2>先确认你刷的是哪一套数学</h2>
+    <div class="select-grid">${mathTypes}</div>
+  </section>
+  <section class="panel">
+    <div class="grid two">
+      <label>姓名<input id="name" placeholder="例如：小王"></label>
+      <label>邀请码<input id="code" placeholder="MATH01 - MATH10"></label>
+      <label>目标分数<input id="target" type="number" value="120"></label>
+      <label>每日时间<select id="daily"><option value="30">30分钟</option><option selected value="60">60分钟</option><option value="90">90分钟</option></select></label>
+    </div>
+    <button class="primary wide" id="login">进入 APP</button>
+    <p class="badge warn">试用账号邀请码：MATH01 到 MATH10</p>
+  </section>`);
+
+  $("#code").closest("label").insertAdjacentHTML("afterend", `<label>演示密码<input id="password" type="password" placeholder="demo123"></label>`);
+  $("#login").insertAdjacentHTML("afterend", `<button class="ghost wide" id="demoLogin">进入演示系统</button><p class="badge">演示账号：demo / demo123。每个浏览器会生成独立演示会话。</p>`);
+
+  document.querySelectorAll("[data-math]").forEach((button) => {
+    button.onclick = () => {
+      state.selectedMathType = button.dataset.math;
+      localStorage.setItem("selectedMathType", state.selectedMathType);
+      renderLogin();
+    };
+  });
+
+  $("#login").onclick = async () => {
+    const res = await api("/api/login", {
+      method: "POST",
+      body: JSON.stringify({
+        name: $("#name").value,
+        inviteCode: $("#code").value,
+        password: $("#password")?.value || "",
+        mathType: state.selectedMathType,
+        targetScore: $("#target").value,
+        stage: mode().stage,
+        dailyMinutes: $("#daily").value
+      })
+    });
+    saveStudent(res.student);
+    state.view = "home";
+    localStorage.setItem("view", "home");
+    render();
+  };
+
+  $("#demoLogin").onclick = async () => {
+    const res = await api("/api/login", {
+      method: "POST",
+      body: JSON.stringify({
+        demo: true,
+        name: $("#name").value || "演示同学",
+        inviteCode: "demo",
+        password: $("#password").value || "demo123",
+        sessionId: demoSessionId,
+        mathType: state.selectedMathType,
+        targetScore: $("#target").value,
+        stage: mode().stage,
+        dailyMinutes: $("#daily").value
+      })
+    });
+    saveStudent(res.student);
+    localStorage.setItem("demoMode", "1");
+    state.view = "home";
+    localStorage.setItem("view", "home");
+    history.replaceState({ view: "home" }, "", "/dashboard");
+    render();
+  };
+}
+
+async function renderHome() {
+  const loop = await loadLoop();
+  const demoOn = localStorage.getItem("demoMode") === "1";
+  const cards = Object.entries(trainingModes).map(([key, item]) => `<article class="mode-card ${state.trainingMode === key ? "active" : ""}">
+    <div>
+      <h3>${item.name}</h3>
+      <p>${item.description}</p>
+      <p class="mode-meta">${item.difficultyLabel} · 默认 ${item.count} 题</p>
+    </div>
+    <button class="primary" data-mode="${key}">${key === "foundation" ? "选择基础题目" : key === "reinforce" ? "选择强化题目" : "选择模拟题目"}</button>
+  </article>`).join("");
+
+  shell("训练入口", `<section class="panel">
+    <div class="metrics">
+      <div class="metric"><span>考试类型</span><strong>${state.student.mathType}</strong></div>
+      <div class="metric"><span>当前模式</span><strong>${mode().name}</strong></div>
+      <div class="metric"><span>本轮题量</span><strong>${state.questionCount}</strong></div>
+      <div class="metric"><span>作答方式</span><strong>草稿识别</strong></div>
+    </div>
+  </section>
+  <section class="panel">
+    <h2>选择训练模式</h2>
+    <div class="mode-grid">${cards}</div>
+  </section>
+  <section class="panel note-panel">
+    <h2>题库原则</h2>
+    <p>真题只会来自可追溯导入，不用原创题冒充。当前内置题先按考研风格审核题、自研题和教师审核变式题区分，后续可以把你授权的真题文件批量导入。</p>
+  </section>`);
+
+  $("#title").textContent = "训练入口";
+  $("#view").insertAdjacentHTML("afterbegin", `<section class="panel product-dashboard">
+    <div class="dashboard-head">
+      <div>
+        <span class="badge ${demoOn ? "warn" : ""}">${demoOn ? "产品演示模式" : "真实学生数据"}</span>
+        <h2>AI数学个性化学习闭环</h2>
+        <p>从作答与草稿识别开始，完成批改、错因诊断、专项训练、变式复测和能力画像更新。</p>
+      </div>
+      <div class="row">
+        <button class="primary" data-view="diagnosis">查看AI诊断</button>
+        <button class="ghost" id="toggleDemo">${demoOn ? "退出演示模式" : "进入演示模式"}</button>
+        ${state.student?.isDemo ? `<button class="ghost danger" id="resetDemo">重置演示数据</button>` : ""}
+      </div>
+    </div>
+    ${loopProgress("assessment")}
+  </section>
+  <section class="panel">
+    <div class="metrics">
+      <div class="metric"><span>最近诊断</span><strong>${loop.diagnosis.accuracy}%</strong></div>
+      <div class="metric"><span>薄弱点</span><strong>${loop.diagnosis.weakKnowledgePoints.length}</strong></div>
+      <div class="metric"><span>待复习知识点</span><strong>${loop.homeCounters?.reviewPending ?? loop.diagnosis.weakKnowledgePoints.length}</strong></div>
+      <div class="metric"><span>待重做错题</span><strong>${loop.homeCounters?.retryPending ?? 1}</strong></div>
+    </div>
+    <div class="next-actions">
+      <button class="ghost" data-view="knowledgeReview">继续知识点复习</button>
+      <button class="ghost" data-view="similarTraining">继续相似题训练</button>
+      <button class="ghost" data-view="originalRetry">重新挑战原错题</button>
+      <button class="ghost" data-view="improvement">提升报告</button>
+      <button class="ghost" data-view="profile">能力画像</button>
+    </div>
+  </section>
+  <section class="panel">
+    <h2>学习任务</h2>
+    <div class="cards">
+      <article class="card"><h3>本轮诊断结论</h3><p>${escapeHtml(loop.diagnosis.summary)}</p></article>
+      <article class="card"><h3>下一步学习路径</h3><p>${escapeHtml(loop.recoveryPath?.nextAction || loop.trainingPlan.goal)}</p></article>
+      <article class="card"><h3>完成标准</h3><p>${escapeHtml(loop.trainingCriteria?.summary || loop.trainingPlan.completionStandard)}</p></article>
+    </div>
+  </section>`);
+  document.querySelectorAll("[data-view]").forEach((button) => button.onclick = () => setView(button.dataset.view));
+  const toggleDemo = $("#toggleDemo");
+  if (toggleDemo) toggleDemo.onclick = () => {
+    const next = localStorage.getItem("demoMode") !== "1";
+    localStorage.setItem("demoMode", next ? "1" : "0");
+    state.loop = null;
+    renderHome();
+  };
+  const resetDemo = $("#resetDemo");
+  if (resetDemo) resetDemo.onclick = async () => {
+    await api("/api/demo/reset", {
+      method: "POST",
+      body: JSON.stringify({ studentId: state.student.id })
+    });
+    localStorage.removeItem(`lastResults:${state.student.id}`);
+    Object.keys(localStorage).filter((key) => key.startsWith(`mistakeFlow:${state.student.id}`)).forEach((key) => localStorage.removeItem(key));
+    state.responses = {};
+    state.lastResults = null;
+    alert("演示数据已重置。");
+    renderHome();
+  };
+  document.querySelectorAll("[data-mode]").forEach((button) => {
+    button.onclick = async () => {
+      selectMode(button.dataset.mode);
+      if (state.trainingMode === "mock") {
+        state.chapterId = "all";
+        await loadQuestions(true);
+        setView("practice");
+      } else {
+        setView("chapters");
+      }
+    };
+  });
+}
+
+function renderChapters() {
+  const currentMode = mode();
+  const items = state.chapters
+    .filter((chapter) => chapter.subjects.includes(state.student.mathType))
+    .map((chapter) => `<article class="card">
+      <h3>${chapter.name} <span class="badge">${chapter.count}题</span></h3>
+      <p>适用：${chapter.subjects.join("、")}；当前题组：${currentMode.difficultyLabel}</p>
+      <button class="primary" data-chapter="${chapter.id}">刷本章${currentMode.name}</button>
+    </article>`).join("");
+
+  shell(`${currentMode.name}`, `<section class="panel">
+    <div class="mode-tabs large">
+      ${Object.entries(trainingModes).map(([key, item]) => `<button class="${state.trainingMode === key ? "active" : ""}" data-switch-mode="${key}">${item.name}<small>${item.difficultyLabel}</small></button>`).join("")}
+    </div>
+    <p class="mode-help">当前选择：${currentMode.name}，系统会优先抽取 ${currentMode.difficultyLabel}。你也可以在下方临时改题量、难度或题源。</p>
+    <div class="grid three">
+      <label>本轮题量
+        <select id="questionCount">
+          <option value="10">快速 10 题</option>
+          <option value="20">标准 20 题</option>
+          <option value="30">深度 30 题</option>
+          <option value="50">极限 50 题</option>
+        </select>
+      </label>
+      <label>难度
+        <select id="difficulty">${difficultyOptions.map(([value, label]) => `<option value="${value}">${label}</option>`).join("")}</select>
+      </label>
+      <label>题源
+        <select id="sourceType">${sourceOptions.map(([value, label]) => `<option value="${value}">${label}</option>`).join("")}</select>
+      </label>
+    </div>
+  </section>
+  <section class="panel"><div class="cards">${items}</div></section>`);
+
+  $("#questionCount").value = String(state.questionCount);
+  $("#difficulty").value = state.difficulty;
+  $("#sourceType").value = state.sourceType;
+  $("#questionCount").onchange = (event) => {
+    state.questionCount = Number(event.target.value);
+    localStorage.setItem("questionCount", String(state.questionCount));
+  };
+  $("#difficulty").onchange = (event) => {
+    state.difficulty = event.target.value;
+    localStorage.setItem("difficulty", state.difficulty);
+  };
+  $("#sourceType").onchange = (event) => {
+    state.sourceType = event.target.value;
+    localStorage.setItem("sourceType", state.sourceType);
+  };
+  document.querySelectorAll("[data-switch-mode]").forEach((button) => {
+    button.onclick = () => {
+      selectMode(button.dataset.switchMode);
+      renderChapters();
+    };
+  });
+  document.querySelectorAll("[data-chapter]").forEach((button) => {
+    button.onclick = async () => {
+      state.chapterId = button.dataset.chapter;
+      await loadQuestions(false);
+      setView("practice");
+    };
+  });
+}
+
+async function loadQuestions(refresh) {
+  const params = new URLSearchParams({
+    studentId: state.student.id,
+    chapterId: state.chapterId,
+    refresh: refresh ? "1" : "0",
+    count: String(state.questionCount),
+    difficulty: state.difficulty,
+    sourceType: state.sourceType,
+    mode: state.trainingMode
+  });
+  const res = await api(`/api/questions?${params.toString()}`);
+  state.questions = res.questions;
+  if (!state.questions.length) {
+    alert(res.message || "当前筛选条件下没有题目，请调整题量、难度或题源。");
+  }
+  state.current = 0;
+  state.responses = {};
+  state.lastResults = null;
+  resetScratch();
+}
+
+function resetScratch() {
+  state.strokeCount = 0;
+  state.strokes = [];
+  state.startedAt = Date.now();
+}
+
+function difficultyText(value) {
+  return difficultyOptions.find(([key]) => key === String(value))?.[1] || "3星 易错";
+}
+
+function questionStem(q) {
+  if (q.sourceType === "past_exam") {
+    const body = q.stemHtml
+      ? `<div class="typeset-stem">${q.stemHtml}</div>`
+      : (q.stemImage ? `<img class="stem-image exam" src="${escapeHtml(q.stemImage)}" alt="${escapeHtml(q.stem)}">` : `<p>${escapeHtml(q.stem)}</p>`);
+    return `<div class="exam-stem">
+      <div class="exam-stem-head">
+        <span>${escapeHtml(q.chapterName)}</span>
+        <strong>${escapeHtml(q.point)}</strong>
+      </div>
+      <div class="exam-paper">
+        ${body}
+      </div>
+    </div>`;
+  }
+  return `<div class="exam-stem text-mode">
+    <div class="exam-paper">
+      <p>${escapeHtml(q.stem)}</p>
+    </div>
+  </div>`;
+}
+
+async function renderPractice() {
+  if (!state.questions.length) await loadQuestions(false);
+  if (!state.questions.length) {
+    shell("刷题", `<section class="panel"><h2>当前筛选下没有题目</h2><p>如果你选择了“历年考研数学真题”，需要先导入2000-2026真实真题题库；系统不会用原创题冒充真题。</p><button class="primary" data-view="chapters">返回章节</button></section>`);
+    return;
+  }
+  const q = state.questions[state.current];
+  const saved = state.responses[q.id] || {};
+  const options = q.type === "choice" ? `<div class="option-strip">${q.options.map((option, index) => `<button class="choice ${saved.answer === option ? "active" : ""}" data-choice="${escapeHtml(option)}">${String.fromCharCode(65 + index)}. ${escapeHtml(option)}</button>`).join("")}</div>` : "";
+  const answerPanel = q.type === "choice" ? renderChoicePanel() : renderScratchPanel();
+  shell("刷题", `<section class="panel question-top">
+    <p><span class="badge">${escapeHtml(mode().name)}</span> <span class="badge warn">${difficultyText(q.difficulty)}</span> <span class="badge">${escapeHtml(q.source)}</span> ${escapeHtml(q.chapterName)} · ${escapeHtml(q.point)} · 第 ${state.current + 1}/${state.questions.length} 题</p>
+    ${questionStem(q)}
+    ${options}
+  </section>
+  <section class="panel progress-panel">
+    <div class="question-dots">${state.questions.map((item, index) => `<button class="${index === state.current ? "active" : ""} ${state.responses[item.id] ? "done" : ""}" data-jump="${index}">${index + 1}</button>`).join("")}</div>
+  </section>
+  ${answerPanel}`);
+  bindPractice(q);
+}
+
+function renderChoicePanel() {
+  return `<section class="panel choice-panel">
+    <div class="scratch-head">
+      <div>
+        <h3>选择题作答</h3>
+        <p>选择题点击上方选项只会保存答案，做完整套后统一交卷看结果。</p>
+      </div>
+      <div class="row">
+        <button class="ghost" id="showScratch">打开草稿</button>
+        <button class="ghost" id="prev">上一题</button>
+        <button class="ghost" id="next">下一题</button>
+        <button class="ghost" id="refresh">刷新新题</button>
+        <button class="primary" id="finishRound">交卷并生成诊断</button>
+      </div>
+    </div>
+  </section>`;
+}
+
+function renderScratchPanel() {
+  return `<section class="panel scratch-panel">
+    <div class="scratch-head">
+      <div>
+        <h3>手写草稿</h3>
+        <p>填空题、计算题和需要演算的选择题只保留这张草稿纸，先保存作答，最后统一交卷。</p>
+      </div>
+      <div class="row">
+        <button class="ghost" id="prev">上一题</button>
+        <button class="ghost" id="saveScratch">保存本题</button>
+        <button class="ghost" id="next">保存并下一题</button>
+        <button class="ghost" id="refresh">刷新新题</button>
+        <button class="primary" id="finishRound">交卷并生成诊断</button>
+      </div>
+    </div>
+    ${renderPadToolbar()}
+    <div class="paper-stage">
+      <canvas id="pad" width="1600" height="980"></canvas>
+    </div>
+    <p class="badge">书写笔画：<span id="strokes">${state.strokeCount}</span> 次</p>
+  </section>`;
+}
+
+function renderPadToolbar() {
+  const tools = [["pen", "钢笔"], ["highlighter", "荧光"], ["eraser", "橡皮"]];
+  const colors = ["#172033", "#1f64d1", "#16885f", "#d35400", "#b42318", "#7c3aed"];
+  const widths = [2, 3, 5, 8];
+  return `<div class="pad-toolbar">
+    <div class="tool-group">
+      ${tools.map(([tool, label]) => `<button class="tool-button ${state.scratchTool === tool ? "active" : ""}" data-tool="${tool}" title="${label}">${label}</button>`).join("")}
+    </div>
+    <div class="tool-group color-group">
+      ${colors.map((color) => `<button class="color-dot ${state.scratchColor === color ? "active" : ""}" data-color="${color}" style="--swatch:${color}" title="${color}"></button>`).join("")}
+    </div>
+    <div class="tool-group">
+      ${widths.map((width) => `<button class="width-button ${state.scratchWidth === width ? "active" : ""}" data-width="${width}" title="${width}px"><span style="height:${Math.max(2, width)}px"></span></button>`).join("")}
+    </div>
+    <div class="tool-group push">
+      <button class="tool-button" id="undoPad" title="撤销">撤销</button>
+      <button class="tool-button" id="clearPad" title="清空">清空</button>
+    </div>
+  </div>`;
+}
+
+function bindPractice(q) {
+  const prev = $("#prev");
+  const next = $("#next");
+  const refresh = $("#refresh");
+  const clearPad = $("#clearPad");
+  const saveScratch = $("#saveScratch");
+  const finishRound = $("#finishRound");
+  document.querySelectorAll("[data-jump]").forEach((button) => {
+    button.onclick = () => {
+      saveCurrentScratch(q);
+      state.current = Number(button.dataset.jump);
+      resetScratch();
+      renderPractice();
+    };
+  });
+  if (prev) prev.onclick = () => {
+    saveCurrentScratch(q);
+    state.current = Math.max(0, state.current - 1);
+    resetScratch();
+    renderPractice();
+  };
+  if (next) next.onclick = () => {
+    saveCurrentScratch(q);
+    state.current = Math.min(state.questions.length - 1, state.current + 1);
+    resetScratch();
+    renderPractice();
+  };
+  if (refresh) refresh.onclick = async () => { await loadQuestions(true); renderPractice(); };
+  if (clearPad) clearPad.onclick = () => {
+    delete state.responses[q.id];
+    resetScratch();
+    renderPractice();
+  };
+  bindPadToolbar();
+  if (saveScratch) saveScratch.onclick = () => {
+    if (saveCurrentScratch(q)) alert("本题草稿已保存，交卷后统一诊断。");
+  };
+  if (finishRound) finishRound.onclick = async () => {
+    saveCurrentScratch(q);
+    await submitRound();
+  };
+  const showScratch = $("#showScratch");
+  if (showScratch) {
+    showScratch.onclick = () => {
+      const panel = document.querySelector(".choice-panel");
+      panel.outerHTML = renderScratchPanel();
+      bindPractice(q);
+    };
+  }
+  document.querySelectorAll("[data-choice]").forEach((button) => {
+    button.onclick = () => {
+      document.querySelectorAll("[data-choice]").forEach((item) => item.classList.remove("active"));
+      button.classList.add("active");
+      state.responses[q.id] = {
+        questionId: q.id,
+        answer: button.dataset.choice,
+        selectedOption: button.dataset.choice,
+        durationMs: Date.now() - state.startedAt
+      };
+    };
+  });
+  if ($("#pad")) bindCanvas();
+}
+
+function saveCurrentScratch(q) {
+  const canvas = $("#pad");
+  if (!canvas || q.type === "choice") return false;
+  if (!state.strokeCount) return false;
+  state.responses[q.id] = {
+    questionId: q.id,
+    durationMs: Date.now() - state.startedAt,
+      scratchImage: canvas.toDataURL("image/png"),
+      strokes: state.strokes,
+      strokeCount: state.strokeCount
+  };
+  return true;
+}
+
+function bindPadToolbar() {
+  document.querySelectorAll("[data-tool]").forEach((button) => {
+    button.onclick = () => {
+      state.scratchTool = button.dataset.tool;
+      localStorage.setItem("scratchTool", state.scratchTool);
+      document.querySelectorAll("[data-tool]").forEach((item) => item.classList.toggle("active", item.dataset.tool === state.scratchTool));
+    };
+  });
+  document.querySelectorAll("[data-color]").forEach((button) => {
+    button.onclick = () => {
+      state.scratchColor = button.dataset.color;
+      localStorage.setItem("scratchColor", state.scratchColor);
+      if (state.scratchTool === "eraser") {
+        state.scratchTool = "pen";
+        localStorage.setItem("scratchTool", state.scratchTool);
+      }
+      document.querySelectorAll("[data-color]").forEach((item) => item.classList.toggle("active", item.dataset.color === state.scratchColor));
+      document.querySelectorAll("[data-tool]").forEach((item) => item.classList.toggle("active", item.dataset.tool === state.scratchTool));
+    };
+  });
+  document.querySelectorAll("[data-width]").forEach((button) => {
+    button.onclick = () => {
+      state.scratchWidth = Number(button.dataset.width);
+      localStorage.setItem("scratchWidth", String(state.scratchWidth));
+      document.querySelectorAll("[data-width]").forEach((item) => item.classList.toggle("active", Number(item.dataset.width) === state.scratchWidth));
+    };
+  });
+  const undo = $("#undoPad");
+  if (undo) undo.onclick = () => {
+    state.strokes.pop();
+    state.strokeCount = state.strokes.length;
+    redrawCanvas();
+  };
+}
+
+async function submitRound() {
+  const missing = state.questions.filter((q) => !state.responses[q.id]);
+  const answered = state.questions.length - missing.length;
+  const marked = state.questions.filter((q) => state.responses[q.id]?.flagged).length;
+  const subjectiveWithDraftOnly = state.questions.filter((q) => q.type !== "choice" && state.responses[q.id]?.scratchImage && !state.responses[q.id]?.stepsText && !state.responses[q.id]?.answer).length;
+  const ok = confirm([
+    `本轮共 ${state.questions.length} 题，已完成 ${answered} 题，未完成 ${missing.length} 题。`,
+    `标记疑问 ${marked} 题。`,
+    subjectiveWithDraftOnly ? `检测到 ${subjectiveWithDraftOnly} 道主观/填空题只有草稿，尚未整理正式答案。` : "",
+    "提交后将锁定本轮答案，并进入 AI 批改与诊断流程。是否继续？"
+  ].filter(Boolean).join("\n"));
+  if (!ok) return;
+  state.view = "grading";
+  localStorage.setItem("view", "grading");
+  renderGrading();
+  await new Promise((resolve) => setTimeout(resolve, 1300));
+  const results = [];
+  for (const q of state.questions) {
+    const payload = state.responses[q.id] || { questionId: q.id, durationMs: 0 };
+    const res = await api("/api/attempts", {
+      method: "POST",
+      body: JSON.stringify({
+        studentId: state.student.id,
+        ...payload
+      })
+    });
+    results.push(res);
+  }
+  state.lastResults = results;
+  localStorage.setItem(`lastResults:${state.student.id}`, JSON.stringify(results));
+  state.view = "diagnosis";
+  localStorage.setItem("view", "diagnosis");
+  renderDiagnosis();
+}
+
+function renderGrading() {
+  const steps = [
+    "正在读取学生答案",
+    "正在识别手写草稿与公式",
+    "正在拆分解题步骤",
+    "正在与标准解法比对",
+    "正在检查步骤之间的逻辑关系",
+    "正在定位错误步骤",
+    "正在诊断知识薄弱点",
+    "正在生成训练计划"
+  ];
+  shell("AI批改中", `<section class="panel ai-grading">
+    <h2>AI 正在批改本轮试卷</h2>
+    <p>系统会先分析答案和草稿，再生成诊断、针对训练、复测和能力画像。AI分析结果仅作学习辅助，复杂主观题可由教师复核。</p>
+    <div class="grading-steps">${steps.map((step, index) => `<div class="grading-step ${index < 5 ? "active" : ""}"><span>${index + 1}</span><strong>${step}</strong></div>`).join("")}</div>
+  </section>`);
+}
+
+function renderRoundResults() {
+  const results = state.lastResults || [];
+  if (!results.length) {
+    shell("本轮结果", `<section class="panel"><h2>暂无本轮交卷结果</h2><button class="primary" data-view="practice">返回刷题</button></section>`);
+    return;
+  }
+  const graded = results.filter(({ attempt }) => !["pending_recognition", "pending_answer_review", "recognition_error"].includes(attempt.gradingStatus));
+  const correct = graded.filter(({ attempt }) => attempt.correct).length;
+  const pending = results.length - graded.length;
+  const cards = results.map(({ question, attempt }, index) => {
+    const judgment = attempt.gradingStatus === "pending_recognition" ? "待识别" : (attempt.correct ? "正确" : "错误");
+    const answerPending = attempt.gradingStatus === "pending_answer_review";
+    const recognitionError = attempt.gradingStatus === "recognition_error";
+    const aiReviewed = attempt.gradingStatus === "ai_reviewed";
+    const badge = attempt.gradingStatus === "pending_recognition" || answerPending || recognitionError ? "warn" : (attempt.correct ? "" : "bad");
+    const label = recognitionError ? "识别失败" : (aiReviewed ? `AI诊断：${judgment}` : (answerPending ? "答案待校对" : judgment));
+    const userAnswer = attempt.recognizedAnswer || attempt.answer || "未识别/未作答";
+    const standardAnswer = question.answer || "待校对";
+    return `<article class="result-card">
+      <h3>第 ${index + 1} 题 <span class="badge ${badge}">${label}</span></h3>
+      <p class="stem">${escapeHtml(question.chapterName)} · ${escapeHtml(question.point || question.stem)}</p>
+      ${question.stemHtml ? `<div class="exam-paper result-paper"><div class="typeset-stem">${question.stemHtml}</div></div>` : (question.stemImage ? `<div class="exam-paper result-paper"><img class="stem-image exam small" src="${escapeHtml(question.stemImage)}" alt="${escapeHtml(question.stem)}"></div>` : "")}
+      <div class="result-grid">
+        <p><span>你的答案</span><strong>${escapeHtml(userAnswer)}</strong></p>
+        <p><span>标准答案</span><strong>${escapeHtml(standardAnswer)}</strong></p>
+        <p><span>错误点</span><strong>${escapeHtml(attempt.reason)}</strong></p>
+        <p><span>建议</span><strong>${escapeHtml(attempt.advice)}</strong></p>
+      </div>
+      ${attempt.recommendedPractice ? `<p class="explain">追加练习：${escapeHtml(attempt.recommendedPractice)}</p>` : ""}
+      <p class="explain">解析：${escapeHtml(question.explanation || "暂无解析")}</p>
+    </article>`;
+  }).join("");
+  shell("本轮结果", `<section class="panel">
+    <div class="metrics">
+      <div class="metric"><span>本轮题数</span><strong>${results.length}</strong></div>
+      <div class="metric"><span>已判分</span><strong>${graded.length}</strong></div>
+      <div class="metric"><span>正确</span><strong>${correct}</strong></div>
+      <div class="metric"><span>待识别</span><strong>${pending}</strong></div>
+    </div>
+  </section>
+  <section class="panel">
+    <div class="row">
+      <button class="primary" data-view="collection">进入做题集</button>
+      <button class="ghost" data-view="report">查看总报告</button>
+      <button class="ghost" data-view="chapters">再练一组</button>
+    </div>
+  </section>
+  <section class="panel"><div class="cards">${cards}</div></section>`);
+}
+
+function bindCanvas() {
+  const canvas = $("#pad");
+  const ctx = canvas.getContext("2d");
+  let down = false;
+  let currentStroke = [];
+  const point = (event) => {
+    const rect = canvas.getBoundingClientRect();
+    const source = event.touches ? event.touches[0] : event;
+    return {
+      x: Math.round((source.clientX - rect.left) * canvas.width / rect.width),
+      y: Math.round((source.clientY - rect.top) * canvas.height / rect.height),
+      t: Date.now() - state.startedAt
+    };
+  };
+  const start = (event) => {
+    down = true;
+    currentStroke = {
+      tool: state.scratchTool,
+      color: state.scratchColor,
+      width: state.scratchTool === "eraser" ? Math.max(18, state.scratchWidth * 5) : state.scratchWidth,
+      points: []
+    };
+    const p = point(event);
+    currentStroke.points.push(p);
+    beginStroke(ctx, currentStroke);
+    drawPoint(ctx, p);
+    event.preventDefault();
+  };
+  const move = (event) => {
+    if (!down) return;
+    const p = point(event);
+    currentStroke.points.push(p);
+    ctx.lineTo(p.x, p.y);
+    ctx.stroke();
+    event.preventDefault();
+  };
+  const end = () => {
+    if (!down) return;
+    down = false;
+    ctx.globalCompositeOperation = "source-over";
+    ctx.globalAlpha = 1;
+    if (currentStroke.points.length) {
+      state.strokes.push(currentStroke);
+      state.strokeCount += 1;
+      $("#strokes").textContent = state.strokeCount;
+    }
+  };
+  canvas.onmousedown = start;
+  canvas.onmousemove = move;
+  canvas.onmouseup = end;
+  canvas.onmouseleave = end;
+  canvas.ontouchstart = start;
+  canvas.ontouchmove = move;
+  canvas.ontouchend = end;
+}
+
+function beginStroke(ctx, stroke) {
+  ctx.lineWidth = stroke.width;
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  ctx.globalCompositeOperation = stroke.tool === "eraser" ? "destination-out" : "source-over";
+  ctx.globalAlpha = stroke.tool === "highlighter" ? 0.28 : 1;
+  ctx.strokeStyle = stroke.color;
+  ctx.beginPath();
+  const first = stroke.points[0];
+  ctx.moveTo(first.x, first.y);
+}
+
+function drawPoint(ctx, p) {
+  ctx.lineTo(p.x + 0.01, p.y + 0.01);
+  ctx.stroke();
+}
+
+function redrawCanvas() {
+  const canvas = $("#pad");
+  if (!canvas) return;
+  const ctx = canvas.getContext("2d");
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  state.strokes.forEach((stroke) => {
+    if (!stroke.points?.length) return;
+    beginStroke(ctx, stroke);
+    stroke.points.forEach((point) => {
+      ctx.lineTo(point.x, point.y);
+      ctx.stroke();
+    });
+  });
+  ctx.globalCompositeOperation = "source-over";
+  ctx.globalAlpha = 1;
+  const count = $("#strokes");
+  if (count) count.textContent = state.strokes.length;
+}
+
+async function renderReport() {
+  const { report } = await api(`/api/report?studentId=${state.student.id}`);
+  shell("报告", `<section class="panel"><div class="metrics">
+    <div class="metric"><span>作答题数</span><strong>${report.total}</strong></div>
+    <div class="metric"><span>已判分</span><strong>${report.gradableTotal}</strong></div>
+    <div class="metric"><span>正确率</span><strong>${report.accuracy}%</strong></div>
+    <div class="metric"><span>待识别</span><strong>${report.pending}</strong></div>
+  </div></section>
+  <section class="panel"><h2>AI查缺补漏</h2><div class="cards">${(report.weakReasons.length ? report.weakReasons : [{ reason: "暂无明显薄弱", count: 0, advice: "继续刷综合题并做间隔复测。" }]).map((w) => `<article class="card"><h3>${escapeHtml(w.reason)} · ${w.count}次</h3><p>${escapeHtml(w.advice)}</p></article>`).join("")}</div></section>`);
+}
+
+async function renderPastExams() {
+  const data = state.pastExamSources || await api("/api/past-exam-sources");
+  const trusted = (data.trustedSources || []).flatMap((source) => (source.items || []).map((item) => ({ ...item, site: source.site })));
+  const candidates = data.candidateSourcesNeedReview || [];
+  shell("真题库", `<section class="panel">
+    <div class="metrics">
+      <div class="metric"><span>已登记来源</span><strong>${trusted.length}</strong></div>
+      <div class="metric"><span>候选来源</span><strong>${candidates.length}</strong></div>
+      <div class="metric"><span>已导入真题</span><strong>0</strong></div>
+      <div class="metric"><span>状态</span><strong>待OCR校对</strong></div>
+    </div>
+  </section>
+  <section class="panel">
+    <h2>已登记真题来源</h2>
+    <div class="cards">${trusted.map((item, index) => `<article class="card">
+      <h3>${escapeHtml(item.year)} · ${escapeHtml(item.mathType)}</h3>
+      <p>${escapeHtml(item.title)}</p>
+      <p>来源：${escapeHtml(item.site)}；格式：${escapeHtml(item.format)}；状态：${escapeHtml(item.importStatus)}</p>
+      <div class="row">
+        <button class="primary" data-paper-index="${index}">开始原卷刷题</button>
+        <a class="ghost link-button" href="${escapeHtml(item.url)}" target="_blank">打开来源</a>
+      </div>
+    </article>`).join("") || "<p>暂无已登记来源。</p>"}</div>
+  </section>
+  <section class="panel">
+    <h2>说明</h2>
+    <p>这里先提供原卷电子刷题：学生直接看真实来源页面做整张卷。要进入“单题刷题、自动判章节、自动给错因”，还需要把图片版真题 OCR 后人工校对成题干、选项、答案和解析。</p>
+  </section>`);
+  document.querySelectorAll("[data-paper-index]").forEach((button) => {
+    button.onclick = () => {
+      state.paperExam = trusted[Number(button.dataset.paperIndex)];
+      resetScratch();
+      setView("paperExam");
+    };
+  });
+}
+
+function renderPaperExam() {
+  if (!state.paperExam) {
+    setView("pastExams");
+    return;
+  }
+  const item = state.paperExam;
+  shell("真题原卷刷题", `<section class="panel paper-head">
+    <div>
+      <p><span class="badge">真实来源</span> <span class="badge warn">${escapeHtml(item.format)}</span></p>
+      <h2>${escapeHtml(item.year)} · ${escapeHtml(item.mathType)} · ${escapeHtml(item.title)}</h2>
+      <p>来源：${escapeHtml(item.site)}。原卷模式不会改写题目内容，适合先整卷练习；结构化切题后可进入单题刷题。</p>
+    </div>
+    <div class="row">
+      <a class="primary link-button" href="${escapeHtml(item.url)}" target="_blank">新窗口打开原卷</a>
+      <button class="ghost" data-view="pastExams">返回真题库</button>
+    </div>
+  </section>
+  <section class="paper-layout">
+    <article class="panel paper-frame">
+      <iframe src="${escapeHtml(item.url)}" title="${escapeHtml(item.title)}"></iframe>
+    </article>
+    <article class="panel scratch-panel">
+      <div class="scratch-head">
+        <div>
+          <h3>原卷草稿</h3>
+          <p>这一版先用于整卷练习记录。网页如果禁止嵌入，请点“新窗口打开原卷”，草稿板仍可使用。</p>
+        </div>
+        <div class="row">
+          <button class="primary" id="savePaper">保存本卷记录</button>
+        </div>
+      </div>
+      ${renderPadToolbar()}
+      <div class="paper-stage">
+        <canvas id="pad" width="1600" height="980"></canvas>
+      </div>
+      <p class="badge">书写笔画：<span id="strokes">${state.strokeCount}</span> 次</p>
+    </article>
+  </section>`);
+  const clearPad = $("#clearPad");
+  if (clearPad) clearPad.onclick = () => { resetScratch(); renderPaperExam(); };
+  const savePaper = $("#savePaper");
+  if (savePaper) savePaper.onclick = () => {
+    alert(`已保存本卷练习记录：${item.year} · ${item.mathType}。当前版本保存草稿轨迹，后续接入 OCR 后可拆成单题诊断。`);
+  };
+  bindPadToolbar();
+  bindCanvas();
+}
+
+async function renderCollection() {
+  const { items } = await api(`/api/collection?studentId=${state.student.id}`);
+  const loop = await loadLoop();
+  state.collectionItems = items.filter((item) => item.question);
+  const pending = state.collectionItems.filter(({ attempt }) => ["pending_recognition", "pending_answer_review", "recognition_error"].includes(attempt.gradingStatus)).length;
+  const wrong = state.collectionItems.filter(({ attempt }) => attempt.correct === false).length;
+  const mastered = state.collectionItems.filter(({ attempt }) => attempt.correct === true).length;
+  const reasonCounts = {};
+  state.collectionItems.forEach(({ attempt }) => {
+    if (!["已掌握", "待识别"].includes(attempt.reason)) reasonCounts[attempt.reason] = (reasonCounts[attempt.reason] || 0) + 1;
+  });
+  const weak = Object.entries(reasonCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || "暂无";
+  const rows = state.collectionItems.map(({ question, attempt, times }, index) => {
+    const status = attempt.gradingStatus === "pending_answer_review"
+      ? "答案待校对"
+      : attempt.gradingStatus === "pending_recognition"
+        ? "待识别"
+        : attempt.gradingStatus === "recognition_error"
+          ? "识别失败"
+          : attempt.gradingStatus === "ai_reviewed"
+            ? (attempt.correct ? "AI已掌握" : "AI建议二刷")
+            : attempt.correct
+              ? "已掌握"
+              : "需二刷";
+    const badge = attempt.correct === false ? "bad" : (attempt.correct === true ? "" : "warn");
+    return `<tr>
+      <td>${index + 1}</td>
+      <td><span class="badge ${badge}">${status}</span></td>
+      <td>${escapeHtml(question.chapterName)}<br><small>${escapeHtml(question.point)}</small></td>
+      <td>${question.stemImage ? `<img class="collection-thumb" src="${escapeHtml(question.stemImage)}" alt="${escapeHtml(question.stem)}">` : escapeHtml(question.stem)}</td>
+      <td>${times}刷</td>
+      <td>${escapeHtml(attempt.reason)}</td>
+    </tr>`;
+  }).join("");
+  shell("做题集", `<section class="panel">
+    <div class="metrics">
+      <div class="metric"><span>合集题数</span><strong>${state.collectionItems.length}</strong></div>
+      <div class="metric"><span>需二刷</span><strong>${wrong}</strong></div>
+      <div class="metric"><span>待识别/校对</span><strong>${pending}</strong></div>
+      <div class="metric"><span>主要薄弱</span><strong>${escapeHtml(weak)}</strong></div>
+    </div>
+  </section>
+  <section class="panel">
+    <div class="row">
+      <button class="primary" id="redoCollection" ${state.collectionItems.length ? "" : "disabled"}>开始二刷做题集</button>
+      <button class="ghost" data-view="chapters">继续章节训练</button>
+    </div>
+  </section>
+  <section class="panel">
+    <h2>合集清单</h2>
+    ${state.collectionItems.length ? `<div class="table-wrap"><table class="collection-table"><thead><tr><th>#</th><th>状态</th><th>来源</th><th>题目</th><th>次数</th><th>错因</th></tr></thead><tbody>${rows}</tbody></table></div>` : "<p>暂无做题记录。</p>"}
+  </section>`);
+  const redo = $("#redoCollection");
+  $("#view").insertAdjacentHTML("afterbegin", `<section class="panel">
+    <h2>错题学习状态</h2>
+    <div class="status-filter">
+      <span class="badge warn">待诊断 ${loop.homeCounters?.reviewPending || 0}</span>
+      <span class="badge">待复习 ${loop.homeCounters?.reviewPending || 0}</span>
+      <span class="badge warn">训练中 ${loop.homeCounters?.trainingPending || 0}</span>
+      <span class="badge bad">待重做 ${loop.homeCounters?.retryPending || 0}</span>
+      <span class="badge">已攻克 ${loop.homeCounters?.conquered || 0}</span>
+      <span class="badge warn">仍需巩固 ${loop.homeCounters?.needsReinforcement || 0}</span>
+    </div>
+    <div class="cards" style="margin-top:14px">
+      <article class="status-card">
+        <h3>${escapeHtml(loop.originalRetry?.stem || "最近错题")}</h3>
+        <p>错误步骤：${escapeHtml(loop.comparisonReport?.firstErrorStep || loop.improvement?.originalError || "待诊断")}</p>
+        <p>薄弱知识点：${escapeHtml((loop.diagnosis?.weakKnowledgePoints || []).join("、"))}</p>
+        <p>当前状态：${escapeHtml(loop.recoveryPath?.currentStage || "DIAGNOSED")}</p>
+        <div class="actions">
+          <button class="primary" data-view="knowledgeReview">开始复习</button>
+          <button class="ghost" data-view="similarTraining">继续训练</button>
+          <button class="ghost" data-view="originalRetry">重新挑战</button>
+          <button class="ghost" data-view="improvement">查看攻克过程</button>
+        </div>
+      </article>
+    </div>
+  </section>`);
+  document.querySelectorAll("[data-view]").forEach((button) => button.onclick = () => setView(button.dataset.view));
+  if (redo) redo.onclick = () => {
+    state.questions = state.collectionItems.map(({ question }) => question);
+    state.responses = {};
+    state.lastResults = null;
+    state.current = 0;
+    resetScratch();
+    setView("practice");
+  };
+}
+
+async function loadLoop() {
+  const demo = localStorage.getItem("demoMode") === "1" ? "&demo=1" : "";
+  const data = await api(`/api/learning-loop?studentId=${state.student.id}${demo}`);
+  state.loop = data.loop;
+  return data.loop;
+}
+
+function loopProgress(active) {
+  const nodes = [
+    ["assessment", "检测"],
+    ["diagnosis", "诊断"],
+    ["review", "复习"],
+    ["check", "检查"],
+    ["training", "训练"],
+    ["retry", "原题重做"],
+    ["verify", "掌握验证"],
+    ["improvement", "提升"]
+  ];
+  const order = nodes.map(([key]) => key);
+  const activeIndex = Math.max(0, order.indexOf(active));
+  return `<div class="loop-progress">${nodes.map(([key, label], index) => `<div class="loop-node ${index < activeIndex ? "done" : index === activeIndex ? "active" : ""}">
+    <span>${index + 1}</span><strong>${label}</strong><small>${index < activeIndex ? "已完成" : index === activeIndex ? "当前" : "待完成"}</small>
+  </div>`).join("")}</div>`;
+}
+
+function stepStatusClass(status) {
+  return status === "correct" ? "step-ok" : status === "partial" ? "step-partial" : status === "alternative" ? "step-alt" : status === "blank" ? "step-blank" : "step-bad";
+}
+
+async function renderDiagnosis() {
+  const loop = await loadLoop();
+  const attempts = loop.diagnosis.questionAnalyses || [];
+  const cards = attempts.map((item, index) => `<article class="analysis-card">
+    <div class="analysis-head">
+      <h3>第 ${index + 1} 题 · ${escapeHtml(item.typeLabel)}</h3>
+      <span class="badge ${item.finalAnswerCorrect ? "" : "bad"}">${item.score}/${item.maxScore} 分</span>
+    </div>
+    <p class="stem">${escapeHtml(item.title)}</p>
+    <div class="result-grid compact">
+      <p><span>学生答案</span><strong>${escapeHtml(item.studentAnswer || "未作答")}</strong></p>
+      <p><span>正确答案</span><strong>${item.finalAnswerCorrect ? escapeHtml(item.standardAnswer || "待校对") : "完成复习与相似题训练后解锁"}</strong></p>
+      <p><span>错误类型</span><strong>${escapeHtml(item.errorTypes.join("、") || "无")}</strong></p>
+      <p><span>知识点</span><strong>${escapeHtml(item.knowledgePoints.join("、"))}</strong></p>
+    </div>
+    ${item.steps?.length ? `<div class="step-list">${item.steps.map((step) => `<details class="${stepStatusClass(step.status)}" ${step.status !== "correct" ? "open" : ""}>
+      <summary><span>步骤 ${step.stepNumber}</span><strong>${escapeHtml(step.judgment)}</strong><em>${step.score}/${step.maxScore} 分</em></summary>
+      <p>学生内容：${escapeHtml(step.studentContent)}</p>
+      <p>AI识别：${escapeHtml(step.normalizedExpression)}</p>
+      <p>问题说明：${escapeHtml(step.errorDescription)}</p>
+      <p>下一步建议：${item.finalAnswerCorrect ? escapeHtml(step.correction) : "先复习对应知识点，再通过理解检查和相似题训练。此处不直接展示完整解法。"}</p>
+      <p>对应知识点：${escapeHtml(step.relatedKnowledgePoint)}</p>
+    </details>`).join("")}</div>` : ""}
+  </article>`).join("");
+  shell("AI诊断", `${loopProgress("diagnosis")}
+  <section class="panel">
+    <div class="metrics">
+      <div class="metric"><span>本次得分</span><strong>${loop.diagnosis.score}</strong></div>
+      <div class="metric"><span>正确率</span><strong>${loop.diagnosis.accuracy}%</strong></div>
+      <div class="metric"><span>薄弱知识点</span><strong>${loop.diagnosis.weakKnowledgePoints.length}</strong></div>
+      <div class="metric"><span>需训练能力</span><strong>${loop.trainingPlan.totalQuestions}</strong></div>
+    </div>
+  </section>
+  <section class="panel diagnosis-summary">
+    <h2>AI诊断摘要</h2>
+    <p>${escapeHtml(loop.diagnosis.summary)}</p>
+    <div class="row">
+      <button class="primary" data-view="knowledgeReview">开始复习知识点</button>
+      <button class="ghost" data-view="profile">查看能力画像</button>
+      <button class="ghost" data-view="report">查看历史报告</button>
+    </div>
+  </section>
+  <section class="panel"><h2>逐题步骤分析</h2><div class="cards">${cards}</div></section>`);
+}
+
+function flowStoreKey() {
+  return `mistakeFlow:${state.student.id}:${localStorage.getItem("demoMode") === "1" ? "demo" : "real"}`;
+}
+
+function readFlowState() {
+  return JSON.parse(localStorage.getItem(flowStoreKey()) || "{}");
+}
+
+function writeFlowState(next) {
+  localStorage.setItem(flowStoreKey(), JSON.stringify({ ...readFlowState(), ...next }));
+}
+
+async function renderKnowledgeReview() {
+  const loop = await loadLoop();
+  const review = loop.reviewModule;
+  const stateFlow = readFlowState();
+  shell("知识点复习", `${loopProgress("review")}
+  <section class="panel">
+    <h2>${escapeHtml(review.title)}</h2>
+    <p class="mode-help">${escapeHtml(review.relationToMistake)}</p>
+    <div class="formula-grid">
+      ${(review.formulas || []).map((item) => `<article class="formula-card"><span>关键公式</span><strong>${escapeHtml(item)}</strong></article>`).join("")}
+    </div>
+  </section>
+  <section class="panel review-layout">
+    <article class="card"><h3>核心概念</h3><p>${escapeHtml(review.coreConcept)}</p></article>
+    <article class="card"><h3>使用条件</h3><p>${escapeHtml(review.conditions)}</p></article>
+    <article class="card"><h3>常见错误</h3><ul>${(review.commonMistakes || []).map((x) => `<li>${escapeHtml(x)}</li>`).join("")}</ul></article>
+    <article class="card"><h3>正确示例</h3><p>${escapeHtml(review.correctExample)}</p></article>
+    <article class="card"><h3>错误示例</h3><p>${escapeHtml(review.wrongExample)}</p></article>
+    <article class="card"><h3>本次复习策略</h3><p>${escapeHtml(review.strategy)}</p></article>
+  </section>
+  <section class="panel">
+    <h2>自我确认</h2>
+    <label class="check-row"><input id="reviewConfirm" type="checkbox" ${stateFlow.reviewDone ? "checked" : ""}> 我能说清这个知识点和本题错误的关系</label>
+    <div class="row"><button class="primary" id="finishReview">进入理解检查</button><button class="ghost" data-view="diagnosis">返回诊断</button></div>
+  </section>`);
+  const finish = $("#finishReview");
+  if (finish) finish.onclick = () => {
+    if (!$("#reviewConfirm").checked) return alert("请先确认你能说清知识点与本题错误的关系。");
+    writeFlowState({ reviewDone: true, stage: "CHECKING_UNDERSTANDING" });
+    setView("understandingCheck");
+  };
+}
+
+async function renderUnderstandingCheck() {
+  const loop = await loadLoop();
+  const check = loop.understandingCheck;
+  const stateFlow = readFlowState();
+  const picked = stateFlow.checkAnswer || "";
+  shell("理解检查", `${loopProgress("check")}
+  <section class="panel">
+    <h2>先确认理解，再进入相似题训练</h2>
+    <p class="mode-help">${escapeHtml(check.purpose)}</p>
+    <article class="card">
+      <h3>${escapeHtml(check.question)}</h3>
+      <div class="option-strip">${check.options.map((opt) => `<button class="${picked === opt.key ? "active" : ""}" data-check-answer="${opt.key}">${escapeHtml(opt.key)}. ${escapeHtml(opt.text)}</button>`).join("")}</div>
+    </article>
+  </section>
+  <section class="panel">
+    <h2>检查结果</h2>
+    <p>${picked ? escapeHtml(picked === check.answer ? check.passFeedback : check.failFeedback) : "请选择一个答案。系统不会在你理解前直接进入相似题训练。"}</p>
+    <div class="row">
+      <button class="primary" id="continueAfterCheck" ${picked === check.answer ? "" : "disabled"}>进入相似题训练</button>
+      <button class="ghost" data-view="knowledgeReview">返回知识点复习</button>
+    </div>
+  </section>`);
+  document.querySelectorAll("[data-check-answer]").forEach((button) => {
+    button.onclick = () => {
+      const correct = button.dataset.checkAnswer === check.answer;
+      writeFlowState({ checkAnswer: button.dataset.checkAnswer, checkPassed: correct, stage: correct ? "TRAINING" : "REVIEWING" });
+      renderUnderstandingCheck();
+    };
+  });
+  const next = $("#continueAfterCheck");
+  if (next) next.onclick = () => setView("similarTraining");
+}
+
+async function renderSimilarTraining() {
+  const loop = await loadLoop();
+  const training = loop.similarTraining || { levels: loop.trainingPlan.items || [] };
+  const stateFlow = readFlowState();
+  const done = stateFlow.trainingDone || {};
+  const levels = training.levels || [];
+  const cards = levels.map((item, index) => `<article class="training-task">
+    <div><span class="badge">${escapeHtml(item.level || item.type)}</span><h3>${index + 1}. ${escapeHtml(item.title)}</h3></div>
+    <p>${escapeHtml(item.stem || item.purpose)}</p>
+    <p><strong>目标：</strong>${escapeHtml(item.target || item.knowledgePoint)} ${item.hint ? ` · 提示：${escapeHtml(item.hint)}` : ""}</p>
+    <p><strong>反馈：</strong>${escapeHtml(item.feedback || "答错时先给分层提示，不立即展示完整答案。")}</p>
+    <button class="ghost" data-complete-training="${index}">${done[index] ? "已完成" : "标记本题通过"}</button>
+  </article>`).join("");
+  const completed = Object.keys(done).length;
+  const canRetry = completed >= Math.min(2, levels.length);
+  shell("相似题训练", `${loopProgress("training")}
+  <section class="panel">
+    <h2>${escapeHtml(training.goal || loop.trainingPlan.goal)}</h2>
+    <div class="metrics">
+      <div class="metric"><span>训练层级</span><strong>${levels.length}</strong></div>
+      <div class="metric"><span>已通过</span><strong>${completed}</strong></div>
+      <div class="metric"><span>提示使用</span><strong>${stateFlow.hintsUsed || 0}</strong></div>
+      <div class="metric"><span>完成标准</span><strong>${canRetry ? "可重做" : "未达标"}</strong></div>
+    </div>
+  </section>
+  <section class="panel"><h2>由易到难训练</h2><div class="cards">${cards}</div><div class="row"><button class="ghost" id="useHint">使用一级提示</button><button class="primary" id="goRetry" ${canRetry ? "" : "disabled"}>回到原错题重做</button><button class="ghost" data-view="knowledgeReview">重新复习</button></div></section>`);
+  document.querySelectorAll("[data-complete-training]").forEach((button) => {
+    button.onclick = () => {
+      const nextDone = { ...done, [button.dataset.completeTraining]: true };
+      writeFlowState({ trainingDone: nextDone, stage: "WAITING_FOR_RETRY" });
+      renderSimilarTraining();
+    };
+  });
+  const hint = $("#useHint");
+  if (hint) hint.onclick = () => {
+    writeFlowState({ hintsUsed: Number(stateFlow.hintsUsed || 0) + 1 });
+    renderSimilarTraining();
+  };
+  const retry = $("#goRetry");
+  if (retry) retry.onclick = () => setView("originalRetry");
+}
+
+async function renderOriginalRetry() {
+  const loop = await loadLoop();
+  const retry = loop.originalRetry;
+  const stateFlow = readFlowState();
+  shell("原题重做", `${loopProgress("retry")}
+  <section class="panel">
+    <h2>回到原题，看看你是否已经真正掌握</h2>
+    <p class="mode-help">本页保留原题内容，不显示第一次答案、标准答案和完整解析。你可以查看第一次错因摘要，但不会直接看到正确做法。</p>
+    <article class="exam-paper text-mode"><p>${escapeHtml(retry.stem)}</p></article>
+  </section>
+  <section class="panel">
+    <h2>重新作答</h2>
+    <div class="grid two">
+      <label>最终答案<input id="retryAnswer" value="${escapeHtml(stateFlow.retryAnswer || "")}" placeholder="写出最终答案"></label>
+      <label>用时（秒）<input id="retryDuration" type="number" value="${stateFlow.retryDuration || retry.durationSecond || 0}"></label>
+    </div>
+    <label>关键步骤<textarea id="retrySteps" placeholder="写出设、列式、化简和结论">${escapeHtml(stateFlow.retrySteps || "")}</textarea></label>
+    <details class="mistake-peek"><summary>我第一次错在哪里？</summary><p>${escapeHtml(retry.firstMistakeSummary)}</p></details>
+    <div class="row"><button class="primary" id="submitRetry">提交原题重做</button><button class="ghost" data-view="similarTraining">返回相似题训练</button></div>
+  </section>`);
+  const submit = $("#submitRetry");
+  if (submit) submit.onclick = () => {
+    const answer = $("#retryAnswer").value.trim();
+    const steps = $("#retrySteps").value.trim();
+    const duration = Number($("#retryDuration").value || 0);
+    const corrected = retry.acceptedSignals.some((signal) => `${answer}\n${steps}`.includes(signal));
+    writeFlowState({
+      retryAnswer: answer,
+      retrySteps: steps,
+      retryDuration: duration,
+      retrySubmitted: true,
+      retryCorrected: corrected,
+      sameErrorRepeated: !corrected,
+      stage: corrected ? "MASTERED" : "NEEDS_REINFORCEMENT"
+    });
+    setView("masteryVerify");
+  };
+}
+
+async function renderMasteryVerify() {
+  const loop = await loadLoop();
+  const stateFlow = readFlowState();
+  const verify = loop.masteryVerification;
+  const mastered = stateFlow.retryCorrected === true || verify.status === "MASTERED";
+  shell("掌握验证", `${loopProgress("verify")}
+  <section class="panel">
+    <h2>${mastered ? "原关键错误已纠正" : "仍需回到补救路径"}</h2>
+    <div class="metrics">
+      <div class="metric"><span>判断结果</span><strong>${mastered ? "已掌握" : "仍需巩固"}</strong></div>
+      <div class="metric"><span>是否重复原错</span><strong>${stateFlow.sameErrorRepeated ? "是" : "否"}</strong></div>
+      <div class="metric"><span>提示使用</span><strong>${stateFlow.hintsUsed || 0}</strong></div>
+      <div class="metric"><span>掌握变化</span><strong>${loop.improvement.beforeMastery}%→${loop.improvement.afterMastery}%</strong></div>
+    </div>
+  </section>
+  <section class="panel">
+    <h2>AI再次分析</h2>
+    <div class="cards">
+      <article class="card"><h3>第一次关键错误</h3><p>${escapeHtml(verify.firstError)}</p></article>
+      <article class="card"><h3>第二次表现</h3><p>${escapeHtml(mastered ? verify.masteredFeedback : verify.reinforceFeedback)}</p></article>
+      <article class="card"><h3>下一步</h3><p>${escapeHtml(mastered ? "进入错题攻克报告，更新掌握度。" : "返回知识点复习，换一种讲解方式，并降低相似题难度。")}</p></article>
+    </div>
+    <div class="row"><button class="primary" data-view="${mastered ? "improvement" : "knowledgeReview"}">${mastered ? "查看错题攻克报告" : "重新学习"}</button><button class="ghost" data-view="originalRetry">再次重做</button></div>
+  </section>`);
+}
+
+async function renderTrainingPlan() {
+  const loop = await loadLoop();
+  const plan = loop.trainingPlan;
+  const tasks = plan.items.map((item, index) => `<article class="training-task">
+    <div><span class="badge">${escapeHtml(item.type)}</span><h3>${index + 1}. ${escapeHtml(item.title)}</h3></div>
+    <p>${escapeHtml(item.purpose)}</p>
+    <p><strong>对应薄弱点：</strong>${escapeHtml(item.knowledgePoint)} · ${escapeHtml(item.errorType)}</p>
+    <button class="ghost" data-complete-task="${index}">${item.completed ? "已完成" : "标记完成"}</button>
+  </article>`).join("");
+  shell("针对训练", `${loopProgress("training")}
+  <section class="panel">
+    <h2>${escapeHtml(plan.goal)}</h2>
+    <div class="metrics">
+      <div class="metric"><span>训练题量</span><strong>${plan.totalQuestions}</strong></div>
+      <div class="metric"><span>预计用时</span><strong>${plan.estimatedMinutes}分钟</strong></div>
+      <div class="metric"><span>完成标准</span><strong>${escapeHtml(plan.completionStandard)}</strong></div>
+      <div class="metric"><span>训练顺序</span><strong>四阶段</strong></div>
+    </div>
+  </section>
+  <section class="panel"><h2>训练任务</h2><div class="cards">${tasks}</div><div class="row"><button class="primary" id="finishTraining">完成训练并进入复测</button><button class="ghost" data-view="diagnosis">返回诊断</button></div></section>`);
+  document.querySelectorAll("[data-complete-task]").forEach((button) => {
+    button.onclick = () => {
+      button.textContent = "已完成";
+      button.disabled = true;
+    };
+  });
+  const finish = $("#finishTraining");
+  if (finish) finish.onclick = () => setView("retest");
+}
+
+async function renderRetest() {
+  const loop = await loadLoop();
+  const retest = loop.retest;
+  const questions = retest.questions.map((q, index) => `<article class="card retest-card">
+    <h3>复测 ${index + 1} · ${escapeHtml(q.typeLabel)} <span class="badge warn">${escapeHtml(q.difficulty)}</span></h3>
+    <p class="stem">${escapeHtml(q.stem)}</p>
+    <p><strong>复测目标：</strong>${escapeHtml(q.target)}</p>
+    <p><strong>AI判断：</strong>${escapeHtml(q.result)}</p>
+  </article>`).join("");
+  shell("复测", `${loopProgress("retest")}
+  <section class="panel">
+    <h2>同知识点变式复测</h2>
+    <p>复测题与原错题知识点一致，但数字、情境和问法不同，用来验证训练后是否真正掌握。</p>
+    <div class="metrics">
+      <div class="metric"><span>复测得分</span><strong>${retest.score}</strong></div>
+      <div class="metric"><span>独立完成</span><strong>${retest.independent ? "是" : "否"}</strong></div>
+      <div class="metric"><span>提示使用</span><strong>${retest.hintsUsed}</strong></div>
+      <div class="metric"><span>是否达标</span><strong>${retest.passed ? "达标" : "需巩固"}</strong></div>
+    </div>
+  </section>
+  <section class="panel"><div class="cards">${questions}</div><div class="row"><button class="primary" data-view="improvement">查看提升报告</button><button class="ghost" data-view="trainingPlan">返回训练</button></div></section>`);
+}
+
+async function renderImprovement() {
+  const loop = await loadLoop();
+  const item = loop.improvement;
+  const comparison = loop.comparisonReport;
+  shell("错题攻克报告", `${loopProgress("improvement")}
+  <section class="panel improvement-hero">
+    <h2>训练前后能力变化</h2>
+    <div class="metrics">
+      <div class="metric"><span>训练前掌握度</span><strong>${item.beforeMastery}%</strong></div>
+      <div class="metric"><span>训练后掌握度</span><strong>${item.afterMastery}%</strong></div>
+      <div class="metric"><span>提升</span><strong>+${item.improvementValue}%</strong></div>
+      <div class="metric"><span>结论</span><strong>${escapeHtml(item.status)}</strong></div>
+    </div>
+  </section>
+  <section class="panel">
+    <h2>第一次与第二次作答对比</h2>
+    <div class="comparison-grid">
+      <article class="comparison-col">
+        <h3>第一次作答</h3>
+        <p><strong>得分：</strong>${escapeHtml(comparison?.firstScore || item.beforeMastery + "%")}</p>
+        <p><strong>用时：</strong>${escapeHtml(comparison?.firstDuration || "未记录")}</p>
+        <p><strong>错误步骤：</strong>${escapeHtml(comparison?.firstErrorStep || item.originalError)}</p>
+        <p><strong>作答摘要：</strong>${escapeHtml(comparison?.firstSteps || "见诊断页")}</p>
+      </article>
+      <article class="comparison-col good">
+        <h3>重新作答</h3>
+        <p><strong>得分：</strong>${escapeHtml(comparison?.retryScore || item.afterMastery + "%")}</p>
+        <p><strong>用时：</strong>${escapeHtml(comparison?.retryDuration || "已重新记录")}</p>
+        <p><strong>步骤表现：</strong>${escapeHtml(comparison?.retryStepPerformance || "关键错误已纠正")}</p>
+        <p><strong>是否重复原错：</strong>${escapeHtml(comparison?.sameErrorRepeated ? "是" : "否")}</p>
+      </article>
+    </div>
+  </section>
+  <section class="panel">
+    <h2>闭环结论</h2>
+    <div class="cards">
+      <article class="card"><h3>原错误</h3><p>${escapeHtml(item.originalError)}</p></article>
+      <article class="card"><h3>训练结果</h3><p>${escapeHtml(item.trainingResult)}</p></article>
+      <article class="card"><h3>仍需关注</h3><p>${escapeHtml(item.nextRisk)}</p></article>
+    </div>
+    <div class="row"><button class="primary" data-view="profile">更新能力画像</button><button class="ghost" data-view="chapters">进入下一轮学习</button></div>
+  </section>`);
+}
+
+async function renderProfile() {
+  const loop = await loadLoop();
+  const abilities = loop.profile.abilities.map((item) => `<article class="ability-card">
+    <div class="ability-head"><h3>${escapeHtml(item.name)}</h3><strong>${item.current}</strong></div>
+    <div class="bar"><i style="width:${item.current}%"></i></div>
+    <p>上次：${item.previous} · 趋势：${escapeHtml(item.trend)} · 依据：${escapeHtml(item.evidence)}</p>
+    <p>建议：${escapeHtml(item.suggestion)}</p>
+  </article>`).join("");
+  shell("能力画像", `<section class="panel">
+    <h2>个人数学能力画像</h2>
+    <p>能力分数来自当前学生的作答、步骤分析、错误类型和复测表现；演示模式使用固定样例数据，不使用随机数。</p>
+  </section>
+  <section class="panel ability-grid">${abilities}</section>`);
+}
+
+$("#logout").onclick = () => {
+  localStorage.clear();
+  location.reload();
+};
+
+window.onpopstate = () => {
+  state.view = routeToView[location.pathname] || "home";
+  localStorage.setItem("view", state.view);
+  render();
+};
+
+init().catch((error) => {
+  document.body.innerHTML = `<pre>${error.message}</pre>`;
+});

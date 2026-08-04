@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>管理视图 - AI考研数学教练</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <main class="main">
+    <header class="top"><div><p id="sub">10人试用数据</p><h1>管理视图</h1></div><a class="primary" href="/">学生端</a></header>
+    <section id="admin"></section>
+  </main>
+  <script>
+    const key = new URLSearchParams(location.search).get("key") || "";
+    fetch(`/api/admin?key=${encodeURIComponent(key)}`).then(r=>r.json()).then(data=>{
+      if(data.error) throw new Error(data.error);
+      document.querySelector("#admin").innerHTML = `<section class="panel"><h2>邀请码</h2><div class="cards">${data.students.map(s=>`<article class="card"><h3>${s.inviteCode} · ${s.name||"未登录"}</h3><p>${s.mathType||"未选择"} · ${s.lastLoginAt||"未使用"}</p></article>`).join("")}</div></section>
+      <section class="panel"><h2>学习报告</h2><div class="cards">${data.reports.map(({student,report})=>`<article class="card"><h3>${student.name||student.inviteCode}</h3><p>作答 ${report.total} 题，正确率 ${report.accuracy}%，主要薄弱：${report.weakReasons[0]?.reason||"暂无"}</p></article>`).join("")}</div></section>`;
+    }).catch(e=>document.querySelector("#admin").innerHTML=`<section class="panel danger">${e.message}</section>`);
+  </script>
+</body>
+</html>
