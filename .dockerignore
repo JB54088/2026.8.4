@@ -1,0 +1,7 @@
+.env
+.edge-profile
+inspection-shots
+preview.png
+node_modules
+npm-debug.log
+.git

@@ -1,0 +1,29 @@
+services:
+  - type: web
+    name: ai-math-coach-demo
+    runtime: node
+    plan: free
+    buildCommand: npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PUBLIC_API_BASE_URL
+        value: ""
+      - key: ALLOWED_ORIGINS
+        sync: false
+      - key: ADMIN_KEY
+        generateValue: true
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: OPENAI_VISION_MODEL
+        value: gpt-5
+      - key: RATE_LIMIT_PER_MINUTE
+        value: "180"
+      - key: MAX_BODY_BYTES
+        value: "3145728"
+    disk:
+      name: ai-math-coach-data
+      mountPath: /opt/render/project/src/data
+      sizeGB: 1

@@ -1,0 +1,69 @@
+{
+  "description": "2000-2026 考研数学真题线上来源登记。当前先支持原卷电子刷题；单题刷题需要 OCR 后人工校对题干、选项、答案与解析。",
+  "trustedSources": [
+    {
+      "site": "中国研究生招生信息网",
+      "domain": "yz.chsi.com.cn",
+      "type": "official_or_authoritative_index",
+      "items": [
+        {
+          "year": 2012,
+          "mathType": "数学一",
+          "title": "2012年全国硕士研究生入学考试数学一试题",
+          "url": "https://yz.chsi.com.cn/kyzx/math/201201/20120110/276632770.html",
+          "format": "image_pages",
+          "importStatus": "paper_practice_ready_pending_ocr"
+        },
+        {
+          "year": 2012,
+          "mathType": "数学二",
+          "title": "2012年全国硕士研究生入学考试数学二试题",
+          "url": "https://yz.chsi.com.cn/kyzx/math/201201/20120111/276744950.html",
+          "format": "image_pages",
+          "importStatus": "paper_practice_ready_pending_ocr"
+        },
+        {
+          "year": 2012,
+          "mathType": "数学三",
+          "title": "2012年全国硕士研究生入学考试数学三试题",
+          "url": "https://yz.chsi.com.cn/kyzx/math/?start=800",
+          "format": "index_link",
+          "importStatus": "paper_practice_ready_pending_url_resolution"
+        },
+        {
+          "year": 2011,
+          "mathType": "数学一/数学二/数学三",
+          "title": "2011全国硕士研究生入学统一考试数学真题入口",
+          "url": "https://yz.chsi.com.cn/kyzx/math/?start=950",
+          "format": "index_link",
+          "importStatus": "paper_practice_ready_pending_url_resolution"
+        },
+        {
+          "year": 2010,
+          "mathType": "数学二",
+          "title": "2010全国硕士研究生入学统一考试数学二真题及参考答案",
+          "url": "https://yz.chsi.com.cn/kyzx/math/201001/20100112/61508674.html",
+          "format": "linked_paper_and_answer",
+          "importStatus": "paper_practice_ready_pending_download_review"
+        }
+      ]
+    }
+  ],
+  "candidateSourcesNeedReview": [
+    {
+      "site": "中国考研网",
+      "url": "https://www.chinakaoyan.com/info/list/ClassID/69.shtml",
+      "reason": "有近年真题及答案列表，但需要确认版权和下载许可后才能导入正文。"
+    },
+    {
+      "site": "在职研究生招生信息网",
+      "url": "https://m.eduego.com/shiti/8-0-0-132/",
+      "reason": "有2000-2026数学真题列表，但属于第三方整理，需要人工确认来源授权。"
+    }
+  ],
+  "importPolicy": [
+    "只把已确认来源的题目标记为 past_exam。",
+    "图片版真题必须 OCR 后人工校对年份、卷种、题号、题干、选项、答案。",
+    "第三方下载站和网盘资源不得自动抓正文入库，除非你确认授权。"
+  ]
+}

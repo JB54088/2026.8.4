@@ -1,0 +1,27 @@
+services:
+  ai-math-coach:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "${PORT:-5188}:5188"
+    environment:
+      NODE_ENV: production
+      PORT: 5188
+      PUBLIC_API_BASE_URL: ""
+      ALLOWED_ORIGINS: "${ALLOWED_ORIGINS:-}"
+      ADMIN_KEY: "${ADMIN_KEY:-}"
+      OPENAI_API_KEY: "${OPENAI_API_KEY:-}"
+      OPENAI_VISION_MODEL: "${OPENAI_VISION_MODEL:-gpt-5}"
+      RATE_LIMIT_PER_MINUTE: "${RATE_LIMIT_PER_MINUTE:-180}"
+      MAX_BODY_BYTES: "${MAX_BODY_BYTES:-3145728}"
+    volumes:
+      - ai_math_data:/app/data
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:5188/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  ai_math_data:

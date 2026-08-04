@@ -1,0 +1,6 @@
+.env
+data/db.json
+.edge-profile/
+inspection-shots/
+node_modules/
+npm-debug.log*
