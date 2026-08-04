@@ -1,5 +1,6 @@
 const APP_CONFIG = window.__APP_CONFIG__ || {};
 const API_BASE_URL = String(APP_CONFIG.apiBaseUrl || "").replace(/\/$/, "");
+const APP_BASE_PATH = String(window.__APP_BASE_PATH__ || "").replace(/\/$/, "");
 const routeToView = {
   "/": "home",
   "/login": "home",
@@ -13,6 +14,12 @@ const routeToView = {
   "/ability-profile": "profile"
 };
 const viewToRoute = Object.fromEntries(Object.entries(routeToView).map(([path, view]) => [view, path]));
+function currentRoutePath() {
+  if (APP_BASE_PATH && location.pathname.startsWith(APP_BASE_PATH)) {
+    return location.pathname.slice(APP_BASE_PATH.length) || "/";
+  }
+  return location.pathname;
+}
 const demoSessionId = localStorage.getItem("demoSessionId") || crypto.randomUUID();
 localStorage.setItem("demoSessionId", demoSessionId);
 
@@ -60,7 +67,7 @@ const trainingModes = {
 
 const state = {
   student: JSON.parse(localStorage.getItem("student") || "null"),
-  view: routeToView[location.pathname] || localStorage.getItem("view") || "home",
+  view: routeToView[currentRoutePath()] || localStorage.getItem("view") || "home",
   selectedMathType: localStorage.getItem("selectedMathType") || "数学二",
   trainingMode: localStorage.getItem("trainingMode") || "reinforce",
   paperExam: null,
@@ -125,7 +132,7 @@ function mode() {
 function setView(view) {
   state.view = view;
   localStorage.setItem("view", view);
-  const nextPath = viewToRoute[view] || "/";
+  const nextPath = `${APP_BASE_PATH}${viewToRoute[view] || "/"}`;
   if (location.pathname !== nextPath) history.pushState({ view }, "", nextPath);
   render();
 }
@@ -275,7 +282,7 @@ function renderLogin() {
     localStorage.setItem("demoMode", "1");
     state.view = "home";
     localStorage.setItem("view", "home");
-    history.replaceState({ view: "home" }, "", "/dashboard");
+    history.replaceState({ view: "home" }, "", `${APP_BASE_PATH}/dashboard`);
     render();
   };
 }
@@ -1454,7 +1461,7 @@ $("#logout").onclick = () => {
 };
 
 window.onpopstate = () => {
-  state.view = routeToView[location.pathname] || "home";
+  state.view = routeToView[currentRoutePath()] || "home";
   localStorage.setItem("view", state.view);
   render();
 };
