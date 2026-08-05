@@ -91,6 +91,7 @@ const state = {
   scratchWidth: Number(localStorage.getItem("scratchWidth") || 3),
   strokeCount: 0,
   strokes: [],
+  redoStrokes: [],
   startedAt: Date.now()
 };
 
@@ -235,6 +236,7 @@ async function init() {
 }
 
 function shell(title, body) {
+  document.body.classList.toggle("practice-mode", state.view === "practice");
   $("#title").textContent = title;
   $("#sub").textContent = state.student
     ? `${state.student.name} · ${state.student.mathType} · ${mode().name}`
@@ -548,7 +550,16 @@ async function loadQuestions(refresh) {
 function resetScratch() {
   state.strokeCount = 0;
   state.strokes = [];
+  state.redoStrokes = [];
   state.startedAt = Date.now();
+}
+
+function loadScratchForQuestion(q) {
+  const saved = state.responses[q.id] || {};
+  state.strokes = Array.isArray(saved.strokes) ? saved.strokes : [];
+  state.strokeCount = state.strokes.length || Number(saved.strokeCount || 0);
+  state.redoStrokes = [];
+  state.startedAt = Date.now() - Number(saved.durationMs || 0);
 }
 
 function difficultyText(value) {
@@ -561,10 +572,6 @@ function questionStem(q) {
       ? `<div class="typeset-stem">${q.stemHtml}</div>`
       : (q.stemImage ? `<img class="stem-image exam" src="${escapeHtml(q.stemImage)}" alt="${escapeHtml(q.stem)}">` : `<p>${escapeHtml(q.stem)}</p>`);
     return `<div class="exam-stem">
-      <div class="exam-stem-head">
-        <span>${escapeHtml(q.chapterName)}</span>
-        <strong>${escapeHtml(q.point)}</strong>
-      </div>
       <div class="exam-paper">
         ${body}
       </div>
@@ -584,258 +591,92 @@ async function renderPractice() {
     return;
   }
   const q = state.questions[state.current];
-  const saved = state.responses[q.id] || {};
-  const options = q.type === "choice" ? `<div class="option-strip">${q.options.map((option, index) => `<button class="choice ${saved.answer === option ? "active" : ""}" data-choice="${escapeHtml(option)}">${String.fromCharCode(65 + index)}. ${escapeHtml(option)}</button>`).join("")}</div>` : "";
-  const answerPanel = q.type === "choice" ? renderChoicePanel(q) : renderScratchPanel(q);
-  shell("刷题", `<section class="panel question-top">
-    <p><span class="badge">${escapeHtml(mode().name)}</span> <span class="badge warn">${difficultyText(q.difficulty)}</span> <span class="badge">${escapeHtml(q.source)}</span> ${escapeHtml(q.chapterName)} · ${escapeHtml(q.point)} · 第 ${state.current + 1}/${state.questions.length} 题</p>
-    ${questionStem(q)}
-    ${options}
-  </section>
-  <section class="panel progress-panel">
-    <div class="question-dots">${state.questions.map((item, index) => `<button class="${index === state.current ? "active" : ""} ${state.responses[item.id] ? "done" : ""}" data-jump="${index}">${index + 1}</button>`).join("")}</div>
-  </section>
-  ${answerPanel}`);
+  loadScratchForQuestion(q);
+  shell("刷题", `<div class="practice-simple">
+    <section class="question-only">
+      <div class="question-count">第${state.current + 1}题 / 共${state.questions.length}题</div>
+      ${questionStem(q)}
+    </section>
+    ${renderWritingPanel(q)}
+  </div>`);
   bindPractice(q);
 }
 
-function renderChoicePanel(q) {
-  const saved = state.responses[q.id] || {};
-  return `<section class="panel choice-panel">
-    <div class="scratch-head">
-      <div>
-        <h3>选择题作答</h3>
-        <p>选择题点击上方选项会自动保存；也可以标记不确定、收藏到做题集，做完整套后统一交卷。</p>
-      </div>
-      <div class="row">
-        <button class="ghost ${saved.flagged ? "active" : ""}" id="flagQuestion">标记不确定</button>
-        <button class="ghost ${saved.favorite ? "active" : ""}" id="favoriteQuestion">收藏</button>
-        <button class="ghost" id="showScratch">打开做题空间</button>
-        <button class="ghost" id="prev">上一题</button>
-        <button class="ghost" id="next">下一题</button>
-        <button class="ghost" id="refresh">刷新新题</button>
-        <button class="primary" id="finishRound">交卷并生成诊断</button>
-      </div>
-    </div>
-  </section>`;
-}
-
-function renderScratchPanel(q) {
-  const saved = state.responses[q.id] || {};
-  const isFill = q.type === "fill";
-  return `<section class="panel scratch-panel">
-    <div class="scratch-head">
-      <div>
-        <h3>${isFill ? "填空题做题空间" : "主观题做题空间"}</h3>
-        <p>${isFill ? "填空题不在题面直接填写答案。请在做题空间中写出计算过程和最终结果，AI/OCR会从这里提取答案并统一批改。" : "题目在上方，做题空间在下方。最终答案、关键步骤和书写轨迹会一起提交，AI据此定位错因。"}</p>
-      </div>
-      <div class="row">
-        <button class="ghost ${saved.flagged ? "active" : ""}" id="flagQuestion">标记不确定</button>
-        <button class="ghost ${saved.favorite ? "active" : ""}" id="favoriteQuestion">收藏</button>
-        <button class="ghost" id="prev">上一题</button>
-        <button class="ghost" id="saveScratch">保存本题</button>
-        <button class="ghost" id="next">保存并下一题</button>
-        <button class="ghost" id="refresh">刷新新题</button>
-        <button class="primary" id="finishRound">交卷并生成诊断</button>
-      </div>
-    </div>
-    ${isFill ? "" : `<div class="answer-form grid two">
-      <label>最终答案
-        <input id="finalAnswer" value="${escapeHtml(saved.answer || "")}" placeholder="${isFill ? "例如 1/2、0.5、x^2+C" : "写出最终结论"}">
-      </label>
-      <label>公式/表达式
-        <input id="formulaAnswer" value="${escapeHtml(saved.formulaText || "")}" placeholder="可填写关键公式或数学表达式">
-      </label>
-    </div>`}
-    <label class="steps-box">${isFill ? "做题空间文字记录" : "关键步骤"}
-      <textarea id="stepsText" placeholder="${isFill ? "可写计算过程，也可写：答案=x^2+C。手写在下方做题空间里的内容会随整卷一起提交。" : "按 1、2、3 写出设、列式、变形、计算、结论"}">${escapeHtml(saved.stepsText || "")}</textarea>
-    </label>
-    <div class="row upload-row">
-      <label class="upload-button">上传答题图片
-        <input id="answerImage" type="file" accept="image/png,image/jpeg,image/webp">
-      </label>
-      <span id="uploadName" class="badge">${saved.uploadName ? escapeHtml(saved.uploadName) : "未上传图片"}</span>
-    </div>
-    ${renderPadToolbar()}
+function renderWritingPanel() {
+  const isLast = state.current >= state.questions.length - 1;
+  return `<section class="writing-only">
     <div class="paper-stage">
-      <canvas id="pad" width="1600" height="980"></canvas>
+      <canvas id="pad" width="1800" height="1120"></canvas>
     </div>
-    <p class="badge">做题空间笔画：<span id="strokes">${state.strokeCount}</span> 次</p>
+    <div class="practice-actions">
+      <button class="ghost" id="clearPad">清空手写</button>
+      <button class="ghost" id="undoPad">撤销</button>
+      <button class="ghost" id="redoPad">重做</button>
+      <button class="primary" id="next">${isLast ? "提交答卷" : "下一题"}</button>
+      ${isLast ? "" : `<button class="ghost" id="finishRound">提交答卷</button>`}
+    </div>
   </section>`;
-}
-
-function renderPadToolbar() {
-  const tools = [["pen", "钢笔"], ["highlighter", "荧光"], ["eraser", "橡皮"]];
-  const colors = ["#172033", "#1f64d1", "#16885f", "#d35400", "#b42318", "#7c3aed"];
-  const widths = [2, 3, 5, 8];
-  return `<div class="pad-toolbar">
-    <div class="tool-group">
-      ${tools.map(([tool, label]) => `<button class="tool-button ${state.scratchTool === tool ? "active" : ""}" data-tool="${tool}" title="${label}">${label}</button>`).join("")}
-    </div>
-    <div class="tool-group color-group">
-      ${colors.map((color) => `<button class="color-dot ${state.scratchColor === color ? "active" : ""}" data-color="${color}" style="--swatch:${color}" title="${color}"></button>`).join("")}
-    </div>
-    <div class="tool-group">
-      ${widths.map((width) => `<button class="width-button ${state.scratchWidth === width ? "active" : ""}" data-width="${width}" title="${width}px"><span style="height:${Math.max(2, width)}px"></span></button>`).join("")}
-    </div>
-    <div class="tool-group push">
-      <button class="tool-button" id="undoPad" title="撤销">撤销</button>
-      <button class="tool-button" id="clearPad" title="清空">清空</button>
-    </div>
-  </div>`;
 }
 
 function bindPractice(q) {
-  const prev = $("#prev");
   const next = $("#next");
-  const refresh = $("#refresh");
   const clearPad = $("#clearPad");
-  const saveScratch = $("#saveScratch");
+  const undoPad = $("#undoPad");
+  const redoPad = $("#redoPad");
   const finishRound = $("#finishRound");
-  const flagQuestion = $("#flagQuestion");
-  const favoriteQuestion = $("#favoriteQuestion");
-  const finalAnswer = $("#finalAnswer");
-  const formulaAnswer = $("#formulaAnswer");
-  const stepsText = $("#stepsText");
-  const answerImage = $("#answerImage");
-  const syncTextAnswer = () => {
-    if (!finalAnswer && !formulaAnswer && !stepsText) return;
-    const saved = state.responses[q.id] || { questionId: q.id };
-    state.responses[q.id] = {
-      ...saved,
-      questionId: q.id,
-      answer: q.type === "fill" ? "" : (finalAnswer?.value || saved.answer || ""),
-      formulaText: q.type === "fill" ? "" : (formulaAnswer?.value || ""),
-      stepsText: stepsText?.value || "",
-      durationMs: Date.now() - state.startedAt
-    };
-    persistResponses();
-  };
-  document.querySelectorAll("[data-jump]").forEach((button) => {
-    button.onclick = () => {
-      saveCurrentScratch(q);
-      state.current = Number(button.dataset.jump);
-      resetScratch();
-      renderPractice();
-    };
-  });
-  if (prev) prev.onclick = () => {
-    saveCurrentScratch(q);
-    state.current = Math.max(0, state.current - 1);
-    resetScratch();
-    renderPractice();
-  };
   if (next) next.onclick = () => {
     saveCurrentScratch(q);
-    state.current = Math.min(state.questions.length - 1, state.current + 1);
-    resetScratch();
+    if (state.current >= state.questions.length - 1) {
+      submitRound();
+      return;
+    }
+    state.current += 1;
     renderPractice();
-  };
-  if (refresh) refresh.onclick = async () => { await loadQuestions(true); renderPractice(); };
-  if (clearPad) clearPad.onclick = () => {
-    delete state.responses[q.id];
-    persistResponses();
-    resetScratch();
-    renderPractice();
-  };
-  bindPadToolbar();
-  if (saveScratch) saveScratch.onclick = () => {
-    syncTextAnswer();
-    if (saveCurrentScratch(q) || state.responses[q.id]) alert("本题作答已保存，交卷后统一诊断。");
   };
   if (finishRound) finishRound.onclick = async () => {
     saveCurrentScratch(q);
     await submitRound();
   };
-  const showScratch = $("#showScratch");
-  if (showScratch) {
-    showScratch.onclick = () => {
-      const panel = document.querySelector(".choice-panel");
-      panel.outerHTML = renderScratchPanel(q);
-      bindPractice(q);
-    };
-  }
-  document.querySelectorAll("[data-choice]").forEach((button) => {
-    button.onclick = () => {
-      document.querySelectorAll("[data-choice]").forEach((item) => item.classList.remove("active"));
-      button.classList.add("active");
-      const saved = state.responses[q.id] || {};
-      state.responses[q.id] = {
-        ...saved,
-        questionId: q.id,
-        answer: button.dataset.choice,
-        selectedOption: button.dataset.choice,
-        durationMs: Date.now() - state.startedAt
-      };
-      persistResponses();
-    };
-  });
-  [finalAnswer, formulaAnswer, stepsText].filter(Boolean).forEach((input) => {
-    input.oninput = syncTextAnswer;
-  });
-  if (answerImage) {
-    answerImage.onchange = () => {
-      const file = answerImage.files?.[0];
-      if (!file) return;
-      if (!file.type.startsWith("image/") || file.size > 3 * 1024 * 1024) {
-        alert("请上传 3MB 以内的图片文件。");
-        answerImage.value = "";
-        return;
-      }
-      const reader = new FileReader();
-      reader.onload = () => {
-        const saved = state.responses[q.id] || { questionId: q.id };
-        state.responses[q.id] = { ...saved, questionId: q.id, uploadName: file.name, answerImage: reader.result };
-        persistResponses();
-        $("#uploadName").textContent = file.name;
-      };
-      reader.readAsDataURL(file);
-    };
-  }
-  if (flagQuestion) {
-    flagQuestion.onclick = () => {
-      const saved = state.responses[q.id] || { questionId: q.id };
-      state.responses[q.id] = { ...saved, questionId: q.id, flagged: !saved.flagged };
-      persistResponses();
-      renderPractice();
-    };
-  }
-  if (favoriteQuestion) {
-    favoriteQuestion.onclick = () => {
-      const saved = state.responses[q.id] || { questionId: q.id };
-      state.responses[q.id] = { ...saved, questionId: q.id, favorite: !saved.favorite };
-      persistResponses();
-      renderPractice();
-    };
-  }
+  if (clearPad) clearPad.onclick = () => {
+    state.redoStrokes = state.strokes.slice();
+    state.strokes = [];
+    state.strokeCount = 0;
+    saveCurrentScratch(q, { keepEmpty: true });
+    redrawCanvas();
+  };
+  if (undoPad) undoPad.onclick = () => {
+    const stroke = state.strokes.pop();
+    if (stroke) state.redoStrokes.push(stroke);
+    state.strokeCount = state.strokes.length;
+    saveCurrentScratch(q, { keepEmpty: true });
+    redrawCanvas();
+  };
+  if (redoPad) redoPad.onclick = () => {
+    const stroke = state.redoStrokes.pop();
+    if (stroke) state.strokes.push(stroke);
+    state.strokeCount = state.strokes.length;
+    saveCurrentScratch(q, { keepEmpty: true });
+    redrawCanvas();
+  };
   if ($("#pad")) bindCanvas();
 }
 
-function saveCurrentScratch(q) {
+function saveCurrentScratch(q, options = {}) {
   const canvas = $("#pad");
   const saved = state.responses[q.id] || { questionId: q.id };
-  const finalAnswer = q.type === "fill" ? "" : ($("#finalAnswer")?.value || saved.answer || "");
-  const formulaText = q.type === "fill" ? "" : ($("#formulaAnswer")?.value || saved.formulaText || "");
-  const stepsText = $("#stepsText")?.value || saved.stepsText || "";
-  if (!canvas || q.type === "choice") {
-    if (finalAnswer || formulaText || stepsText) {
-      state.responses[q.id] = { ...saved, questionId: q.id, answer: finalAnswer, formulaText, stepsText, durationMs: Date.now() - state.startedAt };
-      persistResponses();
-      return true;
-    }
-    return false;
-  }
-  if (!state.strokeCount && !finalAnswer && !formulaText && !stepsText && !saved.answerImage) return false;
+  if (!canvas) return false;
+  if (!state.strokeCount && !options.keepEmpty) return false;
   state.responses[q.id] = {
     ...saved,
     questionId: q.id,
-    answer: finalAnswer,
-    formulaText,
-    stepsText,
+    answer: "",
+    selectedOption: "",
+    formulaText: "",
+    stepsText: "",
     durationMs: Date.now() - state.startedAt,
-      scratchImage: canvas.toDataURL("image/png"),
-      strokes: state.strokes,
-      strokeCount: state.strokeCount
+    scratchImage: state.strokeCount && !options.skipImage ? canvas.toDataURL("image/png") : (options.skipImage ? (saved.scratchImage || "") : ""),
+    strokes: state.strokes,
+    strokeCount: state.strokeCount
   };
   persistResponses();
   return true;
@@ -883,15 +724,11 @@ async function submitRound() {
   ));
   const missing = state.questions.filter((q) => !hasContent(state.responses[q.id]));
   const answered = state.questions.length - missing.length;
-  const marked = state.questions.filter((q) => state.responses[q.id]?.flagged).length;
-  const subjectiveWithDraftOnly = state.questions.filter((q) => q.type !== "choice" && state.responses[q.id]?.scratchImage && !state.responses[q.id]?.stepsText && !state.responses[q.id]?.answer).length;
   const ok = await uiConfirm({
-    title: "提交整套试卷",
+    title: "提交答卷",
     message: [
       `本轮共 ${state.questions.length} 题，已完成 ${answered} 题，未完成 ${missing.length} 题。`,
-      `标记疑问 ${marked} 题。`,
-      subjectiveWithDraftOnly ? `检测到 ${subjectiveWithDraftOnly} 道题只有做题空间记录，尚未整理正式答案。` : "",
-      "提交后将锁定本轮答案，并进入 AI 批改与诊断流程。"
+      "提交后将锁定本轮手写答题内容，并进入批改与诊断流程。"
     ].filter(Boolean).join("\n"),
     confirmText: "提交并批改",
     cancelText: "继续检查"
@@ -1200,8 +1037,9 @@ function bindCanvas() {
     ctx.globalAlpha = 1;
     if (currentStroke.points.length) {
       state.strokes.push(currentStroke);
+      state.redoStrokes = [];
       state.strokeCount += 1;
-      $("#strokes").textContent = state.strokeCount;
+      saveCurrentScratch(state.questions[state.current], { keepEmpty: true, skipImage: true });
     }
   };
   canvas.onmousedown = start;
@@ -1211,6 +1049,7 @@ function bindCanvas() {
   canvas.ontouchstart = start;
   canvas.ontouchmove = move;
   canvas.ontouchend = end;
+  redrawCanvas();
 }
 
 function beginStroke(ctx, stroke) {
