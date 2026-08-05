@@ -1,6 +1,7 @@
 const APP_CONFIG = window.__APP_CONFIG__ || {};
 const API_BASE_URL = String(APP_CONFIG.apiBaseUrl || "").replace(/\/$/, "");
 const APP_BASE_PATH = String(window.__APP_BASE_PATH__ || "").replace(/\/$/, "");
+const FIXED_PRACTICE_COUNT = 20;
 const routeToView = {
   "/": "home",
   "/login": "home",
@@ -48,7 +49,7 @@ const trainingModes = {
   foundation: {
     name: "基础训练",
     stage: "基础阶段",
-    count: 10,
+    count: FIXED_PRACTICE_COUNT,
     difficulty: "mode",
     sourceType: "all",
     description: "按章节补概念、公式、基本计算和常见入口。",
@@ -85,7 +86,7 @@ const state = {
   questions: [],
   collectionItems: [],
   chapterId: "integral",
-  questionCount: Number(localStorage.getItem("questionCount") || 20),
+  questionCount: FIXED_PRACTICE_COUNT,
   difficulty: localStorage.getItem("difficulty") || "all",
   sourceType: localStorage.getItem("sourceType") || "all",
   current: 0,
@@ -146,7 +147,7 @@ function selectMode(key) {
   state.trainingMode = key;
   localStorage.setItem("trainingMode", key);
   const picked = mode();
-  state.questionCount = picked.count;
+  state.questionCount = FIXED_PRACTICE_COUNT;
   state.difficulty = picked.difficulty;
   state.sourceType = picked.sourceType;
   localStorage.setItem("questionCount", String(state.questionCount));
@@ -521,16 +522,10 @@ async function renderChapters() {
     <div class="mode-tabs large">
       ${Object.entries(trainingModes).map(([key, item]) => `<button class="${state.trainingMode === key ? "active" : ""}" data-switch-mode="${key}">${item.name}<small>${item.difficultyLabel}</small></button>`).join("")}
     </div>
-    <p class="mode-help">当前选择：${currentMode.name}，系统会优先抽取 ${currentMode.difficultyLabel}。你也可以在下方临时改题量、难度或题源。</p>
-    <div class="grid three">
-      <label>本轮题量
-        <select id="questionCount">
-          <option value="10">快速 10 题</option>
-          <option value="20">标准 20 题</option>
-          <option value="30">深度 30 题</option>
-          <option value="50">极限 50 题</option>
-        </select>
-      </label>
+    <p class="mode-help">当前选择：${currentMode.name}，系统会优先抽取 ${currentMode.difficultyLabel}。每轮固定20题，难度和题源可以按需要调整。</p>
+    <div class="fixed-practice-count">
+      <strong>每轮固定 20 题</strong>
+      <span>完成一轮后系统统一批改；你可以在做题页刷新，换一组新的题目。</span>
       <label>难度
         <select id="difficulty">${difficultyOptions.map(([value, label]) => `<option value="${value}">${label}</option>`).join("")}</select>
       </label>
@@ -541,13 +536,9 @@ async function renderChapters() {
   </section>
   <section class="panel">${chapters.length ? renderChapterGroups(progress, chapters) : `<div class="empty-state"><h3>当前类型暂未配置章节</h3><p>请切换数学类型或联系管理员导入对应题库。</p></div>`}</section>`);
 
-  $("#questionCount").value = String(state.questionCount);
+  state.questionCount = FIXED_PRACTICE_COUNT;
   $("#difficulty").value = state.difficulty;
   $("#sourceType").value = state.sourceType;
-  $("#questionCount").onchange = (event) => {
-    state.questionCount = Number(event.target.value);
-    localStorage.setItem("questionCount", String(state.questionCount));
-  };
   $("#difficulty").onchange = (event) => {
     state.difficulty = event.target.value;
     localStorage.setItem("difficulty", state.difficulty);
@@ -573,11 +564,12 @@ async function renderChapters() {
 }
 
 async function loadQuestions(refresh) {
+  state.questionCount = FIXED_PRACTICE_COUNT;
   const params = new URLSearchParams({
     studentId: state.student.id,
     chapterId: state.chapterId,
     refresh: refresh ? "1" : "0",
-    count: String(state.questionCount),
+    count: String(FIXED_PRACTICE_COUNT),
     difficulty: state.difficulty,
     sourceType: state.sourceType,
     mode: state.trainingMode
@@ -659,7 +651,7 @@ async function renderPractice() {
   loadScratchForQuestion(q);
   shell("刷题", `<div class="practice-simple ${q.type === "choice" ? "practice-choice-mode" : ""}">
     <section class="question-only">
-      <div class="practice-context"><span>${escapeHtml(state.student.mathType)}</span><span>${escapeHtml(chapter?.name || q.chapterName || "当前章节")}</span><span>${escapeHtml(q.point || "本题知识点")}</span><strong>已完成 ${answeredCount} / ${state.questions.length}</strong></div>
+      <div class="practice-context"><span>${escapeHtml(state.student.mathType)}</span><span>${escapeHtml(chapter?.name || q.chapterName || "当前章节")}</span><span>${escapeHtml(q.point || "本题知识点")}</span><strong>已完成 ${answeredCount} / ${state.questions.length}</strong><button class="ghost" id="refreshPractice">刷新本轮20题</button></div>
       <div class="question-count">第${state.current + 1}题 / 共${state.questions.length}题</div>
       ${questionStem(q)}
       ${questionAnswerControls(q)}
@@ -703,6 +695,7 @@ function bindPractice(q) {
   const undoPad = $("#undoPad");
   const redoPad = $("#redoPad");
   const finishRound = $("#finishRound");
+  const refreshPractice = $("#refreshPractice");
   document.querySelectorAll("[data-choice]").forEach((button) => {
     button.onclick = () => {
       const saved = state.responses[q.id] || { questionId: q.id };
@@ -728,6 +721,18 @@ function bindPractice(q) {
   if (finishRound) finishRound.onclick = async () => {
     saveCurrentScratch(q);
     await submitRound();
+  };
+  if (refreshPractice) refreshPractice.onclick = async () => {
+    const answered = Object.values(state.responses || {}).filter((item) => item?.selectedOption || item?.scratchImage || item?.strokeCount).length;
+    const confirmed = await uiConfirm({
+      title: "刷新本轮题目",
+      message: answered ? `当前已有 ${answered} 题作答，刷新后将清空本轮并换成新的20题。是否继续？` : "将换成一组新的20题，是否继续？",
+      confirmText: "刷新换题",
+      cancelText: "继续作答"
+    });
+    if (!confirmed) return;
+    await loadQuestions(true);
+    renderPractice();
   };
   if (clearPad) clearPad.onclick = () => {
     state.redoStrokes = state.strokes.slice();
@@ -977,6 +982,7 @@ async function renderPaperReport() {
   const errors = Object.entries(report.errorStats || {}).map(([type, item]) => `<article class="status-card">
     <h3>${escapeHtml(type)}</h3>
     <p>出现 ${item.count} 次 · 涉及第 ${item.questionIndexes.join("、")} 题 · 影响 ${item.scoreLoss} 分 · 严重程度：${item.severity}${item.repeated ? " · 重复性错误" : ""}</p>
+    ${item.questionIds?.[0] ? `<button class="ghost" data-error-training-source="${escapeHtml(item.questionIds[0])}">开始该类专项训练</button>` : ""}
   </article>`).join("") || `<article class="status-card"><h3>暂无明显错误类型</h3><p>本卷暂未形成重复性错误。</p></article>`;
   const abilities = (report.abilityDiagnosis || []).map((item) => `<article class="ability-card">
     <div class="ability-head"><h3>${escapeHtml(item.name)}</h3><strong>${item.score}</strong></div>
@@ -1028,11 +1034,22 @@ async function renderPaperReport() {
       setView("questionReview");
     };
   });
+  document.querySelectorAll("[data-error-training-source]").forEach((button) => {
+    button.onclick = () => {
+      state.trainingSourceQuestionId = button.dataset.errorTrainingSource;
+      localStorage.setItem("trainingSourceQuestionId", state.trainingSourceQuestionId);
+      state.trainingBatch = null;
+      setView("similarTraining");
+    };
+  });
   const startTargetedTraining = $("#startTargetedTraining");
   if (startTargetedTraining) startTargetedTraining.onclick = async () => {
+    const sourceQuestionId = (report.questionAnalyses || []).find((item) => item.needsDeepDiagnosis)?.questionId || "";
+    state.trainingSourceQuestionId = sourceQuestionId;
+    localStorage.setItem("trainingSourceQuestionId", sourceQuestionId);
     const created = await api("/api/training-batches", {
       method: "POST",
-      body: JSON.stringify({ studentId: state.student.id, submissionId: submission.id, trainingType: "targeted" })
+      body: JSON.stringify({ studentId: state.student.id, submissionId: submission.id, sourceWrongQuestionId: sourceQuestionId, trainingType: "targeted" })
     });
     state.trainingBatch = created.batch;
     writeFlowState({ trainingRecords: {}, stage: "TARGETED_TRAINING" });
@@ -1081,7 +1098,7 @@ async function renderQuestionReview() {
     </div>
   </section>
   <section class="panel"><h2>步骤对照</h2><div class="step-list">${steps}</div></section>
-  <section class="panel"><h2>标准解题提示</h2><p class="mode-help">${escapeHtml(item.standardSteps || "该题暂无标准步骤，需教研补充。")}</p><div class="row"><button class="primary" data-view="paperReport">返回整卷报告</button><button class="ghost" data-view="similarTraining">进入相似题训练</button><button class="ghost" data-view="originalRetry">原题重做</button></div></section>`);
+  <section class="panel"><h2>标准解题提示</h2><p class="mode-help">${escapeHtml(item.standardSteps || "该题暂无标准步骤，需教研补充。")}</p><div class="row"><button class="primary" data-view="paperReport">返回整卷报告</button><button class="ghost" id="startQuestionTraining">针对本题错误开始专项训练</button><button class="ghost" data-view="originalRetry">原题重做</button></div></section>`);
   document.querySelectorAll("[data-question-index]").forEach((button) => {
     button.onclick = () => {
       state.reviewQuestionIndex = Number(button.dataset.questionIndex);
@@ -1089,6 +1106,13 @@ async function renderQuestionReview() {
       renderQuestionReview();
     };
   });
+  const startQuestionTraining = $("#startQuestionTraining");
+  if (startQuestionTraining) startQuestionTraining.onclick = () => {
+    state.trainingSourceQuestionId = item.questionId;
+    localStorage.setItem("trainingSourceQuestionId", item.questionId);
+    state.trainingBatch = null;
+    setView("similarTraining");
+  };
 }
 
 function bindCanvas() {
@@ -1663,10 +1687,16 @@ async function submitTrainingQuestion(batch, question) {
 }
 
 async function renderSimilarTrainingV2() {
-  let batch = hasCompleteTrainingBatch(state.trainingBatch) ? state.trainingBatch : null;
+  const requestedSourceQuestionId = state.trainingSourceQuestionId || localStorage.getItem("trainingSourceQuestionId") || "";
+  let batch = hasCompleteTrainingBatch(state.trainingBatch)
+    && (!requestedSourceQuestionId || state.trainingBatch.sourceWrongQuestionId === requestedSourceQuestionId)
+    ? state.trainingBatch
+    : null;
   if (!batch) {
     const data = await api(`/api/training-batches?studentId=${encodeURIComponent(state.student.id)}&trainingType=targeted`);
-    batch = hasCompleteTrainingBatch(data.latest) ? data.latest : null;
+    const candidates = Array.isArray(data.batches) ? data.batches : [];
+    batch = candidates.find((item) => requestedSourceQuestionId && item.sourceWrongQuestionId === requestedSourceQuestionId && hasCompleteTrainingBatch(item))
+      || (!requestedSourceQuestionId && hasCompleteTrainingBatch(data.latest) ? data.latest : null);
   }
   if (!batch) {
     const submission = await ensureLatestSubmission();
@@ -1676,9 +1706,11 @@ async function renderSimilarTrainingV2() {
     }
     const created = await api("/api/training-batches", {
       method: "POST",
-      body: JSON.stringify({ studentId: state.student.id, submissionId: submission.id, trainingType: "targeted" })
+      body: JSON.stringify({ studentId: state.student.id, submissionId: submission.id, sourceWrongQuestionId: requestedSourceQuestionId, trainingType: "targeted" })
     });
     batch = created.batch;
+    state.trainingSourceQuestionId = batch.sourceWrongQuestionId || requestedSourceQuestionId;
+    localStorage.setItem("trainingSourceQuestionId", state.trainingSourceQuestionId);
     writeFlowState({ trainingBatchId: batch.id, trainingRecords: {}, trainingIndex: 0, stage: "TARGETED_TRAINING" });
   }
   state.trainingBatch = batch;
