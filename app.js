@@ -367,7 +367,7 @@ async function renderHome() {
       <div class="metric"><span>考试类型</span><strong>${state.student.mathType}</strong></div>
       <div class="metric"><span>当前模式</span><strong>${mode().name}</strong></div>
       <div class="metric"><span>本轮题量</span><strong>${state.questionCount}</strong></div>
-      <div class="metric"><span>作答方式</span><strong>草稿识别</strong></div>
+      <div class="metric"><span>作答方式</span><strong>做题空间识别</strong></div>
     </div>
   </section>
   <section class="panel">
@@ -385,7 +385,7 @@ async function renderHome() {
       <div>
         <span class="badge ${demoOn ? "warn" : ""}">${demoOn ? "产品演示模式" : "真实学生数据"}</span>
         <h2>AI数学个性化学习闭环</h2>
-        <p>从作答与草稿识别开始，完成批改、错因诊断、专项训练、变式复测和能力画像更新。</p>
+        <p>从作答与做题空间识别开始，完成批改、错因诊断、专项训练、变式复测和能力画像更新。</p>
       </div>
       <div class="row">
         <button class="primary" data-view="diagnosis">查看AI诊断</button>
@@ -610,7 +610,7 @@ function renderChoicePanel(q) {
       <div class="row">
         <button class="ghost ${saved.flagged ? "active" : ""}" id="flagQuestion">标记不确定</button>
         <button class="ghost ${saved.favorite ? "active" : ""}" id="favoriteQuestion">收藏</button>
-        <button class="ghost" id="showScratch">打开草稿</button>
+        <button class="ghost" id="showScratch">打开做题空间</button>
         <button class="ghost" id="prev">上一题</button>
         <button class="ghost" id="next">下一题</button>
         <button class="ghost" id="refresh">刷新新题</button>
@@ -626,8 +626,8 @@ function renderScratchPanel(q) {
   return `<section class="panel scratch-panel">
     <div class="scratch-head">
       <div>
-        <h3>${isFill ? "填空题作答" : "主观题作答"}</h3>
-        <p>题目在上方，作答区在下方。草稿、最终答案和关键步骤会一起提交，AI据此定位错因。</p>
+        <h3>${isFill ? "填空题做题空间" : "主观题做题空间"}</h3>
+        <p>${isFill ? "填空题不在题面直接填写答案。请在做题空间中写出计算过程和最终结果，AI/OCR会从这里提取答案并统一批改。" : "题目在上方，做题空间在下方。最终答案、关键步骤和书写轨迹会一起提交，AI据此定位错因。"}</p>
       </div>
       <div class="row">
         <button class="ghost ${saved.flagged ? "active" : ""}" id="flagQuestion">标记不确定</button>
@@ -639,16 +639,16 @@ function renderScratchPanel(q) {
         <button class="primary" id="finishRound">交卷并生成诊断</button>
       </div>
     </div>
-    <div class="answer-form grid two">
+    ${isFill ? "" : `<div class="answer-form grid two">
       <label>最终答案
         <input id="finalAnswer" value="${escapeHtml(saved.answer || "")}" placeholder="${isFill ? "例如 1/2、0.5、x^2+C" : "写出最终结论"}">
       </label>
       <label>公式/表达式
         <input id="formulaAnswer" value="${escapeHtml(saved.formulaText || "")}" placeholder="可填写关键公式或数学表达式">
       </label>
-    </div>
-    <label class="steps-box">关键步骤
-      <textarea id="stepsText" placeholder="按 1、2、3 写出设、列式、变形、计算、结论">${escapeHtml(saved.stepsText || "")}</textarea>
+    </div>`}
+    <label class="steps-box">${isFill ? "做题空间文字记录" : "关键步骤"}
+      <textarea id="stepsText" placeholder="${isFill ? "可写计算过程，也可写：答案=x^2+C。手写在下方做题空间里的内容会随整卷一起提交。" : "按 1、2、3 写出设、列式、变形、计算、结论"}">${escapeHtml(saved.stepsText || "")}</textarea>
     </label>
     <div class="row upload-row">
       <label class="upload-button">上传答题图片
@@ -660,7 +660,7 @@ function renderScratchPanel(q) {
     <div class="paper-stage">
       <canvas id="pad" width="1600" height="980"></canvas>
     </div>
-    <p class="badge">书写笔画：<span id="strokes">${state.strokeCount}</span> 次</p>
+    <p class="badge">做题空间笔画：<span id="strokes">${state.strokeCount}</span> 次</p>
   </section>`;
 }
 
@@ -704,8 +704,8 @@ function bindPractice(q) {
     state.responses[q.id] = {
       ...saved,
       questionId: q.id,
-      answer: finalAnswer?.value || saved.answer || "",
-      formulaText: formulaAnswer?.value || "",
+      answer: q.type === "fill" ? "" : (finalAnswer?.value || saved.answer || ""),
+      formulaText: q.type === "fill" ? "" : (formulaAnswer?.value || ""),
       stepsText: stepsText?.value || "",
       durationMs: Date.now() - state.startedAt
     };
@@ -751,7 +751,7 @@ function bindPractice(q) {
   if (showScratch) {
     showScratch.onclick = () => {
       const panel = document.querySelector(".choice-panel");
-      panel.outerHTML = renderScratchPanel();
+      panel.outerHTML = renderScratchPanel(q);
       bindPractice(q);
     };
   }
@@ -814,8 +814,8 @@ function bindPractice(q) {
 function saveCurrentScratch(q) {
   const canvas = $("#pad");
   const saved = state.responses[q.id] || { questionId: q.id };
-  const finalAnswer = $("#finalAnswer")?.value || saved.answer || "";
-  const formulaText = $("#formulaAnswer")?.value || saved.formulaText || "";
+  const finalAnswer = q.type === "fill" ? "" : ($("#finalAnswer")?.value || saved.answer || "");
+  const formulaText = q.type === "fill" ? "" : ($("#formulaAnswer")?.value || saved.formulaText || "");
   const stepsText = $("#stepsText")?.value || saved.stepsText || "";
   if (!canvas || q.type === "choice") {
     if (finalAnswer || formulaText || stepsText) {
@@ -890,7 +890,7 @@ async function submitRound() {
     message: [
       `本轮共 ${state.questions.length} 题，已完成 ${answered} 题，未完成 ${missing.length} 题。`,
       `标记疑问 ${marked} 题。`,
-      subjectiveWithDraftOnly ? `检测到 ${subjectiveWithDraftOnly} 道题只有草稿，尚未整理正式答案。` : "",
+      subjectiveWithDraftOnly ? `检测到 ${subjectiveWithDraftOnly} 道题只有做题空间记录，尚未整理正式答案。` : "",
       "提交后将锁定本轮答案，并进入 AI 批改与诊断流程。"
     ].filter(Boolean).join("\n"),
     confirmText: "提交并批改",
@@ -945,7 +945,7 @@ async function submitRound() {
 function renderGrading() {
   const steps = [
     "正在读取学生答案",
-    "正在识别手写草稿与公式",
+    "正在识别做题空间中的手写内容与公式",
     "正在拆分解题步骤",
     "正在与标准解法比对",
     "正在检查步骤之间的逻辑关系",
@@ -955,7 +955,7 @@ function renderGrading() {
   ];
   shell("AI批改中", `<section class="panel ai-grading">
     <h2>AI 正在批改本轮试卷</h2>
-    <p>系统会先分析答案和草稿，再生成诊断、针对训练、复测和能力画像。AI分析结果仅作学习辅助，复杂主观题可由教师复核。</p>
+    <p>系统会先分析答案和做题空间，再生成诊断、针对训练、复测和能力画像。AI分析结果仅作学习辅助，复杂主观题可由教师复核。</p>
     <div class="grading-steps">${steps.map((step, index) => `<div class="grading-step ${index < 5 ? "active" : ""}"><span>${index + 1}</span><strong>${step}</strong></div>`).join("")}</div>
   </section>`);
 }
@@ -1321,8 +1321,8 @@ function renderPaperExam() {
     <article class="panel scratch-panel">
       <div class="scratch-head">
         <div>
-          <h3>原卷草稿</h3>
-          <p>这一版先用于整卷练习记录。网页如果禁止嵌入，请点“新窗口打开原卷”，草稿板仍可使用。</p>
+          <h3>原卷做题空间</h3>
+          <p>这一版先用于整卷练习记录。网页如果禁止嵌入，请点“新窗口打开原卷”，做题空间仍可使用。</p>
         </div>
         <div class="row">
           <button class="primary" id="savePaper">保存本卷记录</button>
@@ -1339,7 +1339,7 @@ function renderPaperExam() {
   if (clearPad) clearPad.onclick = () => { resetScratch(); renderPaperExam(); };
   const savePaper = $("#savePaper");
   if (savePaper) savePaper.onclick = () => {
-    alert(`已保存本卷练习记录：${item.year} · ${item.mathType}。当前版本保存草稿轨迹，后续接入 OCR 后可拆成单题诊断。`);
+    alert(`已保存本卷练习记录：${item.year} · ${item.mathType}。当前版本保存做题空间轨迹，后续接入 OCR 后可拆成单题诊断。`);
   };
   bindPadToolbar();
   bindCanvas();
