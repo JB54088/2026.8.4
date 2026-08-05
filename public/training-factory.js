@@ -341,7 +341,7 @@
     ].filter(Boolean) };
   }
 
-  function createTrainingQuestion({ sourceQuestion = {}, sourceTag = {}, index = 0, trainingType = "targeted", purpose = "专项训练", chapterId: requestedChapter = "" } = {}) {
+  function createTrainingQuestion({ sourceQuestion = {}, sourceTag = {}, index = 0, variant = null, trainingType = "targeted", purpose = "专项训练", chapterId: requestedChapter = "" } = {}) {
     const total = trainingType === "comprehensive" ? 20 : 10;
     const forcedType = typePatterns[trainingType]?.[index] || "subjective";
     const sourceChapter = clean(sourceQuestion.chapterId || sourceTag.chapterId || requestedChapter, "limit");
@@ -353,7 +353,7 @@
       .map((value) => clean(value))
       .find((value) => value && value.length <= 28 && !/系统不能|请先|等待|未检测到/.test(value)) || "方法选择错误";
     const source = { ...sourceQuestion, ...sourceTag };
-    const question = makeQuestion({ chapterId, type: forcedType, variant: index + 1, errorType, source, purpose });
+    const question = makeQuestion({ chapterId, type: forcedType, variant: variant == null ? index + 1 : variant, errorType, source, purpose });
     const result = {
       ...question,
       difficultyLevel: difficultyFor(index, total),

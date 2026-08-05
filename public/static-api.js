@@ -51,6 +51,54 @@
     q("past_2012_math2_q02", ["数学二"], "past_exam_2012_math2", "2012 数学二真题", "选择题第2题", "真题切片练习", "choice", "历年真题", 4, "2012年考研数学二第2题", ["A", "B", "C", "D"], "B", "演示版保留真题切片样式，正式答案可由教研校对后启用。", { sourceType: "past_exam", source: "2012 数学二真题", qualityTier: "past_exam_image", stemImage: "past-exam-slices/2012-math2/q02.jpg" })
   ];
 
+  // The public demo has no server-side database. Expand each chapter from reviewed
+  // seed questions so the fixed 20-question flow is still usable and refreshable.
+  chapters.filter((chapter) => chapter.id !== "past_exam_2012_math2").forEach((chapter) => {
+    const existing = questions.filter((item) => item.chapterId === chapter.id);
+    const seed = existing[0] || {
+      id: `demo_seed_${chapter.id}`,
+      subjects: chapter.subjects,
+      chapterId: chapter.id,
+      chapterName: chapter.name,
+      point: chapter.name,
+      reason: "章节综合应用"
+    };
+    const targetCount = 80;
+    for (let index = existing.length; index < targetCount; index += 1) {
+      const variant = window.TrainingFactory.createTrainingQuestion({
+        sourceQuestion: { ...seed, id: `${seed.id}_source`, chapterId: chapter.id, point: seed.point || chapter.name },
+        sourceTag: { questionId: seed.id, errorType: ["概念理解错误", "公式条件错误", "方法选择错误", "计算过程错误"][index % 4], subKnowledgePoint: seed.point || chapter.name, errorCategory: "章节专项训练" },
+        index: index % 10,
+        variant: index + 1,
+        trainingType: "targeted",
+        purpose: "章节20题训练"
+      });
+      questions.push({
+        id: `demo_${chapter.id}_${String(index + 1).padStart(3, "0")}`,
+        subjects: chapter.subjects,
+        chapterId: chapter.id,
+        chapterName: chapter.name,
+        point: variant.knowledgePoint || seed.point || chapter.name,
+        reason: variant.sourceErrorType || seed.reason || "章节综合应用",
+        type: variant.questionType,
+        level: variant.difficulty <= 2 ? "基础训练" : variant.difficulty >= 4 ? "综合训练" : "强化训练",
+        difficulty: variant.difficulty,
+        stem: variant.stem,
+        formula: variant.formula,
+        options: variant.options || [],
+        answer: variant.answer,
+        aliases: variant.aliases || [],
+        explanation: variant.explanation,
+        detailedSolution: variant.detailedSolution,
+        sourceType: "teacher_original",
+        source: "演示题库·规则变式",
+        reviewStatus: "演示题已校验",
+        qualityTier: "exam_standard",
+        generatedFrom: "static-demo-seed"
+      });
+    }
+  });
+
   chapters.forEach((chapter) => {
     chapter.countsByMathType = {};
     questions.filter((item) => item.chapterId === chapter.id).forEach((item) => {
@@ -166,7 +214,17 @@
   const createStaticTrainingBatch = (store, studentId, body = {}) => {
     const latest = (store.submissions || []).filter((item) => item.studentId === studentId).sort((a, b) => String(b.submittedAt).localeCompare(String(a.submittedAt)))[0];
     if (!latest) throw new Error("没有整卷报告，无法生成训练");
-    const wrong = (latest.report?.questionAnalyses || []).find((item) => item.needsDeepDiagnosis) || (latest.report?.questionAnalyses || []).find((item) => !item.finalAnswerCorrect) || latest.report?.questionAnalyses?.[0] || {};
+    const analyses = latest.report?.questionAnalyses || [];
+    const eligible = analyses.filter((item) => item.needsDeepDiagnosis || item.finalAnswerCorrect === false || item.answerCorrectButProcessIssue);
+    const usedSourceIds = new Set((store.trainingBatches || [])
+      .filter((item) => item.studentId === studentId && item.trainingType === "targeted")
+      .map((item) => item.sourceWrongQuestionId)
+      .filter(Boolean));
+    const wrong = analyses.find((item) => item.questionId === body.sourceWrongQuestionId)
+      || eligible.find((item) => !usedSourceIds.has(item.questionId))
+      || eligible[0]
+      || analyses[0]
+      || {};
     const trainingType = body.trainingType === "comprehensive" ? "comprehensive" : "targeted";
     const total = trainingType === "comprehensive" ? 20 : 10;
     const purpose = trainingType === "targeted"
@@ -192,7 +250,7 @@
     const questionsForTraining = Array.from({ length: total }, (_, index) => ({
       id: `trainq_${Date.now()}_${index}_${Math.random().toString(16).slice(2)}`,
       index: index + 1,
-      ...window.TrainingFactory.createTrainingQuestion({ sourceQuestion, sourceTag, index, trainingType, purpose: purpose[index] })
+      ...window.TrainingFactory.createTrainingQuestion({ sourceQuestion, sourceTag, index: trainingType === "targeted" ? index % 10 : index, variant: index + 1, trainingType, purpose: purpose[index] })
     }));
     questionsForTraining.forEach((question) => { question.questionId = question.id; });
     questionsForTraining.forEach((question) => {
@@ -206,6 +264,9 @@
       submissionId: latest.id,
       trainingType,
       sourceWrongQuestionId: sourceTag.questionId,
+      sourceQuestionTitle: sourceQuestion.stem,
+      sourceKnowledgePoint: sourceTag.subKnowledgePoint || sourceQuestion.point,
+      sourceErrorEvidence: wrong.firstErrorStep ? `第${wrong.firstErrorStep}步：${wrong.deductionReason || sourceTag.errorType}` : sourceTag.errorType,
       sourceErrorType: questionsForTraining[0].sourceErrorType || sourceTag.errorType,
       sourceWrongStep: sourceTag.sourceWrongStep,
       knowledgePoint: wrong.chapterName || "考研数学",
@@ -387,7 +448,7 @@
     if (method === "GET" && path === "/api/questions") {
       const student = store.students[0] || studentFrom({});
       const chapterId = url.searchParams.get("chapterId") || "integral";
-      const count = Math.min(50, Number(url.searchParams.get("count") || 20));
+      const count = 20;
       const difficulty = url.searchParams.get("difficulty") || "all";
       const sourceType = url.searchParams.get("sourceType") || "all";
       const mode = url.searchParams.get("mode") || "reinforce";
@@ -395,8 +456,32 @@
       if (sourceType !== "all") pool = pool.filter((item) => item.sourceType === sourceType);
       if (!["all", "mode"].includes(difficulty)) pool = pool.filter((item) => String(item.difficulty) === String(difficulty));
       if (!pool.length && chapterId === "all") pool = questions.filter((item) => item.subjects.includes(student.mathType));
-      const selected = Array.from({ length: Math.min(count, pool.length) }, (_, index) => pool[(index + Date.now()) % pool.length]);
-      return json({ questions: selected, chapterId, count, difficulty, sourceType, mode });
+      const modeDifficulty = { foundation: ["1", "2"], reinforce: ["3", "4"], mock: ["1", "2", "3", "4", "5"] }[mode] || ["3", "4"];
+      const modePool = ["all", "mode"].includes(difficulty) ? pool.filter((item) => modeDifficulty.includes(String(item.difficulty))) : pool;
+      const candidates = modePool.length >= count ? modePool : pool;
+      const attemptedIds = new Set((store.attempts || []).filter((item) => item.studentId === student.id).map((item) => item.questionId));
+      const unseen = candidates.filter((item) => !attemptedIds.has(item.id));
+      const source = unseen.length >= count ? unseen : candidates;
+      if (!source.length) return json({ questions: [], chapterId, count, difficulty, sourceType, mode, message: "当前章节暂无可用题目。" });
+      const refresh = url.searchParams.get("refresh") === "1";
+      const roundKey = `demoQuestionRound:${sessionId}:${chapterId}:${mode}:${difficulty}:${sourceType}`;
+      const previousRound = new Set(JSON.parse(localStorage.getItem(roundKey) || "[]"));
+      const refreshPool = refresh && source.filter((item) => !previousRound.has(item.id)).length >= count
+        ? source.filter((item) => !previousRound.has(item.id))
+        : source;
+      const refreshSeed = refresh ? `${Date.now()}_${Math.random()}` : `${sessionId}_${chapterId}_${mode}_${difficulty}`;
+      const hash = (value) => {
+        let result = 2166136261;
+        for (const character of String(value)) result = Math.imul(result ^ character.charCodeAt(0), 16777619);
+        return result >>> 0;
+      };
+      const selected = refreshPool
+        .map((item) => ({ item, rank: hash(`${refreshSeed}:${item.id}`) }))
+        .sort((left, right) => left.rank - right.rank)
+        .slice(0, Math.min(count, source.length))
+        .map(({ item }) => item);
+      localStorage.setItem(roundKey, JSON.stringify(selected.map((item) => item.id)));
+      return json({ questions: selected, chapterId, count, difficulty, sourceType, mode, availableCount: source.length });
     }
     if (method === "POST" && path === "/api/attempts") {
       const question = questions.find((item) => item.id === body.questionId);

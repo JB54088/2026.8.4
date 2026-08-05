@@ -907,7 +907,7 @@ async function api(req, res) {
     const student = store.students.find((s) => s.id === url.searchParams.get("studentId"));
     if (!student) return send(res, 404, { error: "学生不存在" });
     const chapterId = url.searchParams.get("chapterId") || "integral";
-    const count = Math.max(1, Math.min(50, Number(url.searchParams.get("count") || 20)));
+    const count = 20;
     const difficulty = url.searchParams.get("difficulty") || "all";
     const sourceType = url.searchParams.get("sourceType") || "all";
     const mode = url.searchParams.get("mode") || "reinforce";
@@ -953,8 +953,11 @@ async function api(req, res) {
       pool = basePool;
     }
     const refresh = url.searchParams.get("refresh") === "1";
-    pool = uniqueByStem(pool);
-    const unseen = uniqueByStem(pool.filter((q) => !attemptedIds.has(q.id)));
+    const distinctPool = uniqueByStem(pool);
+    // A chapter can contain many approved variants with the same normalized stem.
+    // Do not shrink a fixed 20-question round below 20 just because of de-duplication.
+    if (distinctPool.length >= count) pool = distinctPool;
+    const unseen = pool.filter((q) => !attemptedIds.has(q.id));
     const source = unseen.length >= count ? unseen : pool;
     const selected = sampleQuestions(source, count, refresh ? Date.now() : `${student.id}-${chapterId}-${difficulty}-${sourceType}-${mode}-${count}-${attempts.length}`);
     send(res, 200, { questions: selected, chapterId, count, difficulty, sourceType, mode });
@@ -1771,8 +1774,16 @@ function latestSubmissionFor(store, studentId, submissionId = "") {
 
 function selectSourceError(store, submission, sourceQuestionId = "") {
   const report = submission?.report || {};
-  let item = (report.questionAnalyses || []).find((q) => q.questionId === sourceQuestionId);
-  if (!item) item = (report.questionAnalyses || []).find((q) => q.needsDeepDiagnosis) || (report.questionAnalyses || []).find((q) => !q.finalAnswerCorrect) || (report.questionAnalyses || [])[0];
+  const candidates = (report.questionAnalyses || []).filter((q) => q.needsDeepDiagnosis || q.finalAnswerCorrect === false || q.answerCorrectButProcessIssue);
+  let item = candidates.find((q) => q.questionId === sourceQuestionId);
+  if (!item && !sourceQuestionId) {
+    const usedSourceIds = new Set((store.trainingBatches || [])
+      .filter((batch) => batch.studentId === submission.studentId && batch.trainingType === "targeted")
+      .map((batch) => batch.sourceWrongQuestionId)
+      .filter(Boolean));
+    item = candidates.find((q) => !usedSourceIds.has(q.questionId));
+  }
+  if (!item) item = candidates[0] || (report.questionAnalyses || [])[0];
   const question = store.questions.find((q) => q.id === item?.questionId) || {};
   const attempt = store.attempts.find((a) => a.submissionId === submission.id && a.questionId === question.id) || {};
   const firstStep = (item?.steps || []).find((step) => step.status !== "correct") || (item?.steps || [])[0] || {};
@@ -1812,6 +1823,9 @@ function buildTrainingBatch(store, studentId, { submissionId = "", sourceQuestio
     submissionId: submission.id,
     trainingType,
     sourceWrongQuestionId: source.question.id || "",
+    sourceQuestionTitle: source.question.stem || source.item?.title || "",
+    sourceKnowledgePoint: source.tag.subKnowledgePoint || source.question.point || "",
+    sourceErrorEvidence: source.item?.firstErrorStep ? `第${source.item.firstErrorStep}步：${source.item.deductionReason || source.tag.errorType}` : source.tag.errorType,
     sourceErrorType: questions[0].sourceErrorType || source.tag.errorType,
     sourceWrongStep: source.tag.sourceWrongStep,
     knowledgePoint: source.tag.knowledgePoint,
