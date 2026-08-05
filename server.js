@@ -1766,4 +1766,479 @@ function classifyErrorTag(question, attempt, step = {}) {
 
 function latestSubmissionFor(store, studentId, submissionId = "") {
   const list = (store.submissions || []).filter((item) => item.studentId === studentId && (!submissionId || item.id === submissionId || item.submissionId === submissionId));
-  return list.sort((a, b) => String(b.submittedAt).localeCompare(String(a.submitt
+  return list.sort((a, b) => String(b.submittedAt).localeCompare(String(a.submittedAt)))[0] || null;
+}
+
+function selectSourceError(store, submission, sourceQuestionId = "") {
+  const report = submission?.report || {};
+  let item = (report.questionAnalyses || []).find((q) => q.questionId === sourceQuestionId);
+  if (!item) item = (report.questionAnalyses || []).find((q) => q.needsDeepDiagnosis) || (report.questionAnalyses || []).find((q) => !q.finalAnswerCorrect) || (report.questionAnalyses || [])[0];
+  const question = store.questions.find((q) => q.id === item?.questionId) || {};
+  const attempt = store.attempts.find((a) => a.submissionId === submission.id && a.questionId === question.id) || {};
+  const firstStep = (item?.steps || []).find((step) => step.status !== "correct") || (item?.steps || [])[0] || {};
+  return { item, question, attempt, tag: classifyErrorTag(question, attempt, firstStep) };
+}
+
+function buildTrainingBatch(store, studentId, { submissionId = "", sourceQuestionId = "", trainingType = "targeted" } = {}) {
+  const submission = latestSubmissionFor(store, studentId, submissionId);
+  if (!submission) throw new Error("没有可用于生成训练的整卷诊断");
+  const source = selectSourceError(store, submission, sourceQuestionId);
+  const total = trainingType === "comprehensive" ? 20 : 10;
+  const questions = Array.from({ length: total }, (_, index) => ({
+    id: id("trainq"),
+    index: index + 1,
+    ...createGeneratedTrainingQuestion({
+      sourceQuestion: source.question,
+      sourceTag: source.tag,
+      index,
+      trainingType,
+      purpose: trainingType === "targeted"
+        ? ["基础概念题", "基础概念题", "关键步骤题", "关键步骤题", "同类题", "同类题", "变式题", "变式题", "易错题", "综合检验题"][index]
+        : ["当前最严重错误专项", "当前最严重错误专项", "当前最严重错误专项", "当前最严重错误专项", "当前最严重错误专项", "当前最严重错误专项", "当前最严重错误专项", "当前最严重错误专项", "当前最严重错误专项", "当前最严重错误专项", "其他薄弱知识点", "其他薄弱知识点", "其他薄弱知识点", "其他薄弱知识点", "历史重复错误", "历史重复错误", "历史重复错误", "防遗忘巩固题", "防遗忘巩固题", "提升题"][index]
+    })
+  }));
+  questions.forEach((question) => { question.questionId = question.id; });
+  questions.forEach((question) => {
+    const validation = validateTrainingQuestion(question);
+    if (!validation.valid) throw new Error(`第${question.index}题校验失败：${validation.reasons.join("、")}`);
+  });
+  const composition = trainingType === "comprehensive"
+    ? { mainErrorType: 10, otherWeakKnowledge: 4, repeatedHistory: 3, antiForgetting: 2, stretch: 1 }
+    : { conceptDiscrimination: 2, basicSteps: 2, sameType: 2, variants: 2, trap: 1, synthesis: 1 };
+  const batch = {
+    id: id("batch"),
+    trainingBatchId: "",
+    studentId,
+    submissionId: submission.id,
+    trainingType,
+    sourceWrongQuestionId: source.question.id || "",
+    sourceErrorType: questions[0].sourceErrorType || source.tag.errorType,
+    sourceWrongStep: source.tag.sourceWrongStep,
+    knowledgePoint: source.tag.knowledgePoint,
+    subKnowledgePoint: source.tag.subKnowledgePoint,
+    errorCategory: source.tag.errorCategory,
+    trainingTheme: trainingType === "targeted" ? `${source.tag.subKnowledgePoint} · ${questions[0].sourceErrorType}` : "20题综合训练",
+    composition,
+    questionCount: total,
+    total,
+    estimatedMinutes: Math.ceil(questions.reduce((sum, q) => sum + q.estimatedSeconds, 0) / 60),
+    questions,
+    progress: { answered: 0, correct: 0, accuracy: 0, hintsUsed: 0, repeatedOriginalError: false, masteryBefore: source.item?.score && source.item?.maxScore ? Math.round(source.item.score / source.item.maxScore * 100) : 35, masteryAfter: null },
+    status: "waiting_review_first",
+    createdAt: nowIso(),
+    updatedAt: nowIso()
+  };
+  batch.trainingBatchId = batch.id;
+  store.trainingBatches.push(batch);
+  return batch;
+}
+
+function isTrainingBatchReady(batch) {
+  if (!batch || !Array.isArray(batch.questions)) return false;
+  const total = Number(batch.total || batch.questionCount || 0);
+  return total > 0 && batch.questions.length === total && batch.questions.every((question) => validateTrainingQuestion(question).valid);
+}
+
+function gradeTrainingQuestion(question, body = {}) {
+  const answer = body.answer || body.selectedOption || body.formulaText || "";
+  const correct = question.questionType === "subjective"
+    ? null
+    : equivalentAnswer(question.answer, answer);
+  const usedHints = Number(body.hintLevelUsed || 0);
+  return {
+    correct,
+    repeatedOriginalError: correct === false && String(body.stepsText || answer).includes(question.sourceErrorType),
+    score: correct === true ? (usedHints >= 3 ? 70 : usedHints ? 85 : 100) : 0,
+    gradingStatus: correct === null ? "pending_recognition" : "graded"
+  };
+}
+
+function detectProcessIssue(question, attempt, steps = []) {
+  if (!attempt) {
+    return { hasIssue: true, reason: "未检测到作答记录", severity: "high" };
+  }
+  if (attempt.gradingStatus === "recognition_error") {
+    return { hasIssue: true, reason: "手写内容识别不确定", severity: "medium" };
+  }
+  if (attempt.correct !== true) {
+    return { hasIssue: true, reason: reasonForAttempt(question, attempt), severity: "high" };
+  }
+  if (attempt.processHasIssue) {
+    return { hasIssue: true, reason: attempt.processIssueReason || "结果正确但过程存在问题", severity: "medium" };
+  }
+  const hasStudentProcess = String(attempt.stepsText || "").trim()
+    || Number(attempt.strokeCount || 0) > 0
+    || attempt.scratchImageStored
+    || attempt.answerImageStored
+    || (Array.isArray(attempt.structuredSteps) && attempt.structuredSteps.length);
+  if (!["choice", "fill"].includes(question?.type) && !hasStudentProcess) {
+    return { hasIssue: true, reason: "结果正确但主观题缺少可复核过程", severity: "medium" };
+  }
+  if (Number(attempt.recognitionConfidence || 0) > 0 && Number(attempt.recognitionConfidence || 0) < 70) {
+    return { hasIssue: true, reason: "结果正确但手写识别置信度较低，需要确认过程", severity: "low" };
+  }
+  if (steps.some((step) => step.status && !["correct"].includes(step.status))) {
+    return { hasIssue: true, reason: "结果正确但步骤对照中存在非正确步骤", severity: "medium" };
+  }
+  return { hasIssue: false, reason: "", severity: "none" };
+}
+
+function buildRetestFromBatch(batch) {
+  const seed = batch.questions[0] || {};
+  const make = (index, purpose) => ({
+    id: id("retestq"),
+    sourceWrongQuestionId: batch.sourceWrongQuestionId,
+    sourceErrorType: batch.sourceErrorType,
+    knowledgePoint: batch.knowledgePoint,
+    subKnowledgePoint: batch.subKnowledgePoint,
+    questionType: index === 4 ? "original_retry" : "subjective",
+    difficultyLevel: index < 2 ? 3 : 4,
+    stem: `${purpose}：围绕 ${batch.subKnowledgePoint}，独立完成，不提供明显提示。`,
+    answer: seed.answer || "以完整推导结果为准",
+    detailedSolution: seed.detailedSolution || {},
+    hintPolicy: "retest_no_hint"
+  });
+  return [make(0, "同错误类型新题1"), make(1, "同错误类型新题2"), make(2, "同知识点变式题"), make(3, "综合迁移题"), make(4, "原错题重新作答")];
+}
+
+function normalizeWeakPoint(question, attempt) {
+  if (question?.point) return question.point;
+  if (question?.chapterName) return question.chapterName;
+  if (attempt?.chapterId) return attempt.chapterId;
+  return "当前章节核心概念";
+}
+
+function reasonForAttempt(question, attempt) {
+  const raw = String(attempt?.reason || "").trim();
+  if (!attempt || attempt.correct === null || attempt.gradingStatus === "pending_recognition") return "过程识别不足";
+  if (attempt.correct) return "已掌握";
+  return raw && !["已掌握", "待识别"].includes(raw) ? raw : (question?.reason || "解题方法选择错误");
+}
+
+function buildStepAnalysis(question, attempt) {
+  const weakPoint = normalizeWeakPoint(question, attempt);
+  const reason = reasonForAttempt(question, attempt);
+  const { maxScore } = scoreForAttempt(question, attempt);
+  if (!attempt || attempt.correct === null || attempt.gradingStatus === "pending_recognition") {
+    return [{
+      stepNumber: 1,
+      status: "blank",
+      judgment: "需要补充可识别的解题过程",
+      score: 0,
+      maxScore,
+      studentContent: attempt?.stepsText || "仅检测到草稿轨迹，尚未形成可判分步骤",
+      normalizedExpression: attempt?.recognizedAnswer || "待 OCR/AI 识别",
+      errorDescription: "系统不能把空白草稿或随意笔画当成标准答案，需要先识别公式、关键步骤和最终结论。",
+      correction: "在草稿区保留计算链路，并在正式答案区写出最终结果；主观题建议按“设-列式-化简-结论”书写。",
+      relatedKnowledgePoint: weakPoint
+    }];
+  }
+  if (attempt.correct) {
+    return [{
+      stepNumber: 1,
+      status: "correct",
+      judgment: "最终答案正确，核心方法匹配",
+      score: maxScore,
+      maxScore,
+      studentContent: attempt.stepsText || attempt.answer || attempt.selectedOption || "直接选择/填写答案",
+      normalizedExpression: attempt.recognizedAnswer || attempt.answer || attempt.selectedOption || "答案正确",
+      errorDescription: "本题未发现明显错误，可继续做同知识点变式题巩固稳定性。",
+      correction: question?.explanation || "保持当前方法，注意书写完整性。",
+      relatedKnowledgePoint: weakPoint
+    }];
+  }
+  const partial = scoreForAttempt(question, attempt).score;
+  return [
+    {
+      stepNumber: 1,
+      status: partial ? "partial" : "wrong",
+      judgment: partial ? "能进入题目，但关键转化不完整" : "缺少有效解题入口",
+      score: partial,
+      maxScore,
+      studentContent: attempt.stepsText || attempt.answer || attempt.selectedOption || "未形成完整过程",
+      normalizedExpression: attempt.recognizedAnswer || attempt.answer || attempt.selectedOption || "未识别出正确表达",
+      errorDescription: reason,
+      correction: question?.explanation || "先回到定义、公式或典型模型，再完成代入与化简。",
+      relatedKnowledgePoint: weakPoint
+    },
+    {
+      stepNumber: 2,
+      status: "wrong",
+      judgment: "最终结果与标准答案不一致",
+      score: 0,
+      maxScore,
+      studentContent: attempt.recognizedAnswer || attempt.answer || attempt.selectedOption || "无最终答案",
+      normalizedExpression: `标准答案：${question?.answer || "待校对"}`,
+      errorDescription: "结果错误会进入错题集，并触发同知识点专项训练和变式复测。",
+      correction: `重新核对 ${weakPoint} 的条件、公式和计算细节。`,
+      relatedKnowledgePoint: weakPoint
+    }
+  ];
+}
+
+function buildDemoLoop() {
+  return {
+    diagnosis: {
+      score: "6/15",
+      accuracy: 40,
+      weakKnowledgePoints: ["一元函数应用建模", "利润函数", "方程约束关系"],
+      summary: "本轮主要问题不是计算量不足，而是题意中的数量关系没有转成正确模型。AI定位到第一次偏差出现在利润表达式：把单件利润误写为 60+x，导致后续方程和结论全部偏离。",
+      questionAnalyses: [{
+        typeLabel: "主观题",
+        score: 6,
+        maxScore: 15,
+        finalAnswerCorrect: false,
+        title: "某商品原售价60元，成本40元。若每涨价1元，销量减少2件。求使总利润为2400元时的涨价额。",
+        studentAnswer: "(60+x)(100-2x)=2400",
+        standardAnswer: "(20+x)(100-2x)=2400",
+        errorTypes: ["数量关系理解错误", "利润公式应用错误", "建模错误"],
+        knowledgePoints: ["函数应用题建模", "利润=单件利润×销量"],
+        steps: [
+          { stepNumber: 1, status: "correct", judgment: "能识别变量", score: 3, maxScore: 3, studentContent: "设涨价 x 元", normalizedExpression: "x 表示涨价额", errorDescription: "变量设定清楚。", correction: "继续保留变量含义和单位。", relatedKnowledgePoint: "变量设定" },
+          { stepNumber: 2, status: "wrong", judgment: "第一次错误：单件利润写错", score: 0, maxScore: 6, studentContent: "利润 = (60+x)(100-2x)", normalizedExpression: "(60+x)(100-2x)", errorDescription: "60+x 是售价，不是利润。单件利润应为售价减成本，即 60+x-40=20+x。", correction: "把模型改为 (20+x)(100-2x)=2400，再求解。", relatedKnowledgePoint: "利润函数" },
+          { stepNumber: 3, status: "partial", judgment: "后续计算受前一步影响", score: 3, maxScore: 6, studentContent: "展开并求 x", normalizedExpression: "基于错误方程求解", errorDescription: "计算过程本身有一定完整性，但建立在错误模型上，不能得到正确结论。", correction: "应用题先检查模型，再进行计算。", relatedKnowledgePoint: "方程建模" }
+        ]
+      }]
+    },
+    trainingPlan: {
+      goal: "围绕“利润函数建模”完成一轮针对训练",
+      totalQuestions: 8,
+      estimatedMinutes: 25,
+      completionStandard: "同类变式连续2题独立建模正确",
+      items: [
+        { type: "概念补漏", title: "区分售价、成本、单件利润、总利润", purpose: "解决把售价当利润的问题", knowledgePoint: "利润公式", errorType: "概念理解错误", completed: false },
+        { type: "模板训练", title: "用表格列出原量、变化量、变化后数量", purpose: "让应用题数量关系可视化", knowledgePoint: "方程建模", errorType: "方法选择错误", completed: false },
+        { type: "同类练习", title: "完成3道利润最大值/定值问题", purpose: "强化单件利润×销量的模型", knowledgePoint: "函数应用", errorType: "综合应用不足", completed: false },
+        { type: "错因复盘", title: "重做原题并标注第一次错误位置", purpose: "确认学生知道自己为什么错", knowledgePoint: "错误定位", errorType: "审题遗漏", completed: false }
+      ]
+    },
+    retest: {
+      score: 13,
+      independent: true,
+      hintsUsed: 0,
+      passed: true,
+      questions: [
+        { typeLabel: "主观题", difficulty: "3星 易错", stem: "某商品成本30元，售价50元。每涨价2元销量减少5件，求利润达到1800元时的涨价额。", target: "验证利润函数建模", result: "模型建立正确，计算稳定" },
+        { typeLabel: "填空题", difficulty: "2星 计算", stem: "售价 a，成本 b，销量 q，则总利润表达式为____。", target: "验证公式迁移", result: "填写正确" }
+      ]
+    },
+    improvement: { beforeMastery: 42, afterMastery: 78, improvementValue: 36, status: "已达标，建议隔日复测", originalError: "把售价当成利润，导致模型源头错误。", trainingResult: "已能区分售价、成本和单件利润，并能独立列式。", nextRisk: "遇到折扣、销量变化率等复杂表述时仍需慢审题。" },
+    profile: {
+      abilities: [
+        { name: "概念理解", current: 76, previous: 48, trend: "明显提升", evidence: "能正确解释利润公式", suggestion: "继续用错因卡复盘易混概念" },
+        { name: "方法选择", current: 70, previous: 46, trend: "提升", evidence: "能主动用表格梳理数量关系", suggestion: "强化应用题建模入口" },
+        { name: "计算稳定性", current: 82, previous: 72, trend: "小幅提升", evidence: "展开化简错误减少", suggestion: "限时训练保持速度" },
+        { name: "题型识别", current: 68, previous: 44, trend: "提升", evidence: "能识别利润函数问题", suggestion: "扩展到最值、方程、不等式混合题" }
+      ]
+    }
+  };
+}
+
+function buildLearningLoopFor(store, studentId, demo = false) {
+  if (demo) return buildDemoLoop();
+  const attempts = store.attempts.filter((a) => a.studentId === studentId).slice(-8).reverse();
+  if (!attempts.length) return buildDemoLoop();
+  const questionAnalyses = attempts.map((attempt) => {
+    const question = store.questions.find((q) => q.id === attempt.questionId) || {};
+    const { score, maxScore } = scoreForAttempt(question, attempt);
+    const reason = reasonForAttempt(question, attempt);
+    return {
+      typeLabel: typeLabelFor(question.type),
+      score,
+      maxScore,
+      finalAnswerCorrect: attempt.correct === true,
+      title: question.stem || question.point || question.chapterName || "未命名题目",
+      studentAnswer: attempt.recognizedAnswer || attempt.answer || attempt.selectedOption || "",
+      standardAnswer: question.answer || "待校对",
+      errorTypes: attempt.correct ? [] : [reason],
+      knowledgePoints: [normalizeWeakPoint(question, attempt)],
+      steps: buildStepAnalysis(question, attempt)
+    };
+  });
+  const totalScore = questionAnalyses.reduce((sum, item) => sum + item.score, 0);
+  const totalMax = Math.max(1, questionAnalyses.reduce((sum, item) => sum + item.maxScore, 0));
+  const wrongItems = questionAnalyses.filter((item) => !item.finalAnswerCorrect);
+  const weakKnowledgePoints = Array.from(new Set(wrongItems.flatMap((item) => item.knowledgePoints))).slice(0, 5);
+  const weakReasons = Array.from(new Set(wrongItems.flatMap((item) => item.errorTypes))).slice(0, 5);
+  const accuracy = Math.round(totalScore / totalMax * 100);
+  const primaryWeak = weakKnowledgePoints[0] || "当前章节核心能力";
+  const primaryReason = weakReasons[0] || "稳定性不足";
+  const beforeMastery = Math.max(25, Math.min(78, accuracy - 8));
+  const afterMastery = Math.max(beforeMastery + 10, Math.min(92, accuracy + 18));
+  return {
+    diagnosis: {
+      score: `${totalScore}/${totalMax}`,
+      accuracy,
+      weakKnowledgePoints,
+      summary: wrongItems.length ? `本轮 AI 重点定位到 ${primaryWeak} 上的薄弱点，主要错因是 ${primaryReason}。建议先做专项补漏，再用同知识点变式复测确认是否真正掌握。` : "本轮整体表现稳定，建议进入更高难度或跨章节综合题，防止只会熟悉题型。",
+      questionAnalyses
+    },
+    trainingPlan: {
+      goal: wrongItems.length ? `围绕“${primaryWeak}”完成针对训练` : "进入综合提升训练",
+      totalQuestions: Math.max(6, wrongItems.length * 3 || 6),
+      estimatedMinutes: Math.max(18, wrongItems.length * 8 || 18),
+      completionStandard: "同知识点变式连续2题独立正确，且草稿步骤可解释",
+      items: [
+        { type: "概念补漏", title: `复盘 ${primaryWeak} 的定义、公式和适用条件`, purpose: "先修正错误来源，减少盲目刷题", knowledgePoint: primaryWeak, errorType: primaryReason, completed: false },
+        { type: "例题拆解", title: "对照标准解法标出第一次偏差位置", purpose: "让学生知道为什么错，而不是只知道答案错", knowledgePoint: primaryWeak, errorType: primaryReason, completed: false },
+        { type: "同类训练", title: "完成3道同知识点基础变式题", purpose: "验证能否迁移到新题", knowledgePoint: primaryWeak, errorType: "方法迁移", completed: false },
+        { type: "限时巩固", title: "完成2道易错/综合变式题", purpose: "检查速度和稳定性", knowledgePoint: primaryWeak, errorType: "综合应用", completed: false }
+      ]
+    },
+    retest: {
+      score: Math.min(100, afterMastery),
+      independent: afterMastery >= 70,
+      hintsUsed: afterMastery >= 70 ? 0 : 1,
+      passed: afterMastery >= 70,
+      questions: [
+        { typeLabel: "变式题", difficulty: "基础变式", stem: `围绕 ${primaryWeak} 的同模型变式题`, target: "确认公式和入口是否正确", result: afterMastery >= 70 ? "已通过" : "仍需巩固" },
+        { typeLabel: "变式题", difficulty: "综合变式", stem: `把 ${primaryWeak} 放入跨章节情境中重新检测`, target: "确认是否真正迁移", result: afterMastery >= 75 ? "迁移基本稳定" : "迁移仍不稳定" }
+      ]
+    },
+    improvement: { beforeMastery, afterMastery, improvementValue: afterMastery - beforeMastery, status: afterMastery >= 75 ? "阶段达标" : "需要二刷", originalError: primaryReason, trainingResult: `已生成 ${primaryWeak} 的补漏、同类训练和限时巩固任务。`, nextRisk: weakKnowledgePoints[1] ? `下一轮建议关注 ${weakKnowledgePoints[1]}。` : "下一轮建议增加综合题，验证长期稳定性。" },
+    profile: {
+      abilities: [
+        { name: "概念理解", current: Math.min(95, afterMastery), previous: beforeMastery, trend: afterMastery > beforeMastery ? "提升" : "持平", evidence: primaryReason, suggestion: `继续复盘 ${primaryWeak}` },
+        { name: "方法选择", current: Math.min(90, afterMastery - 3), previous: Math.max(20, beforeMastery - 5), trend: "跟随训练更新", evidence: "来自最近一轮题目步骤分析", suggestion: "优先写出解题入口和使用理由" },
+        { name: "计算稳定性", current: Math.min(88, accuracy + 10), previous: Math.max(30, accuracy - 6), trend: "待复测验证", evidence: "由最终答案和草稿完整度综合估计", suggestion: "继续保留关键计算步骤" },
+        { name: "题型识别", current: Math.min(86, afterMastery - 5), previous: Math.max(25, beforeMastery - 8), trend: "可提升", evidence: "基于错题知识点分布", suggestion: "使用同知识点不同问法做迁移训练" }
+      ]
+    }
+  };
+}
+
+function enrichMistakeLoop(loop) {
+  const first = loop.diagnosis?.questionAnalyses?.find((item) => !item.finalAnswerCorrect) || loop.diagnosis?.questionAnalyses?.[0] || {};
+  const firstWrongStep = first.steps?.find((step) => step.status !== "correct") || first.steps?.[0] || {};
+  const knowledgePoint = first.knowledgePoints?.[0] || loop.diagnosis?.weakKnowledgePoints?.[0] || "当前薄弱知识点";
+  const errorType = first.errorTypes?.[0] || "知识点应用错误";
+  const isProfit = /利润|售价|成本|profit/i.test(`${knowledgePoint} ${first.title} ${firstWrongStep.errorDescription}`);
+  const reviewModule = isProfit ? {
+    title: "利润关系",
+    relationToMistake: "本题错误发生在把“售价”当成“单件利润”。复习目标是先分清售价、进价、单件利润和总利润，再回到建模。",
+    coreConcept: "利润问题中，单件利润不是售价，而是售价减去进价；总利润等于单件利润乘以销量。",
+    formulas: ["单件利润 = 售价 - 进价", "总利润 = 单件利润 × 销量", "变化后销量 = 原销量 ± 变化量"],
+    conditions: "题目给出售价和进价时，必须先计算单件利润；题目给出销量随价格变化时，再建立销量表达式。",
+    commonMistakes: ["直接把售价当利润", "忘记减去进价", "把营业额和利润混淆", "销量变化方向写反"],
+    correctExample: "售价80元，进价50元，则单件利润为80-50=30元。",
+    wrongExample: "售价80元，进价50元，直接写单件利润为80元，这是把售价当成利润。",
+    strategy: "你的错误属于建模/数量关系错误，先用关系图拆变量，再做相似题。"
+  } : {
+    title: knowledgePoint,
+    relationToMistake: `本题第一次关键偏差出现在“${firstWrongStep.judgment || errorType}”，对应知识点是 ${knowledgePoint}。`,
+    coreConcept: `${knowledgePoint} 的复习重点是弄清定义、适用条件和题目中的触发信号。`,
+    formulas: [first.standardAnswer ? "先确认使用条件，再代入公式或模型" : "先写出已知条件与所求目标", "每一步必须能解释来源"],
+    conditions: "只有题目条件满足对应公式/方法时才能直接使用；不满足时先做等价转化或建模。",
+    commonMistakes: [errorType, "只看最终答案不检查过程", "忽略题目限制条件"],
+    correctExample: "先提取已知条件，再写出所用知识点，最后代入计算。",
+    wrongExample: firstWrongStep.studentContent || "直接套公式但没有检查条件。",
+    strategy: `你的错误类型是 ${errorType}，本次复习控制在2-3分钟，先补关键概念，再做理解检查。`
+  };
+  const understandingCheck = isProfit ? {
+    purpose: "确认你已经能区分售价和单件利润。",
+    question: "某商品售价80元，进价50元，单件利润是多少？",
+    options: [
+      { key: "A", text: "80元" },
+      { key: "B", text: "50元" },
+      { key: "C", text: "30元" },
+      { key: "D", text: "130元" }
+    ],
+    answer: "C",
+    passFeedback: "正确。你已经能把售价和利润分开，可以进入相似题训练。",
+    failFeedback: "还不能进入相似题训练。请回到“单件利润=售价-进价”这一部分重新复习。"
+  } : {
+    purpose: `确认你已经理解 ${knowledgePoint} 的使用入口。`,
+    question: `做这类题时，最先应该确认什么？`,
+    options: [
+      { key: "A", text: "直接写最终答案" },
+      { key: "B", text: `确认 ${knowledgePoint} 的适用条件和题目条件` },
+      { key: "C", text: "先看解析" },
+      { key: "D", text: "随机换一道题" }
+    ],
+    answer: "B",
+    passFeedback: "正确。先确认知识点与条件，再进入相似题。",
+    failFeedback: "还不能进入相似题训练。请回到知识点复习页，重点看使用条件。"
+  };
+  const similarTraining = isProfit ? {
+    goal: "利润关系相似题训练",
+    levels: [
+      { level: "第一层：基础模仿题", title: "直接计算单件利润", stem: "某商品进价30元，售价50元，每天卖出80件，求每天总利润。", target: "确认会用单件利润=售价-进价", hint: "先算一件赚多少。", feedback: "答错只提示售价、进价和利润关系，不直接给完整解析。" },
+      { level: "第二层：同类变式题", title: "建立变化后利润表达式", stem: "某商品进价40元，售价每提高2元，销量减少5件，建立总利润表达式。", target: "确认能处理销量变化", hint: "分别写出单件利润和销量。", feedback: "如果把售价当利润，返回知识点复习。" },
+      { level: "第三层：综合迁移题", title: "独立完成利润建模", stem: "某商店销售一种商品，价格调整会影响销量，求达到目标利润时的定价。", target: "接近原错题难度，减少提示", hint: "", feedback: "最后一题需独立完成，使用高级提示不算完全掌握。" }
+    ]
+  } : {
+    goal: `${knowledgePoint} 相似题训练`,
+    levels: [
+      { level: "第一层：基础模仿题", title: "确认知识点入口", stem: `围绕 ${knowledgePoint} 的直接应用题。`, target: "确认能正确使用刚复习的知识点", hint: "先写出适用条件。", feedback: "只给一级提示，不立即展示完整答案。" },
+      { level: "第二层：同类变式题", title: "更换情境表达", stem: `更换数字或问法，但仍考查 ${knowledgePoint}。`, target: "确认迁移能力", hint: "找题目中的触发条件。", feedback: "重复原错则返回复习。" },
+      { level: "第三层：综合迁移题", title: "接近原错题", stem: `把 ${knowledgePoint} 放入综合情境中独立完成。`, target: "确认独立完成", hint: "", feedback: "最后一题要求低提示完成。" }
+    ]
+  };
+  const originalRetry = {
+    stem: first.title || "原错题",
+    firstMistakeSummary: `你第一次在“${firstWrongStep.judgment || errorType}”这一步出现问题，错误类型是 ${errorType}。这里不展示完整正确解法。`,
+    acceptedSignals: isProfit ? ["20+x", "60+x-40", "(20+x)(100-2x)"] : [String(first.standardAnswer || ""), knowledgePoint].filter(Boolean),
+    durationSecond: 0
+  };
+  loop.recoveryPath = {
+    currentStage: "DIAGNOSED",
+    nextAction: `先复习 ${reviewModule.title}，通过理解检查后再进入相似题。`,
+    stages: [
+      { key: "DETECTED", label: "检测", status: "已完成", summary: first.finalAnswerCorrect === false ? "发现本题作答错误" : "本题待进一步验证" },
+      { key: "DIAGNOSED", label: "诊断", status: "已完成", summary: firstWrongStep.judgment || errorType },
+      { key: "REVIEWING", label: "复习", status: "进行中", summary: `复习 ${reviewModule.title}` },
+      { key: "CHECKING_UNDERSTANDING", label: "理解检查", status: "未开始", summary: understandingCheck.question },
+      { key: "TRAINING", label: "相似题训练", status: "未开始", summary: similarTraining.goal },
+      { key: "WAITING_FOR_RETRY", label: "原题重做", status: "未开始", summary: "回到原始错题重新作答" },
+      { key: "MASTERED", label: "掌握验证", status: "未开始", summary: "判断是否重复原关键错误" }
+    ]
+  };
+  loop.homeCounters = {
+    reviewPending: loop.diagnosis?.weakKnowledgePoints?.length || 1,
+    trainingPending: similarTraining.levels.length,
+    retryPending: 1,
+    conquered: loop.improvement?.status?.includes("达标") ? 1 : 0,
+    needsReinforcement: loop.improvement?.status?.includes("需要") ? 1 : 0
+  };
+  loop.reviewModule = reviewModule;
+  loop.understandingCheck = understandingCheck;
+  loop.similarTraining = similarTraining;
+  loop.originalRetry = originalRetry;
+  loop.trainingCriteria = {
+    summary: "至少通过2道相似题，最后一道不能使用三级以上提示，且不能重复原关键错误。",
+    minCorrect: 2,
+    maxHighHintLevel: 2,
+    lastQuestionIndependent: true
+  };
+  loop.masteryVerification = {
+    status: loop.retest?.passed ? "MASTERED" : "NEEDS_REINFORCEMENT",
+    firstError: firstWrongStep.errorDescription || errorType,
+    masteredFeedback: "第二次作答没有重复原关键错误，关键步骤更规范，可以进入错题攻克报告。",
+    reinforceFeedback: "第二次作答仍未纠正关键错误，需要返回知识点复习，并降低相似题难度。"
+  };
+  loop.comparisonReport = {
+    firstScore: first.score != null && first.maxScore ? `${first.score}/${first.maxScore}` : loop.diagnosis?.score,
+    retryScore: loop.retest?.passed ? "10/10" : "待重做",
+    firstDuration: "首次记录",
+    retryDuration: "重做后重新记录",
+    firstErrorStep: firstWrongStep.judgment || errorType,
+    firstSteps: firstWrongStep.studentContent || first.studentAnswer || "首次作答记录",
+    retryStepPerformance: loop.retest?.passed ? "关键错误已纠正，步骤更规范" : "待完成原题重做",
+    sameErrorRepeated: !loop.retest?.passed
+  };
+  return loop;
+}
+
+const server = http.createServer((req, res) => {
+  if (req.url.startsWith("/api/")) {
+    api(req, res).catch((error) => send(res, 500, { error: error.message }));
+  } else {
+    publicFile(req, res);
+  }
+});
+
+server.listen(PORT, "0.0.0.0", () => {
+  console.log(`AI Math Coach listening on 0.0.0.0:${PORT}`);
+  console.log("Student invite codes: MATH01 - MATH10");
+  console.log(ADMIN_KEY ? "Admin enabled with ADMIN_KEY" : "Admin disabled: ADMIN_KEY is not configured");
+});

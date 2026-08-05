@@ -1522,4 +1522,436 @@ async function renderSimilarTraining() {
       <div class="metric"><span>训练层级</span><strong>${levels.length}</strong></div>
       <div class="metric"><span>已通过</span><strong>${completed}</strong></div>
       <div class="metric"><span>提示使用</span><strong>${stateFlow.hintsUsed || 0}</strong></div>
-      <div class="metric"><span>完成标准</span><strong>${canRetry ? "可重做" : "未达标"}</strong></
+      <div class="metric"><span>完成标准</span><strong>${canRetry ? "可重做" : "未达标"}</strong></div>
+    </div>
+  </section>
+  <section class="panel"><h2>由易到难训练</h2><div class="cards">${cards}</div><div class="row"><button class="ghost" id="useHint">使用一级提示</button><button class="primary" id="goRetry" ${canRetry ? "" : "disabled"}>回到原错题重做</button><button class="ghost" data-view="knowledgeReview">重新复习</button></div></section>`);
+  document.querySelectorAll("[data-complete-training]").forEach((button) => {
+    button.onclick = () => {
+      const nextDone = { ...done, [button.dataset.completeTraining]: true };
+      writeFlowState({ trainingDone: nextDone, stage: "WAITING_FOR_RETRY" });
+      renderSimilarTraining();
+    };
+  });
+  const hint = $("#useHint");
+  if (hint) hint.onclick = () => {
+    writeFlowState({ hintsUsed: Number(stateFlow.hintsUsed || 0) + 1 });
+    renderSimilarTraining();
+  };
+  const retry = $("#goRetry");
+  if (retry) retry.onclick = () => setView("originalRetry");
+}
+
+function hasCompleteTrainingBatch(batch) {
+  const total = Number(batch?.total || batch?.questionCount || 0);
+  return Boolean(batch && total > 0 && Array.isArray(batch.questions) && batch.questions.length === total
+    && batch.questions.every((question) => String(question.stem || "").trim().length >= 12
+      && String(question.answer || "").trim()
+      && !/静态演示|占位|围绕某错误|题目生成中|请先作答|placeholder/i.test(question.stem)));
+}
+
+function trainingRecordFor(question) {
+  return readFlowState().trainingRecords?.[question.id] || {};
+}
+
+function loadTrainingScratch(question) {
+  const record = trainingRecordFor(question);
+  state.strokes = Array.isArray(record.strokes) ? record.strokes : [];
+  state.strokeCount = state.strokes.length || Number(record.strokeCount || 0);
+  state.redoStrokes = [];
+  state.startedAt = Date.now() - Number(record.durationMs || 0);
+}
+
+function saveTrainingDraft(question, options = {}) {
+  if (!question) return false;
+  const flow = readFlowState();
+  const records = { ...(flow.trainingRecords || {}) };
+  const previous = records[question.id] || {};
+  const canvas = $("#pad");
+  const next = {
+    ...previous,
+    questionId: question.id,
+    strokes: state.strokes,
+    strokeCount: state.strokeCount,
+    durationMs: Date.now() - state.startedAt
+  };
+  if (options.fields) Object.assign(next, options.fields);
+  if (canvas && state.strokeCount && !options.skipImage) next.scratchImage = canvas.toDataURL("image/png");
+  records[question.id] = next;
+  writeFlowState({ trainingRecords: records, trainingBatchId: state.trainingBatch?.id || flow.trainingBatchId });
+  return true;
+}
+
+function trainingOptionValue(option) {
+  return String(option || "").replace(/^[A-D][.、]\s*/i, "").trim();
+}
+
+function renderTrainingAnswerControls(question, record) {
+  if (question.questionType === "choice") {
+    const picked = record.selectedOption || record.answer || "";
+    return `<div class="training-choices">${(question.options || []).map((option) => {
+      const value = trainingOptionValue(option);
+      return `<button class="training-choice ${picked === value ? "active" : ""}" data-training-choice="${escapeHtml(value)}">${escapeHtml(option)}</button>`;
+    }).join("")}</div>`;
+  }
+  if (question.questionType === "fill") {
+    return `<label class="training-fill">答案<input id="trainingAnswer" value="${escapeHtml(record.answer || "")}" placeholder="填写最终结果"></label>`;
+  }
+  return `<div class="training-writing">
+    <div class="paper-stage"><canvas id="pad" width="1800" height="1120"></canvas></div>
+    <div class="training-pad-actions"><button class="ghost" id="trainingClear">清空</button><button class="ghost" id="trainingUndo">撤销</button><button class="ghost" id="trainingRedo">重做</button></div>
+  </div>`;
+}
+
+function trainingFeedback(question, record) {
+  if (!record.submitted) return "";
+  const status = record.correct === true ? "本题正确" : record.correct === false ? "本题需要复盘" : "已提交，主观过程等待 OCR/AI 识别";
+  const cls = record.correct === true ? "good" : record.correct === false ? "bad" : "pending";
+  const solution = question.detailedSolution || {};
+  return `<section class="training-feedback ${cls}">
+    <h3>${status}</h3>
+    <p><strong>标准答案：</strong>${escapeHtml(question.answer)}</p>
+    <p><strong>考查知识点：</strong>${escapeHtml(question.knowledgePoint || question.subKnowledgePoint || "")}</p>
+    <p><strong>解题思路：</strong>${escapeHtml(solution.preAnalysis || solution.methodSummary || question.explanation || "")}</p>
+    <div class="training-solution-steps">${(solution.steps || []).map((step) => `<p><strong>${escapeHtml(step.title || `步骤${step.order}`)}：</strong>${escapeHtml(step.content || "")}</p>`).join("")}</div>
+    <p><strong>易错点：</strong>${escapeHtml(solution.commonPitfall || question.sourceErrorType || "")}</p>
+  </section>`;
+}
+
+async function submitTrainingQuestion(batch, question) {
+  saveTrainingDraft(question, { fields: {}, keepEmpty: true });
+  const draft = trainingRecordFor(question);
+  const hasAnswer = Boolean(draft.answer || draft.selectedOption || draft.formulaText || draft.stepsText || draft.strokeCount || draft.scratchImage);
+  if (!hasAnswer) {
+    alert("请先完成本题，再提交本题记录。");
+    return;
+  }
+  const res = await api("/api/training-records", {
+    method: "POST",
+    body: JSON.stringify({
+      trainingBatchId: batch.id,
+      trainingQuestionId: question.id,
+      answer: draft.answer || draft.selectedOption || draft.formulaText || "",
+      selectedOption: draft.selectedOption || "",
+      formulaText: draft.formulaText || "",
+      stepsText: draft.stepsText || "",
+      scratchImage: draft.scratchImage || "",
+      strokeCount: draft.strokeCount || 0,
+      durationMs: draft.durationMs || 0,
+      hintLevelUsed: Number(draft.hintLevelUsed || 0)
+    })
+  });
+  const flow = readFlowState();
+  writeFlowState({
+    trainingRecords: { ...(flow.trainingRecords || {}), [question.id]: { ...draft, submitted: true, correct: res.record.correct, score: res.record.score } },
+    trainingBatchId: batch.id,
+    stage: "TARGETED_TRAINING"
+  });
+  state.trainingBatch = res.batch;
+  if (res.warning) alert(res.warning);
+  renderSimilarTrainingV2();
+}
+
+async function renderSimilarTrainingV2() {
+  let batch = hasCompleteTrainingBatch(state.trainingBatch) ? state.trainingBatch : null;
+  if (!batch) {
+    const data = await api(`/api/training-batches?studentId=${encodeURIComponent(state.student.id)}&trainingType=targeted`);
+    batch = hasCompleteTrainingBatch(data.latest) ? data.latest : null;
+  }
+  if (!batch) {
+    const submission = await ensureLatestSubmission();
+    if (!submission) {
+      shell("相似题训练", `<section class="panel"><h2>还没有可匹配的错题</h2><p>请先完成一份试卷并提交，系统会读取原题、答案、步骤和错误类型后生成训练题。</p><button class="primary" data-view="practice">进入刷题</button></section>`);
+      return;
+    }
+    const created = await api("/api/training-batches", {
+      method: "POST",
+      body: JSON.stringify({ studentId: state.student.id, submissionId: submission.id, trainingType: "targeted" })
+    });
+    batch = created.batch;
+    writeFlowState({ trainingBatchId: batch.id, trainingRecords: {}, trainingIndex: 0, stage: "TARGETED_TRAINING" });
+  }
+  state.trainingBatch = batch;
+  const flow = readFlowState();
+  if (flow.trainingBatchId !== batch.id) writeFlowState({ trainingBatchId: batch.id, trainingRecords: {}, trainingIndex: 0, trainingCompleted: false });
+  const latestFlow = readFlowState();
+  const records = latestFlow.trainingRecords || {};
+  const total = Number(batch.total || batch.questionCount);
+  const index = Math.max(0, Math.min(total - 1, Number(latestFlow.trainingIndex || 0)));
+  const question = batch.questions[index];
+  const record = records[question.id] || {};
+  state.trainingCanvasQuestion = question.questionType === "subjective" ? question : null;
+  loadTrainingScratch(question);
+  const completed = batch.progress?.answered || Object.values(records).filter((item) => item.submitted).length;
+  const progress = Math.round(completed / total * 100);
+  const isLast = index === total - 1;
+  const purpose = question.trainingPurpose || (index < 10 ? "当前最严重错误专项" : "综合巩固");
+  shell("相似题训练", `<section class="panel similar-training-page">
+    <div class="similar-training-head">
+      <div><span class="badge">${escapeHtml(purpose)}</span><h2>第 ${index + 1} 题 / 共 ${total} 题</h2><p>${escapeHtml(question.typeLabel || (question.questionType === "choice" ? "选择题" : question.questionType === "fill" ? "填空题" : "解答题"))} · 难度 ${question.difficultyLevel} · ${escapeHtml(question.knowledgePoint || question.subKnowledgePoint || "")}</p></div>
+      <div class="training-progress"><strong>${progress}%</strong><span>已提交 ${completed}/${total}</span><i><b style="width:${progress}%"></b></i></div>
+    </div>
+    <article class="training-question">
+      <div class="training-question-number">题目 ${index + 1}</div>
+      <div class="training-stem">${escapeHtml(question.stem)}</div>
+      ${question.formula ? `<div class="training-formula">${escapeHtml(question.formula)}</div>` : ""}
+      ${renderTrainingAnswerControls(question, record)}
+    </article>
+    ${trainingFeedback(question, record)}
+    <div class="training-navigation">
+      <button class="ghost" id="trainingPrev" ${index === 0 ? "disabled" : ""}>上一题</button>
+      <button class="ghost" id="trainingSave">暂存</button>
+      <button class="primary" id="trainingSubmitQuestion" ${record.submitted ? "disabled" : ""}>${record.submitted ? "已提交本题" : "提交本题"}</button>
+      <button class="ghost" id="trainingNext" ${isLast ? "disabled" : ""}>下一题</button>
+      <button class="primary" id="trainingSubmitBatch">提交本轮训练</button>
+    </div>
+  </section>
+  <section class="panel training-batch-actions">
+    ${batch.trainingType === "targeted" ? `<button class="ghost" id="createComprehensive">生成20题综合训练</button>` : ""}
+    <button class="ghost" id="goRetry" ${completed >= total ? "" : "disabled"}>进入复测与原题重做</button>
+  </section>`);
+
+  const saveCurrent = () => {
+    const fields = {};
+    if (question.questionType === "choice") fields.selectedOption = document.querySelector(".training-choice.active")?.dataset.trainingChoice || "";
+    if (question.questionType === "fill") fields.answer = $("#trainingAnswer")?.value.trim() || "";
+    saveTrainingDraft(question, { fields, keepEmpty: true });
+  };
+  document.querySelectorAll("[data-training-choice]").forEach((button) => {
+    button.onclick = () => {
+      document.querySelectorAll("[data-training-choice]").forEach((item) => item.classList.remove("active"));
+      button.classList.add("active");
+      saveTrainingDraft(question, { fields: { selectedOption: button.dataset.trainingChoice, answer: button.dataset.trainingChoice }, keepEmpty: true });
+    };
+  });
+  const input = $("#trainingAnswer");
+  if (input) input.oninput = () => saveTrainingDraft(question, { fields: { answer: input.value }, keepEmpty: true });
+  const nextIndex = (next) => { saveCurrent(); writeFlowState({ trainingIndex: next, trainingBatchId: batch.id }); renderSimilarTrainingV2(); };
+  const prev = $("#trainingPrev");
+  if (prev) prev.onclick = () => nextIndex(index - 1);
+  const next = $("#trainingNext");
+  if (next) next.onclick = () => nextIndex(index + 1);
+  const save = $("#trainingSave");
+  if (save) save.onclick = () => { saveCurrent(); alert("本题已暂存，切换题目或刷新页面后仍可恢复。"); };
+  const submit = $("#trainingSubmitQuestion");
+  if (submit) submit.onclick = () => submitTrainingQuestion(batch, question);
+  const submitBatch = $("#trainingSubmitBatch");
+  if (submitBatch) submitBatch.onclick = async () => {
+    saveCurrent();
+    const remaining = total - Object.values(readFlowState().trainingRecords || {}).filter((item) => item.submitted).length;
+    const ok = await uiConfirm({ title: "提交本轮训练", message: remaining ? `还有 ${remaining} 道题未提交，是否仍然提交本轮训练？` : "本轮训练已全部提交，确认结束本轮训练？", confirmText: "确认提交", cancelText: "继续作答" });
+    if (ok) { writeFlowState({ trainingCompleted: true, trainingBatchId: batch.id }); alert("本轮训练记录已保存，可进入复测验证掌握情况。"); }
+  };
+  const clear = $("#trainingClear");
+  if (clear) clear.onclick = () => { state.redoStrokes = state.strokes.slice(); state.strokes = []; state.strokeCount = 0; saveTrainingDraft(question, { keepEmpty: true, skipImage: true }); redrawCanvas(); };
+  const undo = $("#trainingUndo");
+  if (undo) undo.onclick = () => { const stroke = state.strokes.pop(); if (stroke) state.redoStrokes.push(stroke); state.strokeCount = state.strokes.length; saveTrainingDraft(question, { keepEmpty: true, skipImage: true }); redrawCanvas(); };
+  const redo = $("#trainingRedo");
+  if (redo) redo.onclick = () => { const stroke = state.redoStrokes.pop(); if (stroke) state.strokes.push(stroke); state.strokeCount = state.strokes.length; saveTrainingDraft(question, { keepEmpty: true, skipImage: true }); redrawCanvas(); };
+  if ($("#pad")) bindCanvas();
+  const createComprehensive = $("#createComprehensive");
+  if (createComprehensive) createComprehensive.onclick = async () => {
+    const created = await api("/api/training-batches", { method: "POST", body: JSON.stringify({ studentId: state.student.id, submissionId: batch.submissionId, sourceWrongQuestionId: batch.sourceWrongQuestionId, trainingType: "comprehensive" }) });
+    state.trainingBatch = created.batch;
+    writeFlowState({ trainingBatchId: created.batch.id, trainingRecords: {}, trainingIndex: 0, stage: "COMPREHENSIVE_TRAINING" });
+    renderSimilarTrainingV2();
+  };
+  const retry = $("#goRetry");
+  if (retry) retry.onclick = async () => {
+    const retest = await api("/api/retests", { method: "POST", body: JSON.stringify({ trainingBatchId: batch.id }) });
+    writeFlowState({ retestId: retest.retest.id, retest });
+    setView("originalRetry");
+  };
+}
+
+async function renderOriginalRetry() {
+  const loop = await loadLoop();
+  const retry = loop.originalRetry;
+  const stateFlow = readFlowState();
+  shell("原题重做", `${loopProgress("retry")}
+  <section class="panel">
+    <h2>回到原题，看看你是否已经真正掌握</h2>
+    <p class="mode-help">本页保留原题内容，不显示第一次答案、标准答案和完整解析。你可以查看第一次错因摘要，但不会直接看到正确做法。</p>
+    <article class="exam-paper text-mode"><p>${escapeHtml(retry.stem)}</p></article>
+  </section>
+  <section class="panel">
+    <h2>重新作答</h2>
+    <div class="grid two">
+      <label>最终答案<input id="retryAnswer" value="${escapeHtml(stateFlow.retryAnswer || "")}" placeholder="写出最终答案"></label>
+      <label>用时（秒）<input id="retryDuration" type="number" value="${stateFlow.retryDuration || retry.durationSecond || 0}"></label>
+    </div>
+    <label>关键步骤<textarea id="retrySteps" placeholder="写出设、列式、化简和结论">${escapeHtml(stateFlow.retrySteps || "")}</textarea></label>
+    <details class="mistake-peek"><summary>我第一次错在哪里？</summary><p>${escapeHtml(retry.firstMistakeSummary)}</p></details>
+    <div class="row"><button class="primary" id="submitRetry">提交原题重做</button><button class="ghost" data-view="similarTraining">返回相似题训练</button></div>
+  </section>`);
+  const submit = $("#submitRetry");
+  if (submit) submit.onclick = () => {
+    const answer = $("#retryAnswer").value.trim();
+    const steps = $("#retrySteps").value.trim();
+    const duration = Number($("#retryDuration").value || 0);
+    const corrected = retry.acceptedSignals.some((signal) => `${answer}\n${steps}`.includes(signal));
+    writeFlowState({
+      retryAnswer: answer,
+      retrySteps: steps,
+      retryDuration: duration,
+      retrySubmitted: true,
+      retryCorrected: corrected,
+      sameErrorRepeated: !corrected,
+      stage: corrected ? "MASTERED" : "NEEDS_REINFORCEMENT"
+    });
+    setView("masteryVerify");
+  };
+}
+
+async function renderMasteryVerify() {
+  const loop = await loadLoop();
+  const stateFlow = readFlowState();
+  const verify = loop.masteryVerification;
+  const mastered = stateFlow.retryCorrected === true || verify.status === "MASTERED";
+  shell("掌握验证", `${loopProgress("verify")}
+  <section class="panel">
+    <h2>${mastered ? "原关键错误已纠正" : "仍需回到补救路径"}</h2>
+    <div class="metrics">
+      <div class="metric"><span>判断结果</span><strong>${mastered ? "已掌握" : "仍需巩固"}</strong></div>
+      <div class="metric"><span>是否重复原错</span><strong>${stateFlow.sameErrorRepeated ? "是" : "否"}</strong></div>
+      <div class="metric"><span>提示使用</span><strong>${stateFlow.hintsUsed || 0}</strong></div>
+      <div class="metric"><span>掌握变化</span><strong>${loop.improvement.beforeMastery}%→${loop.improvement.afterMastery}%</strong></div>
+    </div>
+  </section>
+  <section class="panel">
+    <h2>AI再次分析</h2>
+    <div class="cards">
+      <article class="card"><h3>第一次关键错误</h3><p>${escapeHtml(verify.firstError)}</p></article>
+      <article class="card"><h3>第二次表现</h3><p>${escapeHtml(mastered ? verify.masteredFeedback : verify.reinforceFeedback)}</p></article>
+      <article class="card"><h3>下一步</h3><p>${escapeHtml(mastered ? "进入错题攻克报告，更新掌握度。" : "返回知识点复习，换一种讲解方式，并降低相似题难度。")}</p></article>
+    </div>
+    <div class="row"><button class="primary" data-view="${mastered ? "improvement" : "knowledgeReview"}">${mastered ? "查看错题攻克报告" : "重新学习"}</button><button class="ghost" data-view="originalRetry">再次重做</button></div>
+  </section>`);
+}
+
+async function renderTrainingPlan() {
+  const loop = await loadLoop();
+  const plan = loop.trainingPlan;
+  const tasks = plan.items.map((item, index) => `<article class="training-task">
+    <div><span class="badge">${escapeHtml(item.type)}</span><h3>${index + 1}. ${escapeHtml(item.title)}</h3></div>
+    <p>${escapeHtml(item.purpose)}</p>
+    <p><strong>对应薄弱点：</strong>${escapeHtml(item.knowledgePoint)} · ${escapeHtml(item.errorType)}</p>
+    <button class="ghost" data-complete-task="${index}">${item.completed ? "已完成" : "标记完成"}</button>
+  </article>`).join("");
+  shell("针对训练", `${loopProgress("training")}
+  <section class="panel">
+    <h2>${escapeHtml(plan.goal)}</h2>
+    <div class="metrics">
+      <div class="metric"><span>训练题量</span><strong>${plan.totalQuestions}</strong></div>
+      <div class="metric"><span>预计用时</span><strong>${plan.estimatedMinutes}分钟</strong></div>
+      <div class="metric"><span>完成标准</span><strong>${escapeHtml(plan.completionStandard)}</strong></div>
+      <div class="metric"><span>训练顺序</span><strong>四阶段</strong></div>
+    </div>
+  </section>
+  <section class="panel"><h2>训练任务</h2><div class="cards">${tasks}</div><div class="row"><button class="primary" id="finishTraining">完成训练并进入复测</button><button class="ghost" data-view="diagnosis">返回诊断</button></div></section>`);
+  document.querySelectorAll("[data-complete-task]").forEach((button) => {
+    button.onclick = () => {
+      button.textContent = "已完成";
+      button.disabled = true;
+    };
+  });
+  const finish = $("#finishTraining");
+  if (finish) finish.onclick = () => setView("retest");
+}
+
+async function renderRetest() {
+  const loop = await loadLoop();
+  const retest = loop.retest;
+  const questions = retest.questions.map((q, index) => `<article class="card retest-card">
+    <h3>复测 ${index + 1} · ${escapeHtml(q.typeLabel)} <span class="badge warn">${escapeHtml(q.difficulty)}</span></h3>
+    <p class="stem">${escapeHtml(q.stem)}</p>
+    <p><strong>复测目标：</strong>${escapeHtml(q.target)}</p>
+    <p><strong>AI判断：</strong>${escapeHtml(q.result)}</p>
+  </article>`).join("");
+  shell("复测", `${loopProgress("retest")}
+  <section class="panel">
+    <h2>同知识点变式复测</h2>
+    <p>复测题与原错题知识点一致，但数字、情境和问法不同，用来验证训练后是否真正掌握。</p>
+    <div class="metrics">
+      <div class="metric"><span>复测得分</span><strong>${retest.score}</strong></div>
+      <div class="metric"><span>独立完成</span><strong>${retest.independent ? "是" : "否"}</strong></div>
+      <div class="metric"><span>提示使用</span><strong>${retest.hintsUsed}</strong></div>
+      <div class="metric"><span>是否达标</span><strong>${retest.passed ? "达标" : "需巩固"}</strong></div>
+    </div>
+  </section>
+  <section class="panel"><div class="cards">${questions}</div><div class="row"><button class="primary" data-view="improvement">查看提升报告</button><button class="ghost" data-view="trainingPlan">返回训练</button></div></section>`);
+}
+
+async function renderImprovement() {
+  const loop = await loadLoop();
+  const item = loop.improvement;
+  const comparison = loop.comparisonReport;
+  shell("错题攻克报告", `${loopProgress("improvement")}
+  <section class="panel improvement-hero">
+    <h2>训练前后能力变化</h2>
+    <div class="metrics">
+      <div class="metric"><span>训练前掌握度</span><strong>${item.beforeMastery}%</strong></div>
+      <div class="metric"><span>训练后掌握度</span><strong>${item.afterMastery}%</strong></div>
+      <div class="metric"><span>提升</span><strong>+${item.improvementValue}%</strong></div>
+      <div class="metric"><span>结论</span><strong>${escapeHtml(item.status)}</strong></div>
+    </div>
+  </section>
+  <section class="panel">
+    <h2>第一次与第二次作答对比</h2>
+    <div class="comparison-grid">
+      <article class="comparison-col">
+        <h3>第一次作答</h3>
+        <p><strong>得分：</strong>${escapeHtml(comparison?.firstScore || item.beforeMastery + "%")}</p>
+        <p><strong>用时：</strong>${escapeHtml(comparison?.firstDuration || "未记录")}</p>
+        <p><strong>错误步骤：</strong>${escapeHtml(comparison?.firstErrorStep || item.originalError)}</p>
+        <p><strong>作答摘要：</strong>${escapeHtml(comparison?.firstSteps || "见诊断页")}</p>
+      </article>
+      <article class="comparison-col good">
+        <h3>重新作答</h3>
+        <p><strong>得分：</strong>${escapeHtml(comparison?.retryScore || item.afterMastery + "%")}</p>
+        <p><strong>用时：</strong>${escapeHtml(comparison?.retryDuration || "已重新记录")}</p>
+        <p><strong>步骤表现：</strong>${escapeHtml(comparison?.retryStepPerformance || "关键错误已纠正")}</p>
+        <p><strong>是否重复原错：</strong>${escapeHtml(comparison?.sameErrorRepeated ? "是" : "否")}</p>
+      </article>
+    </div>
+  </section>
+  <section class="panel">
+    <h2>闭环结论</h2>
+    <div class="cards">
+      <article class="card"><h3>原错误</h3><p>${escapeHtml(item.originalError)}</p></article>
+      <article class="card"><h3>训练结果</h3><p>${escapeHtml(item.trainingResult)}</p></article>
+      <article class="card"><h3>仍需关注</h3><p>${escapeHtml(item.nextRisk)}</p></article>
+    </div>
+    <div class="row"><button class="primary" data-view="profile">更新能力画像</button><button class="ghost" data-view="chapters">进入下一轮学习</button></div>
+  </section>`);
+}
+
+async function renderProfile() {
+  const loop = await loadLoop();
+  const abilities = loop.profile.abilities.map((item) => `<article class="ability-card">
+    <div class="ability-head"><h3>${escapeHtml(item.name)}</h3><strong>${item.current}</strong></div>
+    <div class="bar"><i style="width:${item.current}%"></i></div>
+    <p>上次：${item.previous} · 趋势：${escapeHtml(item.trend)} · 依据：${escapeHtml(item.evidence)}</p>
+    <p>建议：${escapeHtml(item.suggestion)}</p>
+  </article>`).join("");
+  shell("能力画像", `<section class="panel">
+    <h2>个人数学能力画像</h2>
+    <p>能力分数来自当前学生的作答、步骤分析、错误类型和复测表现；演示模式使用固定样例数据，不使用随机数。</p>
+  </section>
+  <section class="panel ability-grid">${abilities}</section>`);
+}
+
+$("#logout").onclick = () => {
+  localStorage.clear();
+  location.reload();
+};
+
+window.onpopstate = () => {
+  state.view = routeToView[currentRoutePath()] || "home";
+  localStorage.setItem("view", state.view);
+  render();
+};
+
+init().catch((error) => {
+  document.body.innerHTML = `<pre>${error.message}</pre>`;
+});

@@ -415,4 +415,175 @@
         stepsText: body.stepsText || "",
         flagged: Boolean(body.flagged),
         favorite: Boolean(body.favorite),
-        stroke
+        strokeCount: Number(body.strokeCount || 0),
+        scratchImageStored: Boolean(body.scratchImage),
+        answerImageStored: Boolean(body.answerImage),
+        durationMs: Number(body.durationMs || 0),
+        gradingStatus: correct === null ? "pending_recognition" : "graded",
+        correct,
+        reason: diagnosis.reason,
+        advice: diagnosis.advice,
+        evidence: [question.explanation],
+        createdAt: nowIso()
+      };
+      store.attempts.push(attempt);
+      writeStore(store);
+      return json({ attempt, question });
+    }
+    if (method === "POST" && path === "/api/submissions") {
+      const student = store.students.find((s) => s.id === body.studentId) || studentFrom({});
+      const questionIds = Array.isArray(body.questionIds) ? body.questionIds : [];
+      const responses = Array.isArray(body.responses) ? body.responses : [];
+      const submission = {
+        id: `sub_${Date.now()}_${Math.random().toString(16).slice(2)}`,
+        submissionId: "",
+        examinationId: body.examinationId || `static_${Date.now()}`,
+        studentId: student.id,
+        paperName: body.paperName || `${student.mathType} 静态演示整卷`,
+        mode: body.mode || "",
+        chapterId: body.chapterId || "",
+        status: "diagnosis_complete",
+        gradingStatusHistory: [
+          { status: "submit_confirmed", at: nowIso() },
+          { status: "uploading", at: nowIso() },
+          { status: "recognizing", at: nowIso() },
+          { status: "objective_grading_done", at: nowIso() },
+          { status: "subjective_analysis_done", at: nowIso() },
+          { status: "diagnosis_complete", at: nowIso() }
+        ],
+        questionIds,
+        attemptIds: [],
+        responsesLocked: responses.map((item, index) => ({ questionId: item.questionId, answer: item.answer || "", selectedOption: item.selectedOption || "", formulaText: item.formulaText || "", stepsText: item.stepsText || "", hasScratchImage: Boolean(item.scratchImage), hasAnswerImage: Boolean(item.answerImage), strokeCount: Number(item.strokeCount || 0), durationMs: Number(item.durationMs || 0), answerOrder: index, abandoned: !hasResponseContent(item) })),
+        completenessIssues: [],
+        durationMs: Number(body.durationMs || 0),
+        answerOrder: Array.isArray(body.answerOrder) ? body.answerOrder : questionIds,
+        revisionCount: Number(body.revisionCount || 0),
+        submittedAt: nowIso(),
+        createdAt: nowIso(),
+        updatedAt: nowIso(),
+        report: null
+      };
+      questionIds.forEach((qid, index) => {
+        const question = questions.find((item) => item.id === qid);
+        if (!question) return;
+        const payload = responses.find((item) => item.questionId === qid) || { questionId: qid };
+        const correct = scoreAnswer(question, payload);
+        const diagnosis = diagnose(question, correct, payload);
+        const finalAnswer = payload.answer || payload.selectedOption || payload.formulaText || (question.type === "fill" ? extractFillAnswerFromWorkSpace(payload.stepsText) : "");
+        if (!hasResponseContent(payload)) submission.completenessIssues.push({ questionId: qid, type: "unanswered", severity: "warn", message: `第${index + 1}题未作答` });
+        if (question.type !== "choice" && correct === null) submission.completenessIssues.push({ questionId: qid, type: "pending_ocr", severity: "warn", message: `第${index + 1}题主观过程等待真实 OCR/AI 识别` });
+        const attempt = {
+          id: `att_${Date.now()}_${index}_${Math.random().toString(16).slice(2)}`,
+          studentId: student.id,
+          submissionId: submission.id,
+          questionId: question.id,
+          orderIndex: index,
+          chapterId: question.chapterId,
+          answer: finalAnswer,
+          selectedOption: payload.selectedOption || "",
+          formulaText: payload.formulaText || "",
+          stepsText: payload.stepsText || "",
+          strokeCount: Number(payload.strokeCount || 0),
+          scratchImageStored: Boolean(payload.scratchImage),
+          answerImageStored: Boolean(payload.answerImage),
+          durationMs: Number(payload.durationMs || 0),
+          gradingStatus: correct === null ? "pending_recognition" : "graded",
+          correct,
+          reason: diagnosis.reason,
+          advice: diagnosis.advice,
+          evidence: [question.explanation],
+          abandoned: !hasResponseContent(payload),
+          createdAt: nowIso()
+        };
+        store.attempts.push(attempt);
+        submission.attemptIds.push(attempt.id);
+      });
+      submission.report = buildSubmissionReport(submission, store);
+      store.submissions = store.submissions || [];
+      store.submissions.push(submission);
+      writeStore(store);
+      return json({ submission, report: submission.report });
+    }
+    if (method === "GET" && path === "/api/submissions") {
+      const studentId = url.searchParams.get("studentId");
+      const list = (store.submissions || []).filter((item) => !studentId || item.studentId === studentId).sort((a, b) => String(b.submittedAt).localeCompare(String(a.submittedAt)));
+      return json({ submissions: list, latest: list[0] || null });
+    }
+    if (method === "GET" && path.startsWith("/api/submissions/")) {
+      const submissionId = path.split("/").pop();
+      const submission = (store.submissions || []).find((item) => item.id === submissionId || item.submissionId === submissionId);
+      return submission ? json({ submission, report: submission.report }) : json({ error: "整卷提交不存在" }, 404);
+    }
+    if (method === "POST" && path === "/api/training-batches") {
+      try {
+        const batch = createStaticTrainingBatch(store, body.studentId, body);
+        writeStore(store);
+        return json({ batch });
+      } catch (error) {
+        return json({ error: error.message || "训练批次生成失败" }, 400);
+      }
+    }
+    if (method === "GET" && path === "/api/training-batches") {
+      const studentId = url.searchParams.get("studentId");
+      const type = url.searchParams.get("trainingType");
+      const list = (store.trainingBatches || []).filter((item) => {
+        const total = Number(item.total || item.questionCount || 0);
+        return total > 0 && Array.isArray(item.questions) && item.questions.length === total
+          && item.questions.every((question) => window.TrainingFactory.validateTrainingQuestion(question).valid)
+          && (!studentId || item.studentId === studentId)
+          && (!type || item.trainingType === type);
+      }).sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
+      return json({ batches: list, latest: list[0] || null });
+    }
+    if (method === "POST" && path === "/api/training-records") {
+      const batch = (store.trainingBatches || []).find((item) => item.id === body.trainingBatchId);
+      if (!batch) return json({ error: "训练批次不存在" }, 404);
+      const question = batch.questions.find((item) => item.id === body.trainingQuestionId);
+      if (!question) return json({ error: "训练题不存在" }, 404);
+      const correct = question.questionType === "subjective" ? null : equivalentAnswer(question.answer, body.answer || body.selectedOption || "");
+      const record = { id: `tr_${Date.now()}_${Math.random().toString(16).slice(2)}`, studentId: batch.studentId, trainingBatchId: batch.id, trainingQuestionId: question.id, answer: body.answer || "", selectedOption: body.selectedOption || "", stepsText: body.stepsText || "", strokeCount: Number(body.strokeCount || 0), hintLevelUsed: Number(body.hintLevelUsed || 0), correct, score: correct === true ? 100 : 0, gradingStatus: correct === null ? "pending_recognition" : "graded", repeatedOriginalError: correct === false && String(body.stepsText || body.answer || "").includes(batch.sourceErrorType), createdAt: nowIso() };
+      store.trainingRecords = store.trainingRecords || [];
+      const existingRecordIndex = store.trainingRecords.findIndex((item) => item.trainingBatchId === batch.id && item.trainingQuestionId === question.id);
+      if (existingRecordIndex >= 0) store.trainingRecords[existingRecordIndex] = { ...store.trainingRecords[existingRecordIndex], ...record };
+      else store.trainingRecords.push(record);
+      const records = store.trainingRecords.filter((item) => item.trainingBatchId === batch.id);
+      batch.progress.answered = records.length;
+      batch.progress.correct = records.filter((item) => item.correct).length;
+      batch.progress.accuracy = records.length ? Math.round(batch.progress.correct / records.length * 100) : 0;
+      batch.progress.hintsUsed = records.reduce((sum, item) => sum + Number(item.hintLevelUsed || 0), 0);
+      batch.progress.repeatedOriginalError = records.some((item) => item.repeatedOriginalError);
+      batch.progress.masteryAfter = Math.min(95, Math.max(batch.progress.masteryBefore, batch.progress.accuracy - batch.progress.hintsUsed * 2));
+      batch.status = batch.progress.answered >= batch.questionCount ? "completed" : "in_progress";
+      writeStore(store);
+      return json({ record, batch, warning: record.repeatedOriginalError ? `你在本题中再次出现了与原错题相同的错误：${batch.sourceErrorType}。建议暂停继续刷题，重新复习对应知识点。` : "" });
+    }
+    if (method === "POST" && path === "/api/retests") {
+      const batch = (store.trainingBatches || []).find((item) => item.id === body.trainingBatchId);
+      if (!batch) return json({ error: "训练批次不存在" }, 404);
+      const retest = { id: `retest_${Date.now()}`, studentId: batch.studentId, trainingBatchId: batch.id, sourceWrongQuestionId: batch.sourceWrongQuestionId, sourceErrorType: batch.sourceErrorType, questions: Array.from({ length: 5 }, (_, index) => ({ id: `retestq_${index}`, sourceWrongQuestionId: batch.sourceWrongQuestionId, sourceErrorType: batch.sourceErrorType, knowledgePoint: batch.knowledgePoint, subKnowledgePoint: batch.subKnowledgePoint, questionType: index === 4 ? "original_retry" : "subjective", stem: `${index === 4 ? "原错题重新作答" : "复测题"}：围绕 ${batch.subKnowledgePoint} 独立完成。`, answer: "按步骤完整作答", detailedSolution: {} })), status: "waiting_answer", result: null, createdAt: nowIso() };
+      store.retestRecords = store.retestRecords || [];
+      store.retestRecords.push(retest);
+      writeStore(store);
+      return json({ retest });
+    }
+    if (method === "POST" && path === "/api/retests/submit") {
+      const retest = (store.retestRecords || []).find((item) => item.id === body.retestId);
+      if (!retest) return json({ error: "复测不存在" }, 404);
+      const answers = Array.isArray(body.answers) ? body.answers : [];
+      const correct = answers.filter((item) => item.answer || item.stepsText).length;
+      const accuracy = Math.round(correct / Math.max(1, retest.questions.length) * 100);
+      retest.result = { accuracy, hintsUsed: 0, repeatedOriginalError: false, mastery: accuracy >= 80 ? "已掌握" : accuracy >= 60 ? "基本掌握" : "尚未掌握", originalQuestionRetryResult: answers.at(-1) || null };
+      retest.status = "completed";
+      writeStore(store);
+      return json({ retest });
+    }
+    if (method === "GET" && path === "/api/report") return json({ attempts: store.attempts, report: buildReport(url.searchParams.get("studentId")) });
+    if (method === "GET" && path === "/api/learning-loop") return json({ loop: buildLoop(url.searchParams.get("studentId")) });
+    if (method === "GET" && path === "/api/collection") {
+      const latest = new Map();
+      store.attempts.forEach((attempt) => latest.set(attempt.questionId, attempt));
+      return json({ items: Array.from(latest.values()).map((attempt) => ({ attempt, question: questions.find((item) => item.id === attempt.questionId), times: store.attempts.filter((a) => a.questionId === attempt.questionId).length })) });
+    }
+    return json({ error: "静态演示 API 不存在" }, 404);
+  };
+})();
