@@ -130,5 +130,451 @@
       const attempt = byId.get(question.id);
       const scored = scoreForAttempt(question, attempt);
       const processIssue = attempt?.correct === true && question.type === "subjective" && !String(attempt?.stepsText || "").trim();
-      return { questionId: question.id, orderIndex: index, type: question.type, typeLabel: typeLabelFor(question.type), chapterName: question.chapterName, knowledgePoints: [question.point], title: question.stem, studentAnswer: attempt?.answer || attempt?.selectedOption || "", studentSteps: attempt?.stepsText || "", standardAnswer: question.answer, standardSteps: question.explanation, score: scored.score, maxScore: scored.maxScore, finalAnswerCorrect: attempt?.correct === true, processCorrect: attempt?.correct === true && !processIssue, answerCorrectButProcessIssue: processIssue, needsDeepDiagnosis: attempt?.correct !== true || processIssue, analysisDepth: attempt?.correct !== true || processIssue ? "deep" : "light", processIssue: { hasIssue: Boolean(processIssue), reason: processIssue ? "ç»“æœæ­£ç¡®ä½†ä¸»è§‚é¢˜ç¼ºå°‘å¯å¤æ ¸è¿‡ç¨‹" : "", severity: processIssue ? "medium" : "none" }, gradingStatus: attempt?.gradingStatus || "missing", errorTypes: attempt?.correct && !processIssue ? [] : [processIssue ? "ç»“æœæ­£ç¡®ä½†è¿‡ç¨‹æœ‰é—®é¢˜" : attempt?.reason || question.reason || "å¾…è¯†åˆ«"], deductionReason: attempt?.correct && !processIssue ? "æ­£ç¡®é¢˜ä»…è®°å½•ç»“æœ" : (processIssue ? "ç»“æœæ­£ç¡®ä½†è¿‡ç¨‹æœ‰é—®é¢˜" : attempt?.reason || question.reason || "å¾…è¯†åˆ«"), firstErrorStep: attempt?.correct && !processIssue ? null : 1, lastCorrectStep: null, errorTag: { knowledgePoint: question.chapterName, subKnowledgePoint: question.point, errorType: processIssue ? "ç»“æœæ­£ç¡®ä½†è¿‡ç¨‹æœ‰é—®é¢˜" : attempt?.reason || question.reason || "å¾…è¯†åˆ«", errorPosition: "ç¬¬1æ­¥" }, çÎı¶‰ËkºwµçC–¶›’ê0ˆ°Ñ¥Ñ±”è€ˆÈÀÄÈƒ–£–n÷†W–¯‚S¦ÛR–—–¶›¢¢¾WšVÃ–¶›’ê3¢¾W¦Š`ˆ°™½Éµ…Ğè€‰¥µ…•}Í±¥•Ìˆ°¥µÁ½ÉÑMÑ…ÑÕÌè€‰‘•µ½}É•…‘äˆ°ÕÉ°è€‰¡ÑÑÁÌè¼½åè¹¡Í¤¹½´¹¸¼ˆõtõt°…¹‘¥‘…Ñ•M½ÕÉ•Í9••‘I•Ù¥•Üèmtô¤ì(€€€¥˜€¡µ•Ñ¡½€ôôô€‰A=MPˆ€˜˜Á…Ñ €ôôô€ˆ½…Á¤½±½¥¸ˆ¤ì(€€€€€¥˜€ ¡‰½‘ä¹Á…ÍÍİ½Éñğ€‰‘•µ¼ÄÈÌˆ¤€„ôô€‰‘•µ¼ÄÈÌˆ¤É•ÑÕÉ¸©Í½¸¡ì•ÉÉ½Èè€‹šòS’ë¢Ò›–>ß–¾‚¦Rg¢¾¼ˆô°€ĞÀÄ¤ì(€€€€€½¹ÍĞÍÑÕ‘•¹Ğ€ôÍÑÕ‘•¹ÑÉ½´¡‰½‘ä¤ì(€€€€€ÍÑÕ‘•¹Ğ¹¹…µ”€ô‰½‘ä¹¹…µ”ñğÍÑÕ‘•¹Ğ¹¹…µ”ì(€€€€€ÍÑÕ‘•¹Ğ¹µ…Ñ¡QåÁ”€ô‰½‘ä¹µ…Ñ¡QåÁ”ñğÍÑÕ‘•¹Ğ¹µ…Ñ¡QåÁ”ì(€€€€€ÍÑÕ‘•¹Ğ¹±…ÍÑ1½¥¹Ğ€ô¹½İ%Í¼ ¤ì(€€€€€İÉ¥Ñ•MÑ½É”¡ì€¸¸¹ÍÑ½É”°ÍÑÕ‘•¹ÑÌèmÍÑÕ‘•¹Ñtô¤ì(€€€€€É•ÑÕÉ¸©Í½¸¡ìÍÑÕ‘•¹Ğ°‘•µ¼èÑÉÕ”°Í•ÍÍ¥½¹%ô¤ì(€€€ô(€€€¥˜€¡µ•Ñ¡½€ôôô€‰A=MPˆ€˜˜Á…Ñ €ôôô€ˆ½…Á¤½‘•µ¼½É•Í•Ğˆ¤ì(€€€€€İÉ¥Ñ•MÑ½É”¡ìÍÑÕ‘•¹ÑÌèÍÑ½É”¹ÍÑÕ‘•¹ÑÌ°…ÑÑ•µÁÑÌèmt°ÍÕ‰µ¥ÍÍ¥½¹Ìèmtô¤ì(€€€€€É•ÑÕÉ¸©Í½¸¡ì½¬èÑÉÕ”°ÍÑÕ‘•¹ĞèÍÑ½É”¹ÍÑÕ‘•¹ÑÍlÁtñğÍÑÕ‘•¹ÑÉ½´¡íô¤ô¤ì(€€€ô(€€€¥˜€¡µ•Ñ¡½€ôôô€‰Pˆ€˜˜Á…Ñ €ôôô€ˆ½…Á¤½ÅÕ•ÍÑ¥½¹Ìˆ¤ì(€€€€€½¹ÍĞÍÑÕ‘•¹Ğ€ôÍÑ½É”¹ÍÑÕ‘•¹ÑÍlÁtñğÍÑÕ‘•¹ÑÉ½´¡íô¤ì(€€€€€½¹ÍĞ¡…ÁÑ•É%€ôÕÉ°¹Í•…É¡A…É…µÌ¹•Ğ ‰¡…ÁÑ•É%ˆ¤ñğ€‰¥¹Ñ•É…°ˆì(€€€€€½¹ÍĞ½Õ¹Ğ€ô5…Ñ ¹µ¥¸ ÔÀ°9Õµ‰•È¡ÕÉ°¹Í•…É¡A…É…µÌ¹•Ğ ‰½Õ¹Ğˆ¤ñğ€ÈÀ¤¤ì(€€€€€½¹ÍĞ‘¥™™¥Õ±Ñä€ôÕÉ°¹Í•…É¡A…É…µÌ¹•Ğ ‰‘¥™™¥Õ±Ñäˆ¤ñğ€‰…±°ˆì(€€€€€½¹ÍĞÍ½ÕÉ•QåÁ”€ôÕÉ°¹Í•…É¡A…É…µÌ¹•Ğ ‰Í½ÕÉ•QåÁ”ˆ¤ñğ€‰…±°ˆì(€€€€€½¹ÍĞµ½‘”€ôÕÉ°¹Í•…É¡A…É…µÌ¹•Ğ ‰µ½‘”ˆ¤ñğ€‰É•¥¹™½É”ˆì(€€€€€±•ĞÁ½½°€ôÅÕ•ÍÑ¥½¹Ì¹™¥±Ñ•È ¡¥Ñ•´¤€ôø¥Ñ•´¹ÍÕ‰©•ÑÌ¹¥¹±Õ‘•Ì¡ÍÑÕ‘•¹Ğ¹µ…Ñ¡QåÁ”¤€˜˜€¡¡…ÁÑ•É%€ôôô€‰…±°ˆñğ¥Ñ•´¹¡…ÁÑ•É%€ôôô¡…ÁÑ•É%¤¤ì(€€€€€¥˜€¡Í½ÕÉ•QåÁ”€„ôô€‰…±°ˆ¤Á½½°€ôÁ½½°¹™¥±Ñ•È ¡¥Ñ•´¤€ôø¥Ñ•´¹Í½ÕÉ•QåÁ”€ôôôÍ½ÕÉ•QåÁ”¤ì(€€€€€¥˜€ …l‰…±°ˆ°€‰µ½‘”‰t¹¥¹±Õ‘•Ì¡‘¥™™¥Õ±Ñä¤¤Á½½°€ôÁ½½°¹™¥±Ñ•È ¡¥Ñ•´¤€ôøMÑÉ¥¹œ¡¥Ñ•´¹‘¥™™¥Õ±Ñä¤€ôôôMÑÉ¥¹œ¡‘¥™™¥Õ±Ñä¤¤ì(€€€€€¥˜€ …Á½½°¹±•¹Ñ ¤Á½½°€ôÅÕ•ÍÑ¥½¹Ì¹™¥±Ñ•È ¡¥Ñ•´¤€ôø¥Ñ•´¹ÍÕ‰©•ÑÌ¹¥¹±Õ‘•Ì¡ÍÑÕ‘•¹Ğ¹µ…Ñ¡QåÁ”¤¤ì(€€€€€½¹ÍĞÍ•±•Ñ•€ôÉÉ…ä¹™É½´¡ì±•¹Ñ è5…Ñ ¹µ¥¸¡½Õ¹Ğ°Á½½°¹±•¹Ñ ¤ô°€¡|°¥¹‘•à¤€ôøÁ½½±l¡¥¹‘•à€¬…Ñ”¹¹½Ü ¤¤€”Á½½°¹±•¹Ñ¡t¤ì(€€€€€É•ÑÕÉ¸©Í½¸¡ìÅÕ•ÍÑ¥½¹ÌèÍ•±•Ñ•°¡…ÁÑ•É%°½Õ¹Ğ°‘¥™™¥Õ±Ñä°Í½ÕÉ•QåÁ”°µ½‘”ô¤ì(€€€ô(€€€¥˜€¡µ•Ñ¡½€ôôô€‰A=MPˆ€˜˜Á…Ñ €ôôô€ˆ½…Á¤½…ÑÑ•µÁÑÌˆ¤ì(€€€€€½¹ÍĞÅÕ•ÍÑ¥½¸€ôÅÕ•ÍÑ¥½¹Ì¹™¥¹ ¡¥Ñ•´¤€ôø¥Ñ•´¹¥€ôôô‰½‘ä¹ÅÕ•ÍÑ¥½¹%¤ì(€€€€€¥˜€ …ÅÕ•ÍÑ¥½¸¤É•ÑÕÉ¸©Í½¸¡ì•ÉÉ½Èè€‹¦Šcn»’â7–¶c–r ˆô°€ĞÀĞ¤ì(€€€€€½¹ÍĞ½ÉÉ•Ğ€ôÍ½É•¹Íİ•È¡ÅÕ•ÍÑ¥½¸°‰½‘ä¤ì(€€€€€½¹ÍĞ‘¥…¹½Í¥Ì€ô‘¥…¹½Í”¡ÅÕ•ÍÑ¥½¸°½ÉÉ•Ğ°‰½‘ä¤ì(€€€€€½¹ÍĞ™¥¹…±¹Íİ•È€ô‰½‘ä¹…¹Íİ•Èñğ‰½‘ä¹Í•±•Ñ•‘=ÁÑ¥½¸ñğ‰½‘ä¹™½ÉµÕ±…Q•áĞñğ€¡ÅÕ•ÍÑ¥½¸¹ÑåÁ”€ôôô€‰™¥±°ˆ€ü•áÑÉ…Ñ¥±±¹Íİ•ÉÉ½µ]½É­MÁ…”¡‰½‘ä¹ÍÑ•ÁÍQ•áĞ¤€è€ˆˆ¤ì(€€€€€½¹ÍĞ…ÑÑ•µÁĞ€ôì(€€€€€€€¥è…ÑÑ|‘í…Ñ”¹¹½Ü ¥õ|‘í5…Ñ ¹É…¹‘½´ ¤¹Ñ½MÑÉ¥¹œ ÄØ¤¹Í±¥” È¥õ€°(€€€€€€€ÍÑÕ‘•¹Ñ%è‰½‘ä¹ÍÑÕ‘•¹Ñ%°(€€€€€€€ÅÕ•ÍÑ¥½¹%èÅÕ•ÍÑ¥½¸¹¥°(€€€€€€€¡…ÁÑ•É%èÅÕ•ÍÑ¥½¸¹¡…ÁÑ•É%°(€€€€€€€…¹Íİ•Èè™¥¹…±¹Íİ•È°(€€€€€€€Í•±•Ñ•‘=ÁÑ¥½¸è‰½‘ä¹Í•±•Ñ•‘=ÁÑ¥½¸ñğ€ˆˆ°(€€€€€€€™½ÉµÕ±…Q•áĞè‰½‘ä¹™½ÉµÕ±…Q•áĞñğ€ˆˆ°(€€€€€€€ÍÑ•ÁÍQ•áĞè‰½‘ä¹ÍÑ•ÁÍQ•áĞñğ€ˆˆ°(€€€€€€€™±…•è	½½±•…¸¡‰½‘ä¹™±…•¤°(€€€€€€€™…Ù½É¥Ñ”è	½½±•…¸¡‰½‘ä¹™…Ù½É¥Ñ”¤°(€€€€€€€ÍÑÉ½­•½Õ¹Ğè9Õµ‰•È¡‰½‘ä¹ÍÑÉ½­•½Õ¹Ğñğ€À¤°(€€€€€€€ÍÉ…Ñ¡%µ…•MÑ½É•è	½½±•…¸¡‰½‘ä¹ÍÉ…Ñ¡%µ…”¤°(€€€€€€€…¹Íİ•É%µ…•MÑ½É•è	½½±•…¸¡‰½‘ä¹…¹Íİ•É%µ…”¤°(€€€€€€€‘ÕÉ…Ñ¥½¹5Ìè9Õµ‰•È¡‰½‘ä¹‘ÕÉ…Ñ¥½¹5Ìñğ€À¤°(€€€€€€€É…‘¥¹MÑ…ÑÕÌè½ÉÉ•Ğ€ôôô¹Õ±°€ü€‰Á•¹‘¥¹}É•½¹¥Ñ¥½¸ˆ€è€‰É…‘•ˆ°(€€€€€€€½ÉÉ•Ğ°(€€€€€€€É•…Í½¸è‘¥…¹½Í¥Ì¹É•…Í½¸°(€€€€€€€…‘Ù¥”è‘¥…¹½Í¥Ì¹…‘Ù¥”°(€€€€€€€•Ù¥‘•¹”èmÅÕ•ÍÑ¥½¸¹•áÁ±…¹…Ñ¥½¹t°(€€€€€€€É•…Ñ•‘Ğè¹½İ%Í¼ ¤(€€€€€ôì(€€€€€ÍÑ½É”¹…ÑÑ•µÁÑÌ¹ÁÕÍ ¡…ÑÑ•µÁĞ¤ì(€€€€€İÉ¥Ñ•MÑ½É”¡ÍÑ½É”¤ì(€€€€€É•ÑÕÉ¸©Í½¸¡ì…ÑÑ•µÁĞ°ÅÕ•ÍÑ¥½¸ô¤ì(€€€ô(€€€¥˜€¡µ•Ñ¡½€ôôô€‰A=MPˆ€˜˜Á…Ñ €ôôô€ˆ½…Á¤½ÍÕ‰µ¥ÍÍ¥½¹Ìˆ¤ì(€€€€€½¹ÍĞÍÑÕ‘•¹Ğ€ôÍÑ½É”¹ÍÑÕ‘•¹ÑÌ¹™¥¹ ¡Ì¤€ôøÌ¹¥€ôôô‰½‘ä¹ÍÑÕ‘•¹Ñ%¤ñğÍÑÕ‘•¹ÑÉ½´¡íô¤ì(€€€€€½¹ÍĞÅÕ•ÍÑ¥½¹%‘Ì€ôÉÉ…ä¹¥ÍÉÉ…ä¡‰½‘ä¹ÅÕ•ÍÑ¥½¹%‘Ì¤€ü‰½‘ä¹ÅÕ•ÍÑ¥½¹%‘Ì€èmtì(€€€€€½¹ÍĞÉ•ÍÁ½¹Í•Ì€ôÉÉ…ä¹¥ÍÉÉ…ä¡‰½‘ä¹É•ÍÁ½¹Í•Ì¤€ü‰½‘ä¹É•ÍÁ½¹Í•Ì€èmtì(€€€€€½¹ÍĞÍÕ‰µ¥ÍÍ¥½¸€ôì(€€€€€€€¥èÍÕ‰|‘í…Ñ”¹¹½Ü ¥õ|‘í5…Ñ ¹É…¹‘½´ ¤¹Ñ½MÑÉ¥¹œ ÄØ¤¹Í±¥” È¥õ€°(€€€€€€€ÍÕ‰µ¥ÍÍ¥½¹%è€ˆˆ°(€€€€€€€•á…µ¥¹…Ñ¥½¹%è‰½‘ä¹•á…µ¥¹…Ñ¥½¹%ñğÍÑ…Ñ¥|‘í…Ñ”¹¹½Ü ¥õ€°(€€€€€€€ÍÑÕ‘•¹Ñ%èÍÑÕ‘•¹Ğ¹¥°(€€€€€€€Á…Á•É9…µ”è‰½‘ä¹Á…Á•É9…µ”ñğ€‘íÍÑÕ‘•¹Ğ¹µ…Ñ¡QåÁ•ôƒ¦vgššòS’ëšVÓ–6İ€°(€€€€€€€µ½‘”è‰½‘ä¹µ½‘”ñğ€ˆˆ°(€€€€€€€¡…ÁÑ•É%è‰½‘ä¹¡…ÁÑ•É%ñğ€ˆˆ°(€€€€€€€ÍÑ…ÑÕÌè€‰‘¥…¹½Í¥Í}½µÁ±•Ñ”ˆ°(€€€€€€€É…‘¥¹MÑ…ÑÕÍ!¥ÍÑ½Éäèl(€€€€€€€€€ìÍÑ…ÑÕÌè€‰ÍÕ‰µ¥Ñ}½¹™¥Éµ•ˆ°…Ğè¹½İ%Í¼ ¤ô°(€€€€€€€€€ìÍÑ…ÑÕÌè€‰ÕÁ±½…‘¥¹œˆ°…Ğè¹½İ%Í¼ ¤ô°(€€€€€€€€€ìÍÑ…ÑÕÌè€‰É•½¹¥é¥¹œˆ°…Ğè¹½İ%Í¼ ¤ô°(€€€€€€€€€ìÍÑ…ÑÕÌè€‰½‰©•Ñ¥Ù•}É…‘¥¹}‘½¹”ˆ°…Ğè¹½İ%Í¼ ¤ô°(€€€€€€€€€ìÍÑ…ÑÕÌè€‰ÍÕ‰©•Ñ¥Ù•}…¹…±åÍ¥Í}‘½¹”ˆ°…Ğè¹½İ%Í¼ ¤ô°(€€€€€€€€€ìÍÑ…ÑÕÌè€‰‘¥…¹½Í¥Í}½µÁ±•Ñ”ˆ°…Ğè¹½İ%Í¼ ¤ô(€€€€€€€t°(€€€€€€€ÅÕ•ÍÑ¥½¹%‘Ì°(€€€€€€€…ÑÑ•µÁÑ%‘Ìèmt°(€€€€€€€É•ÍÁ½¹Í•Í1½­•èÉ•ÍÁ½¹Í•Ì¹µ…À ¡¥Ñ•´°¥¹‘•à¤€ôø€¡ìÅÕ•ÍÑ¥½¹%è¥Ñ•´¹ÅÕ•ÍÑ¥½¹%°…¹Íİ•Èè¥Ñ•´¹…¹Íİ•Èñğ€ˆˆ°Í•±•Ñ•‘=ÁÑ¥½¸è¥Ñ•´¹Í•±•Ñ•‘=ÁÑ¥½¸ñğ€ˆˆ°™½ÉµÕ±…Q•áĞè¥Ñ•´¹™½ÉµÕ±…Q•áĞñğ€ˆˆ°ÍÑ•ÁÍQ•áĞè¥Ñ•´¹ÍÑ•ÁÍQ•áĞñğ€ˆˆ°¡…ÍMÉ…Ñ¡%µ…”è	½½±•…¸¡¥Ñ•´¹ÍÉ…Ñ¡%µ…”¤°¡…Í¹Íİ•É%µ…”è	½½±•…¸¡¥Ñ•´¹…¹Íİ•É%µ…”¤°ÍÑÉ½­•½Õ¹Ğè9Õµ‰•È¡¥Ñ•´¹ÍÑÉ½­•½Õ¹Ğñğ€À¤°‘ÕÉ…Ñ¥½¹5Ìè9Õµ‰•È¡¥Ñ•´¹‘ÕÉ…Ñ¥½¹5Ìñğ€À¤°…¹Íİ•É=É‘•Èè¥¹‘•à°…‰…¹‘½¹•è€…¡…ÍI•ÍÁ½¹Í•½¹Ñ•¹Ğ¡¥Ñ•´¤ô¤¤°(€€€€€€€½µÁ±•Ñ•¹•ÍÍ%ÍÍÕ•Ìèmt°(€€€€€€€‘ÕÉ…Ñ¥½¹5Ìè9Õµ‰•È¡‰½‘ä¹‘ÕÉ…Ñ¥½¹5Ìñğ€À¤°(€€€€€€€…¹Íİ•É=É‘•ÈèÉÉ…ä¹¥ÍÉÉ…ä¡‰½‘ä¹…¹Íİ•É=É‘•È¤€ü‰½‘ä¹…¹Íİ•É=É‘•È€èÅÕ•ÍÑ¥½¹%‘Ì°(€€€€€€€É•Ù¥Í¥½¹½Õ¹Ğè9Õµ‰•È¡‰½‘ä¹É•Ù¥Í¥½¹½Õ¹Ğñğ€À¤°(€€€€€€€ÍÕ‰µ¥ÑÑ•‘Ğè¹½İ%Í¼ ¤°(€€€€€€€É•…Ñ•‘Ğè¹½İ%Í¼ ¤°(€€€€€€€ÕÁ‘…Ñ•‘Ğè¹½İ%Í¼ ¤°(€€€€€€€É•Á½ÉĞè¹Õ±°(€€€€€ôì(€€€€€ÅÕ•ÍÑ¥½¹%‘Ì¹™½É…  ¡Å¥°¥¹‘•à¤€ôøì(€€€€€€€½¹ÍĞÅÕ•ÍÑ¥½¸€ôÅÕ•ÍÑ¥½¹Ì¹™¥¹ ¡¥Ñ•´¤€ôø¥Ñ•´¹¥€ôôôÅ¥¤ì(€€€€€€€¥˜€ …ÅÕ•ÍÑ¥½¸¤É•ÑÕÉ¸ì(€€€€€€€½¹ÍĞÁ…å±½…€ôÉ•ÍÁ½¹Í•Ì¹™¥¹ ¡¥Ñ•´¤€ôø¥Ñ•´¹ÅÕ•ÍÑ¥½¹%€ôôôÅ¥¤ñğìÅÕ•ÍÑ¥½¹%èÅ¥ôì(€€€€€€€½¹ÍĞ½ÉÉ•Ğ€ôÍ½É•¹Íİ•È¡ÅÕ•ÍÑ¥½¸°Á…å±½…¤ì(€€€€€€€½¹ÍĞ‘¥…¹½Í¥Ì€ô‘¥…¹½Í”¡ÅÕ•ÍÑ¥½¸°½ÉÉ•Ğ°Á…å±½…¤ì(€€€€€€€½¹ÍĞ™¥¹…±¹Íİ•È€ôÁ…å±½…¹…¹Íİ•ÈñğÁ…å±½…¹Í•±•Ñ•‘=ÁÑ¥½¸ñğÁ…å±½…¹™½ÉµÕ±…Q•áĞñğ€¡ÅÕ•ÍÑ¥½¸¹ÑåÁ”€ôôô€‰™¥±°ˆ€ü•áÑÉ…Ñ¥±±¹Íİ•ÉÉ½µ]½É­MÁ…”¡Á…å±½…¹ÍÑ•ÁÍQ•áĞ¤€è€ˆˆ¤ì(€€€€€€€¥˜€ …¡…ÍI•ÍÁ½¹Í•½¹Ñ•¹Ğ¡Á…å±½…¤¤ÍÕ‰µ¥ÍÍ¥½¸¹½µÁ±•Ñ•¹•ÍÍ%ÍÍÕ•Ì¹ÁÕÍ ¡ìÅÕ•ÍÑ¥½¹%èÅ¥°ÑåÁ”è€‰Õ¹…¹Íİ•É•ˆ°Í•Ù•É¥Ñäè€‰İ…É¸ˆ°µ•ÍÍ…”èƒ²°‘í¥¹‘•à€¬€Å÷¦Šcšr«’ös¶Q€ô¤ì(€€€€€€€¥˜€¡ÅÕ•ÍÑ¥½¸¹ÑåÁ”€„ôô€‰¡½¥”ˆ€˜˜½ÉÉ•Ğ€ôôô¹Õ±°¤ÍÕ‰µ¥ÍÍ¥½¸¹½µÁ±•Ñ•¹•ÍÍ%ÍÍÕ•Ì¹ÁÕÍ ¡ìÅÕ•ÍÑ¥½¹%èÅ¥°ÑåÁ”è€‰Á•¹‘¥¹}½Èˆ°Í•Ù•É¥Ñäè€‰İ…É¸ˆ°µ•ÍÍ…”èƒ²°‘í¥¹‘•à€¬€Å÷¦Šc’âï¢¢ş¢/¶'–úr–ºx=H½$ƒ¢¾–"­€ô¤ì(€€€€€€€½¹ÍĞ…ÑÑ•µÁĞ€ôì(€€€€€€€€€¥è…ÑÑ|‘í…Ñ”¹¹½Ü ¥õ|‘í¥¹‘•áõ|‘í5…Ñ ¹É…¹‘½´ ¤¹Ñ½MÑÉ¥¹œ ÄØ¤¹Í±¥” È¥õ€°(€€€€€€€€€ÍÑÕ‘•¹Ñ%èÍÑÕ‘•¹Ğ¹¥°(€€€€€€€€€ÍÕ‰µ¥ÍÍ¥½¹%èÍÕ‰µ¥ÍÍ¥½¸¹¥°(€€€€€€€€€ÅÕ•ÍÑ¥½¹%èÅÕ•ÍÑ¥½¸¹¥°(€€€€€€€€€½É‘•É%¹‘•àè¥¹‘•à°(€€€€€€€€€¡…ÁÑ•É%èÅÕ•ÍÑ¥½¸¹¡…ÁÑ•É%°(€€€€€€€€€…¹Íİ•Èè™¥¹…±¹Íİ•È°(€€€€€€€€€Í•±•Ñ•‘=ÁÑ¥½¸èÁ…å±½…¹Í•±•Ñ•‘=ÁÑ¥½¸ñğ€ˆˆ°(€€€€€€€€€™½ÉµÕ±…Q•áĞèÁ…å±½…¹™½ÉµÕ±…Q•áĞñğ€ˆˆ°(€€€€€€€€€ÍÑ•ÁÍQ•áĞèÁ…å±½…¹ÍÑ•ÁÍQ•áĞñğ€ˆˆ°(€€€€€€€€€ÍÑÉ½­•½Õ¹Ğè9Õµ‰•È¡Á…å±½…¹ÍÑÉ½­•½Õ¹Ğñğ€À¤°(€€€€€€€€€ÍÉ…Ñ¡%µ…•MÑ½É•è	½½±•…¸¡Á…å±½…¹ÍÉ…Ñ¡%µ…”¤°(€€€€€€€€€…¹Íİ•É%µ…•MÑ½É•è	½½±•…¸¡Á…å±½…¹…¹Íİ•É%µ…”¤°(€€€€€€€€€‘ÕÉ…Ñ¥½¹5Ìè9Õµ‰•È¡Á…å±½…¹‘ÕÉ…Ñ¥½¹5Ìñğ€À¤°(€€€€€€€€€É…‘¥¹MÑ…ÑÕÌè½ÉÉ•Ğ€ôôô¹Õ±°€ü€‰Á•¹‘¥¹}É•½¹¥Ñ¥½¸ˆ€è€‰É…‘•ˆ°(€€€€€€€€€½ÉÉ•Ğ°(€€€€€€€€€É•…Í½¸è‘¥…¹½Í¥Ì¹É•…Í½¸°(€€€€€€€€€…‘Ù¥”è‘¥…¹½Í¥Ì¹…‘Ù¥”°(€€€€€€€€€•Ù¥‘•¹”èmÅÕ•ÍÑ¥½¸¹•áÁ±…¹…Ñ¥½¹t°(€€€€€€€€€…‰…¹‘½¹•è€…¡…ÍI•ÍÁ½¹Í•½¹Ñ•¹Ğ¡Á…å±½…¤°(€€€€€€€€€É•…Ñ•‘Ğè¹½İ%Í¼ ¤(€€€€€€€ôì(€€€€€€€ÍÑ½É”¹…ÑÑ•µÁÑÌ¹ÁÕÍ ¡…ÑÑ•µÁĞ¤ì(€€€€€€€ÍÕ‰µ¥ÍÍ¥½¸¹…ÑÑ•µÁÑ%‘Ì¹ÁÕÍ ¡…ÑÑ•µÁĞ¹¥¤ì(€€€€€ô¤ì(€€€€€ÍÕ‰µ¥ÍÍ¥½¸¹É•Á½ÉĞ€ô‰Õ¥±‘MÕ‰µ¥ÍÍ¥½¹I•Á½ÉĞ¡ÍÕ‰µ¥ÍÍ¥½¸°ÍÑ½É”¤ì(€€€€€ÍÑ½É”¹ÍÕ‰µ¥ÍÍ¥½¹Ì€ôÍÑ½É”¹ÍÕ‰µ¥ÍÍ¥½¹Ìñğmtì(€€€€€ÍÑ½É”¹ÍÕ‰µ¥ÍÍ¥½¹Ì¹ÁÕÍ ¡ÍÕ‰µ¥ÍÍ¥½¸¤ì(€€€€€İÉ¥Ñ•MÑ½É”¡ÍÑ½É”¤ì(€€€€€É•ÑÕÉ¸©Í½¸¡ìÍÕ‰µ¥ÍÍ¥½¸°É•Á½ÉĞèÍÕ‰µ¥ÍÍ¥½¸¹É•Á½ÉĞô¤ì(€€€ô(€€€¥˜€¡µ•Ñ¡½€ôôô€‰Pˆ€˜˜Á…Ñ €ôôô€ˆ½…Á¤½ÍÕ‰µ¥ÍÍ¥½¹Ìˆ¤ì(€€€€€½¹ÍĞÍÑÕ‘•¹Ñ%€ôÕÉ°¹Í•…É¡A…É…µÌ¹•Ğ ‰ÍÑÕ‘•¹Ñ%ˆ¤ì(€€€€€½¹ÍĞ±¥ÍĞ€ô€¡ÍÑ½É”¹ÍÕ‰µ¥ÍÍ¥½¹Ìñğmt¤¹™¥±Ñ•È ¡¥Ñ•´¤€ôø€…ÍÑÕ‘•¹Ñ%ñğ¥Ñ•´¹ÍÑÕ‘•¹Ñ%€ôôôÍÑÕ‘•¹Ñ%¤¹Í½ÉĞ ¡„°ˆ¤€ôøMÑÉ¥¹œ¡ˆ¹ÍÕ‰µ¥ÑÑ•‘Ğ¤¹±½…±•½µÁ…É”¡MÑÉ¥¹œ¡„¹ÍÕ‰µ¥ÑÑ•‘Ğ¤¤¤ì(€€€€€É•ÑÕÉ¸©Í½¸¡ìÍÕ‰µ¥ÍÍ¥½¹Ìè±¥ÍĞ°±…Ñ•ÍĞè±¥ÍÑlÁtñğ¹Õ±°ô¤ì(€€€ô(€€€¥˜€¡µ•Ñ¡½€ôôô€‰Pˆ€˜˜Á…Ñ ¹ÍÑ…ÉÑÍ]¥Ñ  ˆ½…Á¤½ÍÕ‰µ¥ÍÍ¥½¹Ì¼ˆ¤¤ì(€€€€€½¹ÍĞÍÕ‰µ¥ÍÍ¥½¹%€ôÁ…Ñ ¹ÍÁ±¥Ğ ˆ¼ˆ¤¹Á½À ¤ì(€€€€€½¹ÍĞÍÕ‰µ¥ÍÍ¥½¸€ô€¡ÍÑ½É”¹ÍÕ‰µ¥ÍÍ¥½¹Ìñğmt¤¹™¥¹ ¡¥Ñ•´¤€ôø¥Ñ•´¹¥€ôôôÍÕ‰µ¥ÍÍ¥½¹%ñğ¥Ñ•´¹ÍÕ‰µ¥ÍÍ¥½¹%€ôôôÍÕ‰µ¥ÍÍ¥½¹%¤ì(€€€€€É•ÑÕÉ¸ÍÕ‰µ¥ÍÍ¥½¸€ü©Í½¸¡ìÍÕ‰µ¥ÍÍ¥½¸°É•Á½ÉĞèÍÕ‰µ¥ÍÍ¥½¸¹É•Á½ÉĞô¤€è©Í½¸¡ì•ÉÉ½Èè€‹šVÓ–6ßš>C’ê“’â7–¶c–r ˆô°€ĞÀĞ¤ì(€€€ô(€€€¥˜€¡µ•Ñ¡½€ôôô€‰A=MPˆ€˜˜Á…Ñ €ôôô€ˆ½…Á¤½ÑÉ…¥¹¥¹œµ‰…Ñ¡•Ìˆ¤ì(€€€€€ÑÉäì(€€€€€€€½¹ÍĞ‰…Ñ €ôÉ•…Ñ•MÑ…Ñ¥QÉ…¥¹¥¹	…Ñ ¡ÍÑ½É”°‰½‘ä¹ÍÑÕ‘•¹Ñ%°‰½‘ä¤ì(€€€€€€€İÉ¥Ñ•MÑ½É”¡ÍÑ½É”¤ì(€€€€€€€É•ÑÕÉ¸©Í½¸¡ì‰…Ñ ô¤ì(€€€€€ô…Ñ €¡•ÉÉ½È¤ì(€€€€€€€É•ÑÕÉ¸©Í½¸¡ì•ÉÉ½Èè•ÉÉ½È¹µ•ÍÍ…”ñğ€‹¢º·îš&çš²‡Rš"C–’Ç¢Ò”ˆô°€ĞÀÀ¤ì(€€€€€ô(€€€ô(€€€¥˜€¡µ•Ñ¡½€ôôô€‰Pˆ€˜˜Á…Ñ €ôôô€ˆ½…Á¤½ÑÉ…¥¹¥¹œµ‰…Ñ¡•Ìˆ¤ì(€€€€€½¹ÍĞÍÑÕ‘•¹Ñ%€ôÕÉ°¹Í•…É¡A…É…µÌ¹•Ğ ‰ÍÑÕ‘•¹Ñ%ˆ¤ì(€€€€€½¹ÍĞÑåÁ”€ôÕÉ°¹Í•…É¡A…É…µÌ¹•Ğ ‰ÑÉ…¥¹¥¹QåÁ”ˆ¤ì(€€€€€½¹ÍĞ±¥ÍĞ€ô€¡ÍÑ½É”¹ÑÉ…¥¹¥¹	…Ñ¡•Ìñğmt¤¹™¥±Ñ•È ¡¥Ñ•´¤€ôøì(€€€€€€€½¹ÍĞÑ½Ñ…°€ô9Õµ‰•È¡¥Ñ•´¹Ñ½Ñ…°ñğ¥Ñ•´¹ÅÕ•ÍÑ¥½¹½Õ¹Ğñğ€À¤ì(€€€€€€€É•ÑÕÉ¸Ñ½Ñ…°€ø€À€˜˜ÉÉ…ä¹¥ÍÉÉ…ä¡¥Ñ•´¹ÅÕ•ÍÑ¥½¹Ì¤€˜˜¥Ñ•´¹ÅÕ•ÍÑ¥½¹Ì¹±•¹Ñ €ôôôÑ½Ñ…°(€€€€€€€€€€˜˜¥Ñ•´¹ÅÕ•ÍÑ¥½¹Ì¹•Ù•Éä ¡ÅÕ•ÍÑ¥½¸¤€ôøİ¥¹‘½Ü¹QÉ…¥¹¥¹…Ñ½Éä¹Ù…±¥‘…Ñ•QÉ…¥¹¥¹EÕ•ÍÑ¥½¸¡ÅÕ•ÍÑ¥½¸¤¹Ù…±¥¤(€€€€€€€€€€˜˜€ …ÍÑÕ‘•¹Ñ%ñğ¥Ñ•´¹ÍÑÕ‘•¹Ñ%€ôôôÍÑÕ‘•¹Ñ%¤(€€€€€€€€€€˜˜€ …ÑåÁ”ñğ¥Ñ•´¹ÑÉ…¥¹¥¹QåÁ”€ôôôÑåÁ”¤ì(€€€€€ô¤¹Í½ÉĞ ¡„°ˆ¤€ôøMÑÉ¥¹œ¡ˆ¹É•…Ñ•‘Ğ¤¹±½…±•½µÁ…É”¡MÑÉ¥¹œ¡„¹É•…Ñ•‘Ğ¤¤¤ì(€€€€€É•ÑÕÉ¸©Í½¸¡ì‰…Ñ¡•Ìè±¥ÍĞ°±…Ñ•ÍĞè±¥ÍÑlÁtñğ¹Õ±°ô¤ì(€€€ô(€€€¥˜€¡µ•Ñ¡½€ôôô€‰A=MPˆ€˜˜Á…Ñ €ôôô€ˆ½…Á¤½ÑÉ…¥¹¥¹œµÉ•½É‘Ìˆ¤ì(€€€€€½¹ÍĞ‰…Ñ €ô€¡ÍÑ½É”¹ÑÉ…¥¹¥¹	…Ñ¡•Ìñğmt¤¹™¥¹ ¡¥Ñ•´¤€ôø¥Ñ•´¹¥€ôôô‰½‘ä¹ÑÉ…¥¹¥¹	…Ñ¡%¤ì(€€€€€¥˜€ …‰…Ñ ¤É•ÑÕÉ¸©Í½¸¡ì•ÉÉ½Èè€‹¢º·îš&çš²‡’â7–¶c–r ˆô°€ĞÀĞ¤ì(€€€€€½¹ÍĞÅÕ•ÍÑ¥½¸€ô‰…Ñ ¹ÅÕ•ÍÑ¥½¹Ì¹™¥¹ ¡¥Ñ•´¤€ôø¥Ñ•´¹¥€ôôô‰½‘ä¹ÑÉ…¥¹¥¹EÕ•ÍÑ¥½¹%¤ì(€€€€€¥˜€ …ÅÕ•ÍÑ¥½¸¤É•ÑÕÉ¸©Í½¸¡ì•ÉÉ½Èè€‹¢º·î¦Šc’â7–¶c–r ˆô°€ĞÀĞ¤ì(€€€€€½¹ÍĞ½ÉÉ•Ğ€ôÅÕ•ÍÑ¥½¸¹ÅÕ•ÍÑ¥½¹QåÁ”€ôôô€‰ÍÕ‰©•Ñ¥Ù”ˆ€ü¹Õ±°€è•ÅÕ¥Ù…±•¹Ñ¹Íİ•È¡ÅÕ•ÍÑ¥½¸¹…¹Íİ•È°‰½‘ä¹…¹Íİ•Èñğ‰½‘ä¹Í•±•Ñ•‘=ÁÑ¥½¸ñğ€ˆˆ¤ì(€€€€€½¹ÍĞÉ•½É€ôì¥èÑÉ|‘í…Ñ”¹¹½Ü ¥õ|‘í5…Ñ ¹É…¹‘½´ ¤¹Ñ½MÑÉ¥¹œ ÄØ¤¹Í±¥” È¥õ€°ÍÑÕ‘•¹Ñ%è‰…Ñ ¹ÍÑÕ‘•¹Ñ%°ÑÉ…¥¹¥¹	…Ñ¡%è‰…Ñ ¹¥°ÑÉ…¥¹¥¹EÕ•ÍÑ¥½¹%èÅÕ•ÍÑ¥½¸¹¥°…¹Íİ•Èè‰½‘ä¹…¹Íİ•Èñğ€ˆˆ°Í•±•Ñ•‘=ÁÑ¥½¸è‰½‘ä¹Í•±•Ñ•‘=ÁÑ¥½¸ñğ€ˆˆ°ÍÑ•ÁÍQ•áĞè‰½‘ä¹ÍÑ•ÁÍQ•áĞñğ€ˆˆ°ÍÑÉ½­•½Õ¹Ğè9Õµ‰•È¡‰½‘ä¹ÍÑÉ½­•½Õ¹Ğñğ€À¤°¡¥¹Ñ1•Ù•±UÍ•è9Õµ‰•È¡‰½‘ä¹¡¥¹Ñ1•Ù•±UÍ•ñğ€À¤°½ÉÉ•Ğ°Í½É”è½ÉÉ•Ğ€ôôôÑÉÕ”€ü€ÄÀÀ€è€À°É…‘¥¹MÑ…ÑÕÌè½ÉÉ•Ğ€ôôô¹Õ±°€ü€‰Á•¹‘¥¹}É•½¹¥Ñ¥½¸ˆ€è€‰É…‘•ˆ°É•Á•…Ñ•‘=É¥¥¹…±ÉÉ½Èè½ÉÉ•Ğ€ôôô™…±Í”€˜˜MÑÉ¥¹œ¡‰½‘ä¹ÍÑ•ÁÍQ•áĞñğ‰½‘ä¹…¹Íİ•Èñğ€ˆˆ¤¹¥¹±Õ‘•Ì¡‰…Ñ ¹Í½ÕÉ•ÉÉ½ÉQåÁ”¤°É•…Ñ•‘Ğè¹½İ%Í¼ ¤ôì(€€€€€ÍÑ½É”¹ÑÉ…¥¹¥¹I•½É‘Ì€ôÍÑ½É”¹ÑÉ…¥¹¥¹I•½É‘Ìñğmtì(€€€€€½¹ÍĞ•á¥ÍÑ¥¹I•½É‘%¹‘•à€ôÍÑ½É”¹ÑÉ…¥¹¥¹I•½É‘Ì¹™¥¹‘%¹‘•à ¡¥Ñ•´¤€ôø¥Ñ•´¹ÑÉ…¥¹¥¹	…Ñ¡%€ôôô‰…Ñ ¹¥€˜˜¥Ñ•´¹ÑÉ…¥¹¥¹EÕ•ÍÑ¥½¹%€ôôôÅÕ•ÍÑ¥½¸¹¥¤ì(€€€€€¥˜€¡•á¥ÍÑ¥¹I•½É‘%¹‘•à€øô€À¤ÍÑ½É”¹ÑÉ…¥¹¥¹I•½É‘Ím•á¥ÍÑ¥¹I•½É‘%¹‘•át€ôì€¸¸¹ÍÑ½É”¹ÑÉ…¥¹¥¹I•½É‘Ím•á¥ÍÑ¥¹I•½É‘%¹‘•át°€¸¸¹É•½Éôì(€€€€€•±Í”ÍÑ½É”¹ÑÉ…¥¹¥¹I•½É‘Ì¹ÁÕÍ ¡É•½É¤ì(€€€€€½¹ÍĞÉ•½É‘Ì€ôÍÑ½É”¹ÑÉ…¥¹¥¹I•½É‘Ì¹™¥±Ñ•È ¡¥Ñ•´¤€ôø¥Ñ•´¹ÑÉ…¥¹¥¹	…Ñ¡%€ôôô‰…Ñ ¹¥¤ì(€€€€€‰…Ñ ¹ÁÉ½É•ÍÌ¹…¹Íİ•É•€ôÉ•½É‘Ì¹±•¹Ñ ì(€€€€€‰…Ñ ¹ÁÉ½É•ÍÌ¹½ÉÉ•Ğ€ôÉ•½É‘Ì¹™¥±Ñ•È ¡¥Ñ•´¤€ôø¥Ñ•´¹½ÉÉ•Ğ¤¹±•¹Ñ ì(€€€€€‰…Ñ ¹ÁÉ½É•ÍÌ¹…ÕÉ…ä€ôÉ•½É‘Ì¹±•¹Ñ €ü5…Ñ ¹É½Õ¹¡‰…Ñ ¹ÁÉ½É•ÍÌ¹½ÉÉ•Ğ€¼É•½É‘Ì¹±•¹Ñ €¨€ÄÀÀ¤€è€Àì(€€€€€‰…Ñ ¹ÁÉ½É•ÍÌ¹¡¥¹ÑÍUÍ•€ôÉ•½É‘Ì¹É•‘Õ” ¡ÍÕ´°¥Ñ•´¤€ôøÍÕ´€¬9Õµ‰•È¡¥Ñ•´¹¡¥¹Ñ1•Ù•±UÍ•ñğ€À¤°€À¤ì(€€€€€‰…Ñ ¹ÁÉ½É•ÍÌ¹É•Á•…Ñ•‘=É¥¥¹…±ÉÉ½È€ôÉ•½É‘Ì¹Í½µ” ¡¥Ñ•´¤€ôø¥Ñ•´¹É•Á•…Ñ•‘=É¥¥¹…±ÉÉ½È¤ì(€€€€€‰…Ñ ¹ÁÉ½É•ÍÌ¹µ…ÍÑ•Éå™Ñ•È€ô5…Ñ ¹µ¥¸ äÔ°5…Ñ ¹µ…à¡‰…Ñ ¹ÁÉ½É•ÍÌ¹µ…ÍÑ•Éå	•™½É”°‰…Ñ ¹ÁÉ½É•ÍÌ¹…ÕÉ…ä€´‰…Ñ ¹ÁÉ½É•ÍÌ¹¡¥¹ÑÍUÍ•€¨€È¤¤ì(€€€€€‰…Ñ ¹ÍÑ…ÑÕÌ€ô‰…Ñ ¹ÁÉ½É•ÍÌ¹…¹Íİ•É•€øô‰…Ñ ¹ÅÕ•ÍÑ¥½¹½Õ¹Ğ€ü€‰½µÁ±•Ñ•ˆ€è€‰¥¹}ÁÉ½É•ÍÌˆì(€€€€€İÉ¥Ñ•MÑ½É”¡ÍÑ½É”¤ì(€€€€€É•ÑÕÉ¸©Í½¸¡ìÉ•½É°‰…Ñ °İ…É¹¥¹œèÉ•½É¹É•Á•…Ñ•‘=É¥¥¹…±ÉÉ½È€üƒ’öƒ–r£šr³¦Šc’â·–7š²‡–ë:Ã’ê’â;–:¦Rg¦Šcnã–B3j¦Rg¢¾¿¾òh‘í‰…Ñ ¹Í½ÕÉ•ÉÉ½ÉQåÁ•÷–îë¢º»šj–sîŸî·–"ß¦Šc¾ò3¦7šZÃ–’7’æƒ–¾ç–êS~—¢¾
-ç	€€è€ˆˆô¤ì(€€€ô(€€€¥˜€¡µ•Ñ¡½€ôôô€‰A=MPˆ€˜˜Á…Ñ €ôôô€ˆ½…Á¤½É•Ñ•ÍÑÌˆ¤ì(€€€€€½¹ÍĞ‰…Ñ €ô€¡ÍÑ½É”¹ÑÉ…¥¹¥¹	…Ñ¡•Ìñğmt¤¹™¥¹ ¡¥Ñ•´¤€ôø¥Ñ•´¹¥€ôôô‰½‘ä¹ÑÉ…¥¹¥¹	…Ñ¡%¤ì(€€€€€¥˜€ …‰…Ñ ¤É•ÑÕÉ¸©Í½¸¡ì•ÉÉ½Èè€‹¢º·îš&çš²‡’â7–¶c–r ˆô°€ĞÀĞ¤ì(€€€€€½¹ÍĞÉ•Ñ•ÍĞ€ôì¥èÉ•Ñ•ÍÑ|‘í…Ñ”¹¹½Ü ¥õ€°ÍÑÕ‘•¹Ñ%è‰…Ñ ¹ÍÑÕ‘•¹Ñ%°ÑÉ…¥¹¥¹	…Ñ¡%è‰…Ñ ¹¥°Í½ÕÉ•]É½¹EÕ•ÍÑ¥½¹%è‰…Ñ ¹Í½ÕÉ•]É½¹EÕ•ÍÑ¥½¹%°Í½ÕÉ•ÉÉ½ÉQåÁ”è‰…Ñ ¹Í½ÕÉ•ÉÉ½ÉQåÁ”°ÅÕ•ÍÑ¥½¹ÌèÉÉ…ä¹™É½´¡ì±•¹Ñ è€Ôô°€¡|°¥¹‘•à¤€ôø€¡ì¥èÉ•Ñ•ÍÑÅ|‘í¥¹‘•áõ€°Í½ÕÉ•]É½¹EÕ•ÍÑ¥½¹%è‰…Ñ ¹Í½ÕÉ•]É½¹EÕ•ÍÑ¥½¹%°Í½ÕÉ•ÉÉ½ÉQåÁ”è‰…Ñ ¹Í½ÕÉ•ÉÉ½ÉQåÁ”°­¹½İ±•‘•A½¥¹Ğè‰…Ñ ¹­¹½İ±•‘•A½¥¹Ğ°ÍÕ‰-¹½İ±•‘•A½¥¹Ğè‰…Ñ ¹ÍÕ‰-¹½İ±•‘•A½¥¹Ğ°ÅÕ•ÍÑ¥½¹QåÁ”è¥¹‘•à€ôôô€Ğ€ü€‰½É¥¥¹…±}É•ÑÉäˆ€è€‰ÍÕ‰©•Ñ¥Ù”ˆ°ÍÑ•´è€‘í¥¹‘•à€ôôô€Ğ€ü€‹–:¦Rg¦Šc¦7šZÃ’ös¶Pˆ€è€‹–’7šÖ/¦Š`‰÷¾òk–nÓîT€‘í‰…Ñ ¹ÍÕ‰-¹½İ±•‘•A½¥¹Ñôƒ.³®/–º3š"C	€°…¹Íİ•Èè€‹š2'š¶—¦ª“–º3šVÓ’ös¶Pˆ°‘•Ñ…¥±•‘M½±ÕÑ¥½¸èíôô¤¤°ÍÑ…ÑÕÌè€‰İ…¥Ñ¥¹}…¹Íİ•Èˆ°É•ÍÕ±Ğè¹Õ±°°É•…Ñ•‘Ğè¹½İ%Í¼ ¤ôì(€€€€€ÍÑ½É”¹É•Ñ•ÍÑI•½É‘Ì€ôÍÑ½É”¹É•Ñ•ÍÑI•½É‘Ìñğmtì(€€€€€ÍÑ½É”¹É•Ñ•ÍÑI•½É‘Ì¹ÁÕÍ ¡É•Ñ•ÍĞ¤ì(€€€€€İÉ¥Ñ•MÑ½É”¡ÍÑ½É”¤ì(€€€€€É•ÑÕÉ¸©Í½¸¡ìÉ•Ñ•ÍĞô¤ì(€€€ô(€€€¥˜€¡µ•Ñ¡½€ôôô€‰A=MPˆ€˜˜Á…Ñ €ôôô€ˆ½…Á¤½É•Ñ•ÍÑÌ½ÍÕ‰µ¥Ğˆ¤ì(€€€€€½¹ÍĞÉ•Ñ•ÍĞ€ô€¡ÍÑ½É”¹É•Ñ•ÍÑI•½É‘Ìñğmt¤¹™¥¹ ¡¥Ñ•´¤€ôø¥Ñ•´¹¥€ôôô‰½‘ä¹É•Ñ•ÍÑ%¤ì(€€€€€¥˜€ …É•Ñ•ÍĞ¤É•ÑÕÉ¸©Í½¸¡ì•ÉÉ½Èè€‹–’7šÖ/’â7–¶c–r ˆô°€ĞÀĞ¤ì(€€€€€½¹ÍĞ…¹Íİ•ÉÌ€ôÉÉ…ä¹¥ÍÉÉ…ä¡‰½‘ä¹…¹Íİ•ÉÌ¤€ü‰½‘ä¹…¹Íİ•ÉÌ€èmtì(€€€€€½¹ÍĞ½ÉÉ•Ğ€ô…¹Íİ•ÉÌ¹™¥±Ñ•È ¡¥Ñ•´¤€ôø¥Ñ•´¹…¹Íİ•Èñğ¥Ñ•´¹ÍÑ•ÁÍQ•áĞ¤¹±•¹Ñ ì(€€€€€½¹ÍĞ…ÕÉ…ä€ô5…Ñ ¹É½Õ¹¡½ÉÉ•Ğ€¼5…Ñ ¹µ…à Ä°É•Ñ•ÍĞ¹ÅÕ•ÍÑ¥½¹Ì¹±•¹Ñ ¤€¨€ÄÀÀ¤ì(€€€€€É•Ñ•ÍĞ¹É•ÍÕ±Ğ€ôì…ÕÉ…ä°¡¥¹ÑÍUÍ•è€À°É•Á•…Ñ•‘=É¥¥¹…±ÉÉ½Èè™…±Í”°µ…ÍÑ•Éäè…ÕÉ…ä€øô€àÀ€ü€‹–ŞËš:3š>„ˆ€è…ÕÉ…ä€øô€ØÀ€ü€‹–~ëšr³š:3š>„ˆ€è€‹–Âkšr«š:3š>„ˆ°½É¥¥¹…±EÕ•ÍÑ¥½¹I•ÑÉåI•ÍÕ±Ğè…¹Íİ•ÉÌ¹…Ğ ´Ä¤ñğ¹Õ±°ôì(€€€€€É•Ñ•ÍĞ¹ÍÑ…ÑÕÌ€ô€‰½µÁ±•Ñ•ˆì(€€€€€İÉ¥Ñ•MÑ½É”¡ÍÑ½É”¤ì(€€€€€É•ÑÕÉ¸©Í½¸¡ìÉ•Ñ•ÍĞô¤ì(€€€ô(€€€¥˜€¡µ•Ñ¡½€ôôô€‰Pˆ€˜˜Á…Ñ €ôôô€ˆ½…Á¤½É•Á½ÉĞˆ¤É•ÑÕÉ¸©Í½¸¡ì…ÑÑ•µÁÑÌèÍÑ½É”¹…ÑÑ•µÁÑÌ°É•Á½ÉĞè‰Õ¥±‘I•Á½ÉĞ¡ÕÉ°¹Í•…É¡A…É…µÌ¹•Ğ ‰ÍÑÕ‘•¹Ñ%ˆ¤¤ô¤ì(€€€¥˜€¡µ•Ñ¡½€ôôô€‰Pˆ€˜˜Á…Ñ €ôôô€ˆ½…Á¤½±•…É¹¥¹œµ±½½Àˆ¤É•ÑÕÉ¸©Í½¸¡ì±½½Àè‰Õ¥±‘1½½À¡ÕÉ°¹Í•…É¡A…É…µÌ¹•Ğ ‰ÍÑÕ‘•¹Ñ%ˆ¤¤ô¤ì(€€€¥˜€¡µ•Ñ¡½€ôôô€‰Pˆ€˜˜Á…Ñ €ôôô€ˆ½…Á¤½½±±•Ñ¥½¸ˆ¤ì(€€€€€½¹ÍĞ±…Ñ•ÍĞ€ô¹•Ü5…À ¤ì(€€€€€ÍÑ½É”¹…ÑÑ•µÁÑÌ¹™½É…  ¡…ÑÑ•µÁĞ¤€ôø±…Ñ•ÍĞ¹Í•Ğ¡…ÑÑ•µÁĞ¹ÅÕ•ÍÑ¥½¹%°…ÑÑ•µÁĞ¤¤ì(€€€€€É•ÑÕÉ¸©Í½¸¡ì¥Ñ•µÌèÉÉ…ä¹™É½´¡±…Ñ•ÍĞ¹Ù…±Õ•Ì ¤¤¹µ…À ¡…ÑÑ•µÁĞ¤€ôø€¡ì…ÑÑ•µÁĞ°ÅÕ•ÍÑ¥½¸èÅÕ•ÍÑ¥½¹Ì¹™¥¹ ¡¥Ñ•´¤€ôø¥Ñ•´¹¥€ôôô…ÑÑ•µÁĞ¹ÅÕ•ÍÑ¥½¹%¤°Ñ¥µ•ÌèÍÑ½É”¹…ÑÑ•µÁÑÌ¹™¥±Ñ•È ¡„¤€ôø„¹ÅÕ•ÍÑ¥½¹%€ôôô…ÑÑ•µÁĞ¹ÅÕ•ÍÑ¥½¹%¤¹±•¹Ñ ô¤¤ô¤ì(€€€ô(€€€É•ÑÕÉ¸©Í½¸¡ì•ÉÉ½Èè€‹¦vgššòS’èA$ƒ’â7–¶c–r ˆô°€ĞÀĞ¤ì(€ôì)ô¤ ¤ì(
+      return { questionId: question.id, orderIndex: index, type: question.type, typeLabel: typeLabelFor(question.type), chapterName: question.chapterName, knowledgePoints: [question.point], title: question.stem, studentAnswer: attempt?.answer || attempt?.selectedOption || "", studentSteps: attempt?.stepsText || "", standardAnswer: question.answer, standardSteps: question.explanation, score: scored.score, maxScore: scored.maxScore, finalAnswerCorrect: attempt?.correct === true, processCorrect: attempt?.correct === true && !processIssue, answerCorrectButProcessIssue: processIssue, needsDeepDiagnosis: attempt?.correct !== true || processIssue, analysisDepth: attempt?.correct !== true || processIssue ? "deep" : "light", processIssue: { hasIssue: Boolean(processIssue), reason: processIssue ? "ç»“æœæ­£ç¡®ä½†ä¸»è§‚é¢˜ç¼ºå°‘å¯å¤æ ¸è¿‡ç¨‹" : "", severity: processIssue ? "medium" : "none" }, gradingStatus: attempt?.gradingStatus || "missing", errorTypes: attempt?.correct && !processIssue ? [] : [processIssue ? "ç»“æœæ­£ç¡®ä½†è¿‡ç¨‹æœ‰é—®é¢˜" : attempt?.reason || question.reason || "å¾…è¯†åˆ«"], deductionReason: attempt?.correct && !processIssue ? "æ­£ç¡®é¢˜ä»…è®°å½•ç»“æœ" : (processIssue ? "ç»“æœæ­£ç¡®ä½†è¿‡ç¨‹æœ‰é—®é¢˜" : attempt?.reason || question.reason || "å¾…è¯†åˆ«"), firstErrorStep: attempt?.correct && !processIssue ? null : 1, lastCorrectStep: null, errorTag: { knowledgePoint: question.chapterName, subKnowledgePoint: question.point, errorType: processIssue ? "ç»“æœæ­£ç¡®ä½†è¿‡ç¨‹æœ‰é—®é¢˜" : attempt?.reason || question.reason || "å¾…è¯†åˆ«", errorPosition: "ç¬¬1æ­¥" }, steps: stepAnalysisFor(question, attempt), advice: attempt?.advice || "" };
+    });
+    const totalScore = questionAnalyses.reduce((sum, item) => sum + item.score, 0);
+    const totalMax = Math.max(1, questionAnalyses.reduce((sum, item) => sum + item.maxScore, 0));
+    const correctCount = questionAnalyses.filter((item) => item.finalAnswerCorrect).length;
+    const unansweredCount = atts.filter((attempt) => attempt.abandoned).length;
+    const byType = {}, byChapter = {}, byKnowledge = {}, errorStats = {};
+    const addBucket = (map, name, item) => { map[name] = map[name] || { score: 0, maxScore: 0, total: 0, correct: 0 }; map[name].score += item.score; map[name].maxScore += item.maxScore; map[name].total += 1; if (item.finalAnswerCorrect) map[name].correct += 1; };
+    questionAnalyses.forEach((item) => {
+      addBucket(byType, item.typeLabel, item);
+      addBucket(byChapter, item.chapterName, item);
+      addBucket(byKnowledge, item.knowledgePoints[0], item);
+      if (item.needsDeepDiagnosis) {
+        const type = item.errorTypes[0] || "å¾…è¯†åˆ«";
+        errorStats[type] = errorStats[type] || { count: 0, questionIndexes: [], questionIds: [], scoreLoss: 0, severity: "ä½", repeated: false };
+        errorStats[type].count += 1; errorStats[type].questionIndexes.push(item.orderIndex + 1); errorStats[type].questionIds.push(item.questionId); errorStats[type].scoreLoss += item.maxScore - item.score;
+      }
+    });
+    Object.values(byKnowledge).forEach((item) => { item.mastery = item.maxScore ? Math.round(item.score / item.maxScore * 100) : 0; item.status = item.mastery >= 85 ? "å·²æŒæ¡" : item.mastery >= 70 ? "åŸºæœ¬æŒæ¡" : item.mastery >= 50 ? "æŒæ¡ä¸ç¨³å®š" : item.mastery > 0 ? "è–„å¼±çŸ¥è¯†ç‚¹" : "å®Œå…¨æœªæŒæ¡"; });
+    Object.values(errorStats).forEach((item) => { item.severity = item.scoreLoss >= 20 || item.count >= 4 ? "é«˜" : item.scoreLoss >= 10 || item.count >= 2 ? "ä¸­" : "ä½"; item.repeated = item.count >= 2; });
+    const weak = Object.entries(byKnowledge).filter(([, item]) => item.mastery < 70).map(([name]) => name);
+    return { summary: { examinationId: submission.examinationId, paperName: submission.paperName, submittedAt: submission.submittedAt, totalScore, totalMax, scoreRate: Math.round(totalScore / totalMax * 100), correctCount, wrongCount: questionAnalyses.length - correctCount - unansweredCount, unansweredCount, objectiveScore: questionAnalyses.filter((item) => item.type !== "subjective").reduce((sum, item) => sum + item.score, 0), subjectiveScore: questionAnalyses.filter((item) => item.type === "subjective").reduce((sum, item) => sum + item.score, 0), durationMs: submission.durationMs, timeout: false, level: "é™æ€æ¼”ç¤ºè¯Šæ–­", estimatedExamLevel: "æ¼”ç¤ºç¯å¢ƒä¸å†’å……çœŸå®è€ƒè¯•é¢„æµ‹", comment: weak.length ? `é™æ€æ¼”ç¤ºæ˜¾ç¤ºè–„å¼±ç‚¹é›†ä¸­åœ¨ ${weak.slice(0, 3).join("ã€")}ã€‚` : "æœ¬å·è¡¨ç°ç¨³å®šã€‚" }, byType, byChapter, byKnowledge, errorStats, abilityDiagnosis: ["åŸºç¡€è®¡ç®—èƒ½åŠ›", "å…¬å¼åº”ç”¨èƒ½åŠ›", "å®¡é¢˜èƒ½åŠ›", "å»ºæ¨¡èƒ½åŠ›", "æ¨ç†èƒ½åŠ›", "ç»¼åˆåˆ†æèƒ½åŠ›"].map((name, index) => ({ name, score: Math.max(35, 82 - index * 7), level: "æ¼”ç¤ºè¯„ä¼°", evidence: "æ¥è‡ªæœ¬å·å®¢è§‚é¢˜åˆ¤åˆ†ä¸ä¸»è§‚é¢˜ä¿å­˜çŠ¶æ€", questionIds: [], advice: "æ¥å…¥æœåŠ¡ç«¯åå¯åŸºäºçœŸå®æ­¥éª¤è¯†åˆ«æ›´æ–°ã€‚" })), questionAnalyses, historyCompare: [], topProblems: Object.entries(errorStats).slice(0, 3).map(([type, item]) => ({ type, ...item })), priorityKnowledge: weak.slice(0, 5), recommendedTasks: weak.slice(0, 4).map((point, index) => ({ id: `task_${index}`, stage: ["å¤ä¹ ", "åŸºç¡€å·©å›ºé¢˜", "åŒç±»å˜å¼é¢˜", "ç»¼åˆåº”ç”¨é¢˜"][index] || "å¤æµ‹", knowledgePoint: point, errorType: Object.keys(errorStats)[0] || "å¾…è¯†åˆ«", title: `${point}ä¸“é¡¹è¡¥å¼º`, target: "å®Œæˆå¤ä¹ ã€è®­ç»ƒå’Œå¤æµ‹", status: "pending" })), loop: { current: "è¯Šæ–­å®Œæˆ", stages: ["æ£€æµ‹", "è¯Šæ–­", "å¤ä¹ ", "è®­ç»ƒ", "å¤æµ‹", "æå‡"], nextAction: weak[0] ? `${weak[0]}ä¸“é¡¹è¡¥å¼º` : "ç»¼åˆæå‡è®­ç»ƒ" } };
+  };
+
+  const createStaticTrainingBatch = (store, studentId, body = {}) => {
+    const latest = (store.submissions || []).filter((item) => item.studentId === studentId).sort((a, b) => String(b.submittedAt).localeCompare(String(a.submittedAt)))[0];
+    if (!latest) throw new Error("æ²¡æœ‰æ•´å·æŠ¥å‘Šï¼Œæ— æ³•ç”Ÿæˆè®­ç»ƒ");
+    const wrong = (latest.report?.questionAnalyses || []).find((item) => item.needsDeepDiagnosis) || (latest.report?.questionAnalyses || []).find((item) => !item.finalAnswerCorrect) || latest.report?.questionAnalyses?.[0] || {};
+    const trainingType = body.trainingType === "comprehensive" ? "comprehensive" : "targeted";
+    const total = trainingType === "comprehensive" ? 20 : 10;
+    const purpose = trainingType === "targeted"
+      ? ["åŸºç¡€æ¦‚å¿µé¢˜", "åŸºç¡€æ¦‚å¿µé¢˜", "å…³é”®æ­¥éª¤é¢˜", "å…³é”®æ­¥éª¤é¢˜", "åŒç±»é¢˜", "åŒç±»é¢˜", "å˜å¼é¢˜", "å˜å¼é¢˜", "æ˜“é”™é¢˜", "ç»¼åˆæ£€éªŒé¢˜"]
+      : ["å½“å‰æœ€ä¸¥é‡é”™è¯¯ä¸“é¡¹", "å½“å‰æœ€ä¸¥é‡é”™è¯¯ä¸“é¡¹", "å½“å‰æœ€ä¸¥é‡é”™è¯¯ä¸“é¡¹", "å½“å‰æœ€ä¸¥é‡é”™è¯¯ä¸“é¡¹", "å½“å‰æœ€ä¸¥é‡é”™è¯¯ä¸“é¡¹", "å½“å‰æœ€ä¸¥é‡é”™è¯¯ä¸“é¡¹", "å½“å‰æœ€ä¸¥é‡é”™è¯¯ä¸“é¡¹", "å½“å‰æœ€ä¸¥é‡é”™è¯¯ä¸“é¡¹", "å½“å‰æœ€ä¸¥é‡é”™è¯¯ä¸“é¡¹", "å½“å‰æœ€ä¸¥é‡é”™è¯¯ä¸“é¡¹", "å…¶ä»–è–„å¼±çŸ¥è¯†ç‚¹", "å…¶ä»–è–„å¼±çŸ¥è¯†ç‚¹", "å…¶ä»–è–„å¼±çŸ¥è¯†ç‚¹", "å…¶ä»–è–„å¼±çŸ¥è¯†ç‚¹", "å†å²é‡å¤é”™è¯¯", "å†å²é‡å¤é”™è¯¯", "å†å²é‡å¤é”™è¯¯", "é˜²é—å¿˜å·©å›ºé¢˜", "é˜²é—å¿˜å·©å›ºé¢˜", "æå‡é¢˜"];
+    const sourceBase = questions.find((item) => item.id === wrong.questionId) || {};
+    const sourceQuestion = {
+      id: wrong.questionId || "",
+      stem: wrong.title || "",
+      answer: wrong.standardAnswer || "",
+      stepsText: wrong.studentSteps || "",
+      chapterId: wrong.chapterId || sourceBase.chapterId || "integral",
+      point: wrong.knowledgePoints?.[0] || sourceBase.point || "",
+      type: wrong.type || sourceBase.type || ""
+    };
+    const sourceTag = {
+      questionId: wrong.questionId || "",
+      errorType: wrong.errorTypes?.[0] || "æ–¹æ³•é€‰æ‹©é”™è¯¯",
+      sourceWrongStep: wrong.firstErrorStep || 1,
+      errorCategory: wrong.errorTag?.errorCategory || "æ–¹æ³•ä¸è®¡ç®—é”™è¯¯",
+      subKnowledgePoint: wrong.knowledgePoints?.[0] || ""
+    };
+    const questionsForTraining = Array.from({ length: total }, (_, index) => ({
+      id: `trainq_${Date.now()}_${index}_${Math.random().toString(16).slice(2)}`,
+      index: index + 1,
+      ...window.TrainingFactory.createTrainingQuestion({ sourceQuestion, sourceTag, index, trainingType, purpose: purpose[index] })
+    }));
+    questionsForTraining.forEach((question) => { question.questionId = question.id; });
+    questionsForTraining.forEach((question) => {
+      const validation = window.TrainingFactory.validateTrainingQuestion(question);
+      if (!validation.valid) throw new Error(`ç¬¬${question.index}é¢˜æ ¡éªŒå¤±è´¥ï¼š${validation.reasons.join("ã€")}`);
+    });
+    const batch = {
+      id: `batch_${Date.now()}_${Math.random().toString(16).slice(2)}`,
+      trainingBatchId: "",
+      studentId,
+      submissionId: latest.id,
+      trainingType,
+      sourceWrongQuestionId: sourceTag.questionId,
+      sourceErrorType: questionsForTraining[0].sourceErrorType || sourceTag.errorType,
+      sourceWrongStep: sourceTag.sourceWrongStep,
+      knowledgePoint: wrong.chapterName || "è€ƒç ”æ•°å­¦",
+      subKnowledgePoint: sourceTag.subKnowledgePoint,
+      errorCategory: sourceTag.errorCategory,
+      trainingTheme: trainingType === "targeted" ? `${sourceTag.subKnowledgePoint} Â· ${questionsForTraining[0].sourceErrorType}` : "20é¢˜ç»¼åˆè®­ç»ƒ",
+      composition: trainingType === "comprehensive" ? { mainErrorType: 10, otherWeakKnowledge: 4, repeatedHistory: 3, antiForgetting: 2, stretch: 1 } : { conceptDiscrimination: 2, basicSteps: 2, sameType: 2, variants: 2, trap: 1, synthesis: 1 },
+      questionCount: total,
+      total,
+      estimatedMinutes: Math.ceil(questionsForTraining.reduce((sum, item) => sum + item.estimatedSeconds, 0) / 60),
+      questions: questionsForTraining,
+      progress: { answered: 0, correct: 0, accuracy: 0, hintsUsed: 0, repeatedOriginalError: false, masteryBefore: 35, masteryAfter: null },
+      status: "waiting_answer",
+      createdAt: nowIso(),
+      updatedAt: nowIso()
+    };
+    batch.trainingBatchId = batch.id;
+    store.trainingBatches = store.trainingBatches || [];
+    store.trainingBatches.push(batch);
+    return batch;
+  };
+
+  function studentFrom(body) {
+    const store = readStore();
+    let student = store.students[0];
+    if (!student) {
+      student = {
+        id: `demo_${sessionId}`,
+        inviteCode: "demo",
+        name: body.name || "ç‹åŒå­¦",
+        mathType: body.mathType || "æ•°å­¦ä¸€",
+        targetScore: Number(body.targetScore || 120),
+        stage: body.stage || "å¼ºåŒ–é˜¶æ®µ",
+        dailyMinutes: Number(body.dailyMinutes || 60),
+        isDemo: true,
+        createdAt: nowIso(),
+        lastLoginAt: nowIso()
+      };
+      store.students = [student];
+      writeStore(store);
+    }
+    return student;
+  }
+
+  function buildReport(studentId) {
+    const store = readStore();
+    const attempts = store.attempts.filter((a) => a.studentId === studentId);
+    const gradable = attempts.filter((a) => typeof a.correct === "boolean");
+    const correct = gradable.filter((a) => a.correct).length;
+    const weakMap = {};
+    attempts.filter((a) => a.correct === false).forEach((a) => {
+      weakMap[a.reason] = (weakMap[a.reason] || 0) + 1;
+    });
+    return {
+      total: attempts.length,
+      gradableTotal: gradable.length,
+      accuracy: gradable.length ? Math.round(correct / gradable.length * 100) : 0,
+      pending: attempts.length - gradable.length,
+      weakReasons: Object.entries(weakMap).map(([reason, count]) => ({
+        reason, count, advice: `å›´ç»•ã€Œ${reason}ã€è¡¥ 3-5 é“åŒç±»å˜å¼é¢˜ï¼Œå†å›åˆ°åŸé¢˜é‡åšã€‚`
+      }))
+    };
+  }
+
+  function buildLoop(studentId) {
+    const store = readStore();
+    const attempts = store.attempts.filter((a) => a.studentId === studentId);
+    const lastWrong = attempts.findLast((a) => a.correct === false) || attempts[attempts.length - 1];
+    const baseQuestion = questions.find((item) => item.id === lastWrong?.questionId) || questions[5];
+    const weakPoint = baseQuestion.point;
+    const errorType = lastWrong?.reason || baseQuestion.reason;
+    const report = buildReport(studentId);
+    return {
+      homeCounters: { reviewPending: 1, trainingPending: 3, retryPending: 1, conquered: 0, needsReinforcement: 1 },
+      diagnosis: {
+        score: `${Math.round(report.accuracy || 62)}%`,
+        accuracy: report.accuracy || 62,
+        weakKnowledgePoints: [weakPoint, errorType],
+        summary: `ç³»ç»Ÿå®šä½åˆ°ä¸»è¦é—®é¢˜æ˜¯ã€Œ${weakPoint}ã€ç›¸å…³çš„${errorType}ï¼Œå»ºè®®å…ˆå¤ä¹ çŸ¥è¯†ç‚¹ï¼Œå†åšç›¸ä¼¼é¢˜ï¼Œæœ€åå›åˆ°åŸé¢˜é‡åšéªŒè¯ã€‚`,
+        questionAnalyses: [{
+          typeLabel: baseQuestion.type === "choice" ? "é€‰æ‹©é¢˜" : "è®¡ç®—é¢˜",
+          score: lastWrong?.correct ? 5 : 2,
+          maxScore: 5,
+          title: baseQuestion.stem,
+          studentAnswer: lastWrong?.answer || lastWrong?.selectedOption || "è‰ç¨¿å·²ä¿å­˜",
+          standardAnswer: baseQuestion.answer,
+          finalAnswerCorrect: Boolean(lastWrong?.correct),
+          errorTypes: [errorType],
+          knowledgePoints: [weakPoint],
+          steps: [
+            { stepNumber: 1, status: "partial", judgment: "æ€è·¯éƒ¨åˆ†æ­£ç¡®", score: 1, maxScore: 2, studentContent: "èƒ½è¯†åˆ«é¢˜å‹ï¼Œä½†å…³é”®æ¡ä»¶ä½¿ç”¨ä¸å®Œæ•´", normalizedExpression: "é¢˜å‹è¯†åˆ«å®Œæˆ", errorDescription: errorType, correction: `å›åˆ° ${weakPoint} çš„é€‚ç”¨æ¡ä»¶`, relatedKnowledgePoint: weakPoint },
+            { stepNumber: 2, status: lastWrong?.correct ? "correct" : "wrong", judgment: lastWrong?.correct ? "ç»“æœæ­£ç¡®" : "å…³é”®æ­¥éª¤åå·®", score: lastWrong?.correct ? 3 : 1, maxScore: 3, studentContent: lastWrong?.answer || "è‰ç¨¿æ­¥éª¤", normalizedExpression: baseQuestion.answer, errorDescription: lastWrong?.correct ? "æ— " : "è®¡ç®—æˆ–æ–¹æ³•é€‰æ‹©å‡ºç°åå·®", correction: "å…ˆå®ŒæˆçŸ¥è¯†ç‚¹å¤ä¹ åå†è¿›å…¥å˜å¼è®­ç»ƒ", relatedKnowledgePoint: weakPoint }
+          ]
+        }]
+      },
+      recoveryPath: { currentStage: "DIAGNOSED", nextAction: "å…ˆå®ŒæˆçŸ¥è¯†ç‚¹å¤ä¹ ï¼Œé€šè¿‡ç†è§£æ£€æŸ¥åå†è¿›å…¥ç›¸ä¼¼é¢˜è®­ç»ƒã€‚" },
+      reviewModule: {
+        title: `${weakPoint} çŸ¥è¯†ç‚¹å¤ä¹ `,
+        relationToMistake: `æœ¬é¢˜é”™è¯¯ç›´æ¥å…³è”åˆ°ã€Œ${weakPoint}ã€çš„ä½¿ç”¨æ¡ä»¶å’Œæ­¥éª¤å®Œæ•´æ€§ã€‚`,
+        formulas: ["å…ˆåˆ¤æ–­é¢˜å‹ä¸æ¡ä»¶", "å†é€‰æ‹©æ–¹æ³•", "æœ€åæ£€æŸ¥å¸¸æ•°ã€ç¬¦å·å’Œå®šä¹‰åŸŸ"],
+        coreConcept: "ä¸æ˜¯åªçœ‹æœ€åç­”æ¡ˆï¼Œè€Œæ˜¯å®šä½ç¬¬ä¸€æ¬¡å‘ç”Ÿåå·®çš„ä½ç½®ã€‚",
+        conditions: "å½“é¢˜ç›®å‡ºç°åŒç±»ç»“æ„æ—¶ï¼Œå…ˆå†™å‡ºå¯ç”¨æ¡ä»¶ï¼Œå†è¿›è¡Œè®¡ç®—ã€‚",
+        commonMistakes: ["è·³è¿‡æ¡ä»¶åˆ¤æ–­", "å…¬å¼å¥—ç”¨æ–¹å‘é”™è¯¯", "è®¡ç®—åæœªå›ä»£æ£€æŸ¥"],
+        correctExample: `å…ˆæ ‡å‡º ${weakPoint}ï¼Œå†åˆ—å‡ºå¯¹åº”å…¬å¼æˆ–æ–¹æ³•ã€‚`,
+        wrongExample: "ç›´æ¥å‡­å°è±¡å¥—å…¬å¼ï¼Œå¯¼è‡´ä¸­é—´æ­¥éª¤åå·®ã€‚",
+        strategy: "å¤ä¹  3 åˆ†é’Ÿï¼Œå®Œæˆç†è§£æ£€æŸ¥ï¼Œå†è¿›å…¥ 3 å±‚ç›¸ä¼¼é¢˜ã€‚"
+      },
+      understandingCheck: {
+        purpose: "ç¡®è®¤å­¦ç”Ÿç†è§£é”™å› åï¼Œå†è¿›å…¥è®­ç»ƒï¼Œé¿å…éšæœºåˆ·é¢˜ã€‚",
+        question: `è¿™ç±»é¢˜é¦–å…ˆåº”è¯¥æ£€æŸ¥ä»€ä¹ˆï¼Ÿ`,
+        options: [
+          { key: "A", text: "ç›´æ¥çœ‹ç­”æ¡ˆ" },
+          { key: "B", text: `åˆ¤æ–­ ${weakPoint} çš„é€‚ç”¨æ¡ä»¶` },
+          { key: "C", text: "éšä¾¿æ¢ä¸€ä¸ªå…¬å¼" }
+        ],
+        answer: "B",
+        passFeedback: "é€šè¿‡ã€‚å¯ä»¥è¿›å…¥ç›¸ä¼¼é¢˜è®­ç»ƒã€‚",
+        failFeedback: "è¿˜æ²¡æœ‰æŠ“ä½å…³é”®ï¼Œåº”å›åˆ°çŸ¥è¯†ç‚¹å¤ä¹ ã€‚"
+      },
+      trainingPlan: { goal: `å›´ç»• ${weakPoint} åšåˆ†å±‚è®­ç»ƒ`, totalQuestions: 3, estimatedMinutes: 15, completionStandard: "è‡³å°‘å®Œæˆ 2 é“ä¸”ä¸é‡å¤åŸé”™è¯¯", items: [] },
+      similarTraining: {
+        goal: `å›´ç»• ${weakPoint} çš„ç›¸ä¼¼é¢˜è®­ç»ƒ`,
+        levels: [
+          { level: "åŸºç¡€", title: "åŒçŸ¥è¯†ç‚¹ä½è´Ÿè·é¢˜", stem: "å…ˆå†™å‡ºé€‚ç”¨æ¡ä»¶ï¼Œå†è®¡ç®—ã€‚", target: weakPoint, hint: "ä¸è¦ç›´æ¥è·³æ­¥éª¤", feedback: "å¦‚æœé”™ï¼Œå…ˆå›çœ‹æ¦‚å¿µå¡ç‰‡ã€‚" },
+          { level: "å¼ºåŒ–", title: "å˜å¼æ¡ä»¶é¢˜", stem: "æ¡ä»¶ç¨ä½œå˜åŒ–ï¼Œåˆ¤æ–­æ–¹æ³•æ˜¯å¦ä»é€‚ç”¨ã€‚", target: weakPoint, hint: "æ¯”è¾ƒåŸé¢˜å·®å¼‚", feedback: "é”™å› å¤šæ¥è‡ªæ–¹æ³•è¿ç§»ä¸ç¨³ã€‚" },
+          { level: "ç»¼åˆ", title: "è·¨æ­¥éª¤ç»¼åˆé¢˜", stem: "åŠ å…¥è®¡ç®—å’Œè¡¨è¾¾æ£€æŸ¥ã€‚", target: weakPoint, hint: "æœ€åå›ä»£éªŒè¯", feedback: "ç”¨äºç¡®è®¤èƒ½å¦ç‹¬ç«‹å®Œæˆã€‚" }
+        ]
+      },
+      originalRetry: {
+        stem: baseQuestion.stem,
+        firstMistakeSummary: `${errorType}ï¼Œç¬¬ä¸€æ¬¡åå·®é€šå¸¸å‡ºç°åœ¨ã€Œ${weakPoint}ã€çš„æ¡ä»¶åˆ¤æ–­æˆ–å…³é”®è®¡ç®—ã€‚`,
+        acceptedSignals: [baseQuestion.answer, weakPoint],
+        durationSecond: 180
+      },
+      masteryVerification: {
+        status: "WAITING",
+        firstError: errorType,
+        masteredFeedback: "é‡åšæ—¶å·²ç»é¿å¼€åŸé”™è¯¯ï¼Œè¯´æ˜è¯¥çŸ¥è¯†ç‚¹è¿›å…¥åŸºæœ¬æŒæ¡çŠ¶æ€ã€‚",
+        reinforceFeedback: "ä»é‡å¤åŸé”™è¯¯ï¼Œéœ€è¦é™ä½è®­ç»ƒéš¾åº¦å¹¶é‡æ–°å¤ä¹ ã€‚"
+      },
+      retest: { score: 80, independent: true, hintsUsed: 0, passed: true, questions: [{ typeLabel: "å˜å¼é¢˜", difficulty: "å¼ºåŒ–", stem: "åŒçŸ¥è¯†ç‚¹å˜å¼å¤æµ‹é¢˜", target: weakPoint, result: "ç”¨äºåˆ¤æ–­è¿ç§»èƒ½åŠ›" }] },
+      improvement: { beforeMastery: 45, afterMastery: 78, improvementValue: 33, status: "æ˜æ˜¾æå‡", originalError: errorType, trainingResult: "å®ŒæˆçŸ¥è¯†ç‚¹å¤ä¹ ã€ç†è§£æ£€æŸ¥å’Œç›¸ä¼¼é¢˜è®­ç»ƒã€‚", nextRisk: "é—´éš” 2 å¤©åéœ€è¦å¤åˆ·ï¼Œé˜²æ­¢é—å¿˜ã€‚" },
+      comparisonReport: { firstScore: "2/5", retryScore: "4/5", firstDuration: "4 åˆ†é’Ÿ", retryDuration: "3 åˆ†é’Ÿ", firstErrorStep: errorType, firstSteps: "ç¬¬ä¸€æ¬¡è·³è¿‡å…³é”®åˆ¤æ–­", retryStepPerformance: "ç¬¬äºŒæ¬¡è¡¥å…¨å…³é”®æ¡ä»¶", sameErrorRepeated: false },
+      profile: { abilities: [
+        { name: "æ¦‚å¿µç†è§£", previous: 52, current: 72, trend: "ä¸Šå‡", evidence: "ç†è§£æ£€æŸ¥é€šè¿‡", suggestion: "ç»§ç»­ç”¨å£è¿°æ–¹å¼å¤è¿°æ¦‚å¿µ" },
+        { name: "æ–¹æ³•é€‰æ‹©", previous: 45, current: 68, trend: "ä¸Šå‡", evidence: "ç›¸ä¼¼é¢˜è®­ç»ƒé€šè¿‡", suggestion: "å¤šåšæ¡ä»¶å˜åŒ–é¢˜" },
+        { name: "è®¡ç®—ç¨³å®šæ€§", previous: 60, current: 70, trend: "ç¨³å®š", evidence: "è‰ç¨¿æ­¥éª¤è¾ƒå®Œæ•´", suggestion: "åŠ å¼ºç¬¦å·ä¸å¸¸æ•°æ£€æŸ¥" }
+      ] }
+    };
+  }
+
+  const originalFetch = window.fetch.bind(window);
+  window.fetch = async (input, init = {}) => {
+    const raw = typeof input === "string" ? input : input.url;
+    const url = new URL(raw, location.origin);
+    const apiIndex = url.pathname.indexOf("/api/");
+    if (apiIndex < 0) return originalFetch(input, init);
+    const path = url.pathname.slice(apiIndex);
+    const method = (init.method || "GET").toUpperCase();
+    const body = init.body ? JSON.parse(init.body) : {};
+    const store = readStore();
+
+    if (method === "GET" && path === "/api/health") return json({ status: "ok", environment: "static-demo", timestamp: nowIso() });
+    if (method === "GET" && path === "/api/bootstrap") return json({ chapters, inviteCodes: ["demo"], pastExamSources: { trustedSources: [], candidateSourcesNeedReview: [] }, aiStatus: { handwritingRecognition: false, model: "static-demo" } });
+    if (method === "GET" && path === "/api/past-exam-sources") return json({ trustedSources: [{ site: "æ¼”ç¤ºçœŸé¢˜æ¥æº", items: [{ year: "2012", mathType: "æ•°å­¦äºŒ", title: "2012 å…¨å›½ç¡•å£«ç ”ç©¶ç”Ÿå…¥å­¦è€ƒè¯•æ•°å­¦äºŒè¯•é¢˜", format: "image_slices", importStatus: "demo_ready", url: "https://yz.chsi.com.cn/" }] }], candidateSourcesNeedReview: [] });
+    if (method === "POST" && path === "/api/login") {
+      if ((body.password || "demo123") !== "demo123") return json({ error: "æ¼”ç¤ºè´¦å·å¯†ç é”™è¯¯" }, 401);
+      const student = studentFrom(body);
+      student.name = body.name || student.name;
+      student.mathType = body.mathType || student.mathType;
+      student.lastLoginAt = nowIso();
+      writeStore({ ...store, students: [student] });
+      return json({ student, demo: true, sessionId });
+    }
+    if (method === "POST" && path === "/api/demo/reset") {
+      writeStore({ students: store.students, attempts: [], submissions: [] });
+      return json({ ok: true, student: store.students[0] || studentFrom({}) });
+    }
+    if (method === "GET" && path === "/api/questions") {
+      const student = store.students[0] || studentFrom({});
+      const chapterId = url.searchParams.get("chapterId") || "integral";
+      const count = Math.min(50, Number(url.searchParams.get("count") || 20));
+      const difficulty = url.searchParams.get("difficulty") || "all";
+      const sourceType = url.searchParams.get("sourceType") || "all";
+      const mode = url.searchParams.get("mode") || "reinforce";
+      let pool = questions.filter((item) => item.subjects.includes(student.mathType) && (chapterId === "all" || item.chapterId === chapterId));
+      if (sourceType !== "all") pool = pool.filter((item) => item.sourceType === sourceType);
+      if (!["all", "mode"].includes(difficulty)) pool = pool.filter((item) => String(item.difficulty) === String(difficulty));
+      if (!pool.length) pool = questions.filter((item) => item.subjects.includes(student.mathType));
+      const selected = Array.from({ length: Math.min(count, pool.length) }, (_, index) => pool[(index + Date.now()) % pool.length]);
+      return json({ questions: selected, chapterId, count, difficulty, sourceType, mode });
+    }
+    if (method === "POST" && path === "/api/attempts") {
+      const question = questions.find((item) => item.id === body.questionId);
+      if (!question) return json({ error: "é¢˜ç›®ä¸å­˜åœ¨" }, 404);
+      const correct = scoreAnswer(question, body);
+      const diagnosis = diagnose(question, correct, body);
+      const finalAnswer = body.answer || body.selectedOption || body.formulaText || (question.type === "fill" ? extractFillAnswerFromWorkSpace(body.stepsText) : "");
+      const attempt = {
+        id: `att_${Date.now()}_${Math.random().toString(16).slice(2)}`,
+        studentId: body.studentId,
+        questionId: question.id,
+        chapterId: question.chapterId,
+        answer: finalAnswer,
+        selectedOption: body.selectedOption || "",
+        formulaText: body.formulaText || "",
+        stepsText: body.stepsText || "",
+        flagged: Boolean(body.flagged),
+        favorite: Boolean(body.favorite),
+        strokeCount: Number(body.strokeCount || 0),
+        scratchImageStored: Boolean(body.scratchImage),
+        answerImageStored: Boolean(body.answerImage),
+        durationMs: Number(body.durationMs || 0),
+        gradingStatus: correct === null ? "pending_recognition" : "graded",
+        correct,
+        reason: diagnosis.reason,
+        advice: diagnosis.advice,
+        evidence: [question.explanation],
+        createdAt: nowIso()
+      };
+      store.attempts.push(attempt);
+      writeStore(store);
+      return json({ attempt, question });
+    }
+    if (method === "POST" && path === "/api/submissions") {
+      const student = store.students.find((s) => s.id === body.studentId) || studentFrom({});
+      const questionIds = Array.isArray(body.questionIds) ? body.questionIds : [];
+      const responses = Array.isArray(body.responses) ? body.responses : [];
+      const submission = {
+        id: `sub_${Date.now()}_${Math.random().toString(16).slice(2)}`,
+        submissionId: "",
+        examinationId: body.examinationId || `static_${Date.now()}`,
+        studentId: student.id,
+        paperName: body.paperName || `${student.mathType} é™æ€æ¼”ç¤ºæ•´å·`,
+        mode: body.mode || "",
+        chapterId: body.chapterId || "",
+        status: "diagnosis_complete",
+        gradingStatusHistory: [
+          { status: "submit_confirmed", at: nowIso() },
+          { status: "uploading", at: nowIso() },
+          { status: "recognizing", at: nowIso() },
+          { status: "objective_grading_done", at: nowIso() },
+          { status: "subjective_analysis_done", at: nowIso() },
+          { status: "diagnosis_complete", at: nowIso() }
+        ],
+        questionIds,
+        attemptIds: [],
+        responsesLocked: responses.map((item, index) => ({ questionId: item.questionId, answer: item.answer || "", selectedOption: item.selectedOption || "", formulaText: item.formulaText || "", stepsText: item.stepsText || "", hasScratchImage: Boolean(item.scratchImage), hasAnswerImage: Boolean(item.answerImage), strokeCount: Number(item.strokeCount || 0), durationMs: Number(item.durationMs || 0), answerOrder: index, abandoned: !hasResponseContent(item) })),
+        completenessIssues: [],
+        durationMs: Number(body.durationMs || 0),
+        answerOrder: Array.isArray(body.answerOrder) ? body.answerOrder : questionIds,
+        revisionCount: Number(body.revisionCount || 0),
+        submittedAt: nowIso(),
+        createdAt: nowIso(),
+        updatedAt: nowIso(),
+        report: null
+      };
+      questionIds.forEach((qid, index) => {
+        const question = questions.find((item) => item.id === qid);
+        if (!question) return;
+        const payload = responses.find((item) => item.questionId === qid) || { questionId: qid };
+        const correct = scoreAnswer(question, payload);
+        const diagnosis = diagnose(question, correct, payload);
+        const finalAnswer = payload.answer || payload.selectedOption || payload.formulaText || (question.type === "fill" ? extractFillAnswerFromWorkSpace(payload.stepsText) : "");
+        if (!hasResponseContent(payload)) submission.completenessIssues.push({ questionId: qid, type: "unanswered", severity: "warn", message: `ç¬¬${index + 1}é¢˜æœªä½œç­”` });
+        if (question.type !== "choice" && correct === null) submission.completenessIssues.push({ questionId: qid, type: "pending_ocr", severity: "warn", message: `ç¬¬${index + 1}é¢˜ä¸»è§‚è¿‡ç¨‹ç­‰å¾…çœŸå® OCR/AI è¯†åˆ«` });
+        const attempt = {
+          id: `att_${Date.now()}_${index}_${Math.random().toString(16).slice(2)}`,
+          studentId: student.id,
+          submissionId: submission.id,
+          questionId: question.id,
+          orderIndex: index,
+          chapterId: question.chapterId,
+          answer: finalAnswer,
+          selectedOption: payload.selectedOption || "",
+          formulaText: payload.formulaText || "",
+          stepsText: payload.stepsText || "",
+          strokeCount: Number(payload.strokeCount || 0),
+          scratchImageStored: Boolean(payload.scratchImage),
+          answerImageStored: Boolean(payload.answerImage),
+          durationMs: Number(payload.durationMs || 0),
+          gradingStatus: correct === null ? "pending_recognition" : "graded",
+          correct,
+          reason: diagnosis.reason,
+          advice: diagnosis.advice,
+          evidence: [question.explanation],
+          abandoned: !hasResponseContent(payload),
+          createdAt: nowIso()
+        };
+        store.attempts.push(attempt);
+        submission.attemptIds.push(attempt.id);
+      });
+      submission.report = buildSubmissionReport(submission, store);
+      store.submissions = store.submissions || [];
+      store.submissions.push(submission);
+      writeStore(store);
+      return json({ submission, report: submission.report });
+    }
+    if (method === "GET" && path === "/api/submissions") {
+      const studentId = url.searchParams.get("studentId");
+      const list = (store.submissions || []).filter((item) => !studentId || item.studentId === studentId).sort((a, b) => String(b.submittedAt).localeCompare(String(a.submittedAt)));
+      return json({ submissions: list, latest: list[0] || null });
+    }
+    if (method === "GET" && path.startsWith("/api/submissions/")) {
+      const submissionId = path.split("/").pop();
+      const submission = (store.submissions || []).find((item) => item.id === submissionId || item.submissionId === submissionId);
+      return submission ? json({ submission, report: submission.report }) : json({ error: "æ•´å·æäº¤ä¸å­˜åœ¨" }, 404);
+    }
+    if (method === "POST" && path === "/api/training-batches") {
+      try {
+        const batch = createStaticTrainingBatch(store, body.studentId, body);
+        writeStore(store);
+        return json({ batch });
+      } catch (error) {
+        return json({ error: error.message || "è®­ç»ƒæ‰¹æ¬¡ç”Ÿæˆå¤±è´¥" }, 400);
+      }
+    }
+    if (method === "GET" && path === "/api/training-batches") {
+      const studentId = url.searchParams.get("studentId");
+      const type = url.searchParams.get("trainingType");
+      const list = (store.trainingBatches || []).filter((item) => {
+        const total = Number(item.total || item.questionCount || 0);
+        return total > 0 && Array.isArray(item.questions) && item.questions.length === total
+          && item.questions.every((question) => window.TrainingFactory.validateTrainingQuestion(question).valid)
+          && (!studentId || item.studentId === studentId)
+          && (!type || item.trainingType === type);
+      }).sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
+      return json({ batches: list, latest: list[0] || null });
+    }
+    if (method === "POST" && path === "/api/training-records") {
+      const batch = (store.trainingBatches || []).find((item) => item.id === body.trainingBatchId);
+      if (!batch) return json({ error: "è®­ç»ƒæ‰¹æ¬¡ä¸å­˜åœ¨" }, 404);
+      const question = batch.questions.find((item) => item.id === body.trainingQuestionId);
+      if (!question) return json({ error: "è®­ç»ƒé¢˜ä¸å­˜åœ¨" }, 404);
+      const correct = question.questionType === "subjective" ? null : equivalentAnswer(question.answer, body.answer || body.selectedOption || "");
+      const record = { id: `tr_${Date.now()}_${Math.random().toString(16).slice(2)}`, studentId: batch.studentId, trainingBatchId: batch.id, trainingQuestionId: question.id, answer: body.answer || "", selectedOption: body.selectedOption || "", stepsText: body.stepsText || "", strokeCount: Number(body.strokeCount || 0), hintLevelUsed: Number(body.hintLevelUsed || 0), correct, score: correct === true ? 100 : 0, gradingStatus: correct === null ? "pending_recognition" : "graded", repeatedOriginalError: correct === false && String(body.stepsText || body.answer || "").includes(batch.sourceErrorType), createdAt: nowIso() };
+      store.trainingRecords = store.trainingRecords || [];
+      const existingRecordIndex = store.trainingRecords.findIndex((item) => item.trainingBatchId === batch.id && item.trainingQuestionId === question.id);
+      if (existingRecordIndex >= 0) store.trainingRecords[existingRecordIndex] = { ...store.trainingRecords[existingRecordIndex], ...record };
+      else store.trainingRecords.push(record);
+      const records = store.trainingRecords.filter((item) => item.trainingBatchId === batch.id);
+      batch.progress.answered = records.length;
+      batch.progress.correct = records.filter((item) => item.correct).length;
+      batch.progress.accuracy = records.length ? Math.round(batch.progress.correct / records.length * 100) : 0;
+      batch.progress.hintsUsed = records.reduce((sum, item) => sum + Number(item.hintLevelUsed || 0), 0);
+      batch.progress.repeatedOriginalError = records.some((item) => item.repeatedOriginalError);
+      batch.progress.masteryAfter = Math.min(95, Math.max(batch.progress.masteryBefore, batch.progress.accuracy - batch.progress.hintsUsed * 2));
+      batch.status = batch.progress.answered >= batch.questionCount ? "completed" : "in_progress";
+      writeStore(store);
+      return json({ record, batch, warning: record.repeatedOriginalError ? `ä½ åœ¨æœ¬é¢˜ä¸­å†æ¬¡å‡ºç°äº†ä¸åŸé”™é¢˜ç›¸åŒçš„é”™è¯¯ï¼š${batch.sourceErrorType}ã€‚å»ºè®®æš‚åœç»§ç»­åˆ·é¢˜ï¼Œé‡æ–°å¤ä¹ å¯¹åº”çŸ¥è¯†ç‚¹ã€‚` : "" });
+    }
+    if (method === "POST" && path === "/api/retests") {
+      const batch = (store.trainingBatches || []).find((item) => item.id === body.trainingBatchId);
+      if (!batch) return json({ error: "è®­ç»ƒæ‰¹æ¬¡ä¸å­˜åœ¨" }, 404);
+      const retest = { id: `retest_${Date.now()}`, studentId: batch.studentId, trainingBatchId: batch.id, sourceWrongQuestionId: batch.sourceWrongQuestionId, sourceErrorType: batch.sourceErrorType, questions: Array.from({ length: 5 }, (_, index) => ({ id: `retestq_${index}`, sourceWrongQuestionId: batch.sourceWrongQuestionId, sourceErrorType: batch.sourceErrorType, knowledgePoint: batch.knowledgePoint, subKnowledgePoint: batch.subKnowledgePoint, questionType: index === 4 ? "original_retry" : "subjective", stem: `${index === 4 ? "åŸé”™é¢˜é‡æ–°ä½œç­”" : "å¤æµ‹é¢˜"}ï¼šå›´ç»• ${batch.subKnowledgePoint} ç‹¬ç«‹å®Œæˆã€‚`, answer: "æŒ‰æ­¥éª¤å®Œæ•´ä½œç­”", detailedSolution: {} })), status: "waiting_answer", result: null, createdAt: nowIso() };
+      store.retestRecords = store.retestRecords || [];
+      store.retestRecords.push(retest);
+      writeStore(store);
+      return json({ retest });
+    }
+    if (method === "POST" && path === "/api/retests/submit") {
+      const retest = (store.retestRecords || []).find((item) => item.id === body.retestId);
+      if (!retest) return json({ error: "å¤æµ‹ä¸å­˜åœ¨" }, 404);
+      const answers = Array.isArray(body.answers) ? body.answers : [];
+      const correct = answers.filter((item) => item.answer || item.stepsText).length;
+      const accuracy = Math.round(correct / Math.max(1, retest.questions.length) * 100);
+      retest.result = { accuracy, hintsUsed: 0, repeatedOriginalError: false, mastery: accuracy >= 80 ? "å·²æŒæ¡" : accuracy >= 60 ? "åŸºæœ¬æŒæ¡" : "å°šæœªæŒæ¡", originalQuestionRetryResult: answers.at(-1) || null };
+      retest.status = "completed";
+      writeStore(store);
+      return json({ retest });
+    }
+    if (method === "GET" && path === "/api/report") return json({ attempts: store.attempts, report: buildReport(url.searchParams.get("studentId")) });
+    if (method === "GET" && path === "/api/learning-loop") return json({ loop: buildLoop(url.searchParams.get("studentId")) });
+    if (method === "GET" && path === "/api/collection") {
+      const latest = new Map();
+      store.attempts.forEach((attempt) => latest.set(attempt.questionId, attempt));
+      return json({ items: Array.from(latest.values()).map((attempt) => ({ attempt, question: questions.find((item) => item.id === attempt.questionId), times: store.attempts.filter((a) => a.questionId === attempt.questionId).length })) });
+    }
+    return json({ error: "é™æ€æ¼”ç¤º API ä¸å­˜åœ¨" }, 404);
+  };
+})();
