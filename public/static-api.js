@@ -52,7 +52,7 @@
   ];
 
   const key = `staticDemo:${sessionId}`;
-  const readStore = () => JSON.parse(localStorage.getItem(key) || '{"students":[],"attempts":[],"submissions":[]}');
+  const readStore = () => JSON.parse(localStorage.getItem(key) || '{"students":[],"attempts":[],"submissions":[],"trainingBatches":[],"trainingRecords":[],"retestRecords":[]}');
   const writeStore = (store) => localStorage.setItem(key, JSON.stringify(store));
   const json = (data, status = 200) => Promise.resolve(new Response(JSON.stringify(data), {
     status,
@@ -136,6 +136,42 @@
     Object.values(errorStats).forEach((item) => { item.severity = item.scoreLoss >= 20 || item.count >= 4 ? "高" : item.scoreLoss >= 10 || item.count >= 2 ? "中" : "低"; item.repeated = item.count >= 2; });
     const weak = Object.entries(byKnowledge).filter(([, item]) => item.mastery < 70).map(([name]) => name);
     return { summary: { examinationId: submission.examinationId, paperName: submission.paperName, submittedAt: submission.submittedAt, totalScore, totalMax, scoreRate: Math.round(totalScore / totalMax * 100), correctCount, wrongCount: questionAnalyses.length - correctCount - unansweredCount, unansweredCount, objectiveScore: questionAnalyses.filter((item) => item.type !== "subjective").reduce((sum, item) => sum + item.score, 0), subjectiveScore: questionAnalyses.filter((item) => item.type === "subjective").reduce((sum, item) => sum + item.score, 0), durationMs: submission.durationMs, timeout: false, level: "静态演示诊断", estimatedExamLevel: "演示环境不冒充真实考试预测", comment: weak.length ? `静态演示显示薄弱点集中在 ${weak.slice(0, 3).join("、")}。` : "本卷表现稳定。" }, byType, byChapter, byKnowledge, errorStats, abilityDiagnosis: ["基础计算能力", "公式应用能力", "审题能力", "建模能力", "推理能力", "综合分析能力"].map((name, index) => ({ name, score: Math.max(35, 82 - index * 7), level: "演示评估", evidence: "来自本卷客观题判分与主观题保存状态", questionIds: [], advice: "接入服务端后可基于真实步骤识别更新。" })), questionAnalyses, historyCompare: [], topProblems: Object.entries(errorStats).slice(0, 3).map(([type, item]) => ({ type, ...item })), priorityKnowledge: weak.slice(0, 5), recommendedTasks: weak.slice(0, 4).map((point, index) => ({ id: `task_${index}`, stage: ["复习", "基础巩固题", "同类变式题", "综合应用题"][index] || "复测", knowledgePoint: point, errorType: Object.keys(errorStats)[0] || "待识别", title: `${point}专项补强`, target: "完成复习、训练和复测", status: "pending" })), loop: { current: "诊断完成", stages: ["检测", "诊断", "复习", "训练", "复测", "提升"], nextAction: weak[0] ? `${weak[0]}专项补强` : "综合提升训练" } };
+  };
+
+  const createStaticTrainingBatch = (store, studentId, body = {}) => {
+    const latest = (store.submissions || []).filter((item) => item.studentId === studentId).sort((a, b) => String(b.submittedAt).localeCompare(String(a.submittedAt)))[0];
+    if (!latest) throw new Error("没有整卷报告，无法生成训练");
+    const wrong = (latest.report?.questionAnalyses || []).find((item) => !item.finalAnswerCorrect) || latest.report?.questionAnalyses?.[0] || {};
+    const count = body.trainingType === "comprehensive" ? 20 : 10;
+    const typePattern = body.trainingType === "comprehensive"
+      ? ["choice", "fill", "subjective", "subjective", "choice", "fill", "subjective", "subjective", "choice", "fill", "subjective", "subjective", "choice", "fill", "subjective", "subjective", "subjective", "subjective", "subjective", "subjective"]
+      : ["choice", "choice", "fill", "fill", "subjective", "subjective", "subjective", "subjective", "subjective", "subjective"];
+    const errorType = wrong.errorTypes?.[0] || "静态演示待识别错因";
+    const subKnowledgePoint = wrong.knowledgePoints?.[0] || "当前薄弱知识点";
+    const trainingType = body.trainingType === "comprehensive" ? "comprehensive" : "targeted";
+    const questionsForTraining = Array.from({ length: count }, (_, index) => ({
+      id: `trainq_${Date.now()}_${index}`,
+      sourceWrongQuestionId: wrong.questionId || "",
+      sourceErrorType: errorType,
+      sourceWrongStep: wrong.firstErrorStep || 1,
+      knowledgePoint: wrong.chapterName || "考研数学",
+      subKnowledgePoint,
+      errorCategory: "static_demo_error_type",
+      trainingType,
+      trainingPurpose: trainingType === "comprehensive" ? (index < 10 ? "最严重错误专项" : index < 14 ? "其他薄弱点" : index < 17 ? "历史重复错误" : index < 19 ? "防遗忘" : "提升题") : (index < 2 ? "基础概念辨析" : index < 4 ? "基础步骤训练" : index < 6 ? "同类题" : index < 8 ? "轻微变式" : index === 8 ? "易错触发题" : "综合检验题"),
+      questionType: typePattern[index],
+      difficultyLevel: index < 2 ? 1 : index < 4 ? 2 : index < 8 ? 3 : 4,
+      estimatedSeconds: typePattern[index] === "subjective" ? 420 : 150,
+      stem: `静态演示训练题：围绕“${subKnowledgePoint}”和“${errorType}”完成第 ${index + 1} 题。`,
+      options: typePattern[index] === "choice" ? ["A. 条件匹配且步骤完整", "B. 直接看最终答案", "C. 忽略限制条件", "D. 随机套公式"] : [],
+      answer: typePattern[index] === "choice" ? "A" : "按步骤完整作答",
+      detailedSolution: { examFocus: `匹配错因：${errorType}`, preAnalysis: "先看条件，再选方法。", steps: [], finalAnswer: "按解析步骤", commonPitfall: errorType, methodSummary: `先复习 ${subKnowledgePoint}，再避免 ${errorType}。` },
+      validationStatus: "static_demo_passed"
+    }));
+    const batch = { id: `batch_${Date.now()}_${Math.random().toString(16).slice(2)}`, studentId, submissionId: latest.id, trainingType, sourceWrongQuestionId: wrong.questionId || "", sourceErrorType: errorType, sourceWrongStep: wrong.firstErrorStep || 1, knowledgePoint: wrong.chapterName || "考研数学", subKnowledgePoint, errorCategory: "static_demo", trainingTheme: `${subKnowledgePoint} · ${errorType}`, composition: trainingType === "comprehensive" ? { mainErrorType: 10, otherWeakKnowledge: 4, repeatedHistory: 3, antiForgetting: 2, stretch: 1 } : { conceptDiscrimination: 2, basicSteps: 2, sameType: 2, variants: 2, trap: 1, synthesis: 1 }, questionCount: count, estimatedMinutes: Math.ceil(questionsForTraining.reduce((sum, item) => sum + item.estimatedSeconds, 0) / 60), questions: questionsForTraining, progress: { answered: 0, correct: 0, accuracy: 0, hintsUsed: 0, repeatedOriginalError: false, masteryBefore: 35, masteryAfter: null }, status: "waiting_review_first", createdAt: nowIso(), updatedAt: nowIso() };
+    store.trainingBatches = store.trainingBatches || [];
+    store.trainingBatches.push(batch);
+    return batch;
   };
 
   function studentFrom(body) {
@@ -421,6 +457,61 @@
       const submissionId = path.split("/").pop();
       const submission = (store.submissions || []).find((item) => item.id === submissionId || item.submissionId === submissionId);
       return submission ? json({ submission, report: submission.report }) : json({ error: "整卷提交不存在" }, 404);
+    }
+    if (method === "POST" && path === "/api/training-batches") {
+      try {
+        const batch = createStaticTrainingBatch(store, body.studentId, body);
+        writeStore(store);
+        return json({ batch });
+      } catch (error) {
+        return json({ error: error.message || "训练批次生成失败" }, 400);
+      }
+    }
+    if (method === "GET" && path === "/api/training-batches") {
+      const studentId = url.searchParams.get("studentId");
+      const type = url.searchParams.get("trainingType");
+      const list = (store.trainingBatches || []).filter((item) => (!studentId || item.studentId === studentId) && (!type || item.trainingType === type)).sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
+      return json({ batches: list, latest: list[0] || null });
+    }
+    if (method === "POST" && path === "/api/training-records") {
+      const batch = (store.trainingBatches || []).find((item) => item.id === body.trainingBatchId);
+      if (!batch) return json({ error: "训练批次不存在" }, 404);
+      const question = batch.questions.find((item) => item.id === body.trainingQuestionId);
+      if (!question) return json({ error: "训练题不存在" }, 404);
+      const correct = question.questionType === "subjective" ? Boolean(body.answer || body.stepsText) : equivalentAnswer(question.answer, body.answer || body.selectedOption || "");
+      const record = { id: `tr_${Date.now()}_${Math.random().toString(16).slice(2)}`, studentId: batch.studentId, trainingBatchId: batch.id, trainingQuestionId: question.id, answer: body.answer || "", stepsText: body.stepsText || "", hintLevelUsed: Number(body.hintLevelUsed || 0), correct, repeatedOriginalError: !correct && String(body.stepsText || body.answer || "").includes(batch.sourceErrorType), createdAt: nowIso() };
+      store.trainingRecords = store.trainingRecords || [];
+      store.trainingRecords.push(record);
+      const records = store.trainingRecords.filter((item) => item.trainingBatchId === batch.id);
+      batch.progress.answered = records.length;
+      batch.progress.correct = records.filter((item) => item.correct).length;
+      batch.progress.accuracy = records.length ? Math.round(batch.progress.correct / records.length * 100) : 0;
+      batch.progress.hintsUsed = records.reduce((sum, item) => sum + Number(item.hintLevelUsed || 0), 0);
+      batch.progress.repeatedOriginalError = records.some((item) => item.repeatedOriginalError);
+      batch.progress.masteryAfter = Math.min(95, Math.max(batch.progress.masteryBefore, batch.progress.accuracy - batch.progress.hintsUsed * 2));
+      batch.status = batch.progress.answered >= batch.questionCount ? "completed" : "in_progress";
+      writeStore(store);
+      return json({ record, batch, warning: record.repeatedOriginalError ? `你在本题中再次出现了与原错题相同的错误：${batch.sourceErrorType}。建议暂停继续刷题，重新复习对应知识点。` : "" });
+    }
+    if (method === "POST" && path === "/api/retests") {
+      const batch = (store.trainingBatches || []).find((item) => item.id === body.trainingBatchId);
+      if (!batch) return json({ error: "训练批次不存在" }, 404);
+      const retest = { id: `retest_${Date.now()}`, studentId: batch.studentId, trainingBatchId: batch.id, sourceWrongQuestionId: batch.sourceWrongQuestionId, sourceErrorType: batch.sourceErrorType, questions: Array.from({ length: 5 }, (_, index) => ({ id: `retestq_${index}`, sourceWrongQuestionId: batch.sourceWrongQuestionId, sourceErrorType: batch.sourceErrorType, knowledgePoint: batch.knowledgePoint, subKnowledgePoint: batch.subKnowledgePoint, questionType: index === 4 ? "original_retry" : "subjective", stem: `${index === 4 ? "原错题重新作答" : "复测题"}：围绕 ${batch.subKnowledgePoint} 独立完成。`, answer: "按步骤完整作答", detailedSolution: {} })), status: "waiting_answer", result: null, createdAt: nowIso() };
+      store.retestRecords = store.retestRecords || [];
+      store.retestRecords.push(retest);
+      writeStore(store);
+      return json({ retest });
+    }
+    if (method === "POST" && path === "/api/retests/submit") {
+      const retest = (store.retestRecords || []).find((item) => item.id === body.retestId);
+      if (!retest) return json({ error: "复测不存在" }, 404);
+      const answers = Array.isArray(body.answers) ? body.answers : [];
+      const correct = answers.filter((item) => item.answer || item.stepsText).length;
+      const accuracy = Math.round(correct / Math.max(1, retest.questions.length) * 100);
+      retest.result = { accuracy, hintsUsed: 0, repeatedOriginalError: false, mastery: accuracy >= 80 ? "已掌握" : accuracy >= 60 ? "基本掌握" : "尚未掌握", originalQuestionRetryResult: answers.at(-1) || null };
+      retest.status = "completed";
+      writeStore(store);
+      return json({ retest });
     }
     if (method === "GET" && path === "/api/report") return json({ attempts: store.attempts, report: buildReport(url.searchParams.get("studentId")) });
     if (method === "GET" && path === "/api/learning-loop") return json({ loop: buildLoop(url.searchParams.get("studentId")) });

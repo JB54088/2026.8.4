@@ -258,12 +258,12 @@ function render() {
     diagnosis: renderDiagnosis,
     knowledgeReview: renderKnowledgeReview,
     understandingCheck: renderUnderstandingCheck,
-    similarTraining: renderSimilarTraining,
+    similarTraining: renderSimilarTrainingV2,
     originalRetry: renderOriginalRetry,
     masteryVerify: renderMasteryVerify,
     paperReport: renderPaperReport,
     questionReview: renderQuestionReview,
-    trainingPlan: renderSimilarTraining,
+    trainingPlan: renderSimilarTrainingV2,
     retest: renderOriginalRetry,
     improvement: renderImprovement,
     profile: renderProfile,
@@ -1068,7 +1068,7 @@ async function renderPaperReport() {
       <div class="row">
         <button class="primary" data-view="questionReview">进入逐题解析</button>
         <button class="ghost" data-view="knowledgeReview">开始知识点复习</button>
-        <button class="ghost" data-view="similarTraining">开始专项训练</button>
+        <button class="ghost" id="startTargetedTraining">开始10题专项训练</button>
       </div>
     </div>
     <div class="metrics">
@@ -1094,6 +1094,16 @@ async function renderPaperReport() {
       setView("questionReview");
     };
   });
+  const startTargetedTraining = $("#startTargetedTraining");
+  if (startTargetedTraining) startTargetedTraining.onclick = async () => {
+    const created = await api("/api/training-batches", {
+      method: "POST",
+      body: JSON.stringify({ studentId: state.student.id, submissionId: submission.id, trainingType: "targeted" })
+    });
+    state.trainingBatch = created.batch;
+    writeFlowState({ trainingRecords: {}, stage: "TARGETED_TRAINING" });
+    setView("similarTraining");
+  };
 }
 
 async function renderQuestionReview() {
@@ -1131,6 +1141,8 @@ async function renderQuestionReview() {
       <p><span>知识点</span><strong>${escapeHtml((item.knowledgePoints || []).join("、"))}</strong></p>
       <p><span>相似易错点</span><strong>${escapeHtml((item.errorTypes || []).join("、") || "暂无")}</strong></p>
       <p><span>批改状态</span><strong>${escapeHtml(item.gradingStatus)}</strong></p>
+      <p><span>OCR置信度</span><strong>${item.confidenceScore || 0}%</strong></p>
+      <p><span>错误层级</span><strong>${escapeHtml(item.errorTag ? `${item.errorTag.knowledgePoint} / ${item.errorTag.subKnowledgePoint} / ${item.errorTag.errorType} / ${item.errorTag.errorPosition}` : "暂无")}</strong></p>
     </div>
   </section>
   <section class="panel"><h2>步骤对照</h2><div class="step-list">${steps}</div></section>
@@ -1613,6 +1625,103 @@ async function renderSimilarTraining() {
   };
   const retry = $("#goRetry");
   if (retry) retry.onclick = () => setView("originalRetry");
+}
+
+async function renderSimilarTrainingV2() {
+  const loop = await loadLoop();
+  const stateFlow = readFlowState();
+  let batch = state.trainingBatch;
+  if (!batch) {
+    const data = await api(`/api/training-batches?studentId=${encodeURIComponent(state.student.id)}&trainingType=targeted`);
+    batch = data.latest;
+  }
+  if (!batch) {
+    const submission = await ensureLatestSubmission();
+    const created = await api("/api/training-batches", {
+      method: "POST",
+      body: JSON.stringify({ studentId: state.student.id, submissionId: submission?.id || "", trainingType: "targeted" })
+    });
+    batch = created.batch;
+  }
+  state.trainingBatch = batch;
+  const records = stateFlow.trainingRecords || {};
+  const cards = (batch.questions || []).map((item, index) => `<article class="training-task">
+    <div><span class="badge">${escapeHtml(item.trainingPurpose)}</span><h3>${index + 1}. ${escapeHtml(item.questionType)} · 难度${item.difficultyLevel}</h3></div>
+    <p>${escapeHtml(item.stem)}</p>
+    <p><strong>匹配错因：</strong>${escapeHtml(item.sourceErrorType)} · <strong>知识点：</strong>${escapeHtml(item.subKnowledgePoint)}</p>
+    <p><strong>解析结构：</strong>${escapeHtml(item.detailedSolution?.examFocus || "")}</p>
+    <div class="grid two">
+      <label>本题答案<input data-train-answer="${item.id}" value="${escapeHtml(records[item.id]?.answer || "")}" placeholder="先作答，不要直接看解析"></label>
+      <label>提示等级<select data-train-hint="${item.id}">
+        <option value="0">未使用提示</option>
+        <option value="1">一级：方向提示</option>
+        <option value="2">二级：关键步骤</option>
+        <option value="3">三级：完整解析</option>
+      </select></label>
+    </div>
+    <label>关键步骤<textarea data-train-steps="${item.id}" placeholder="主观题写出关键步骤">${escapeHtml(records[item.id]?.stepsText || "")}</textarea></label>
+    <details><summary>分级提示与详细解析</summary>
+      <p>一级提示：先判断 ${escapeHtml(item.subKnowledgePoint)} 的适用条件。</p>
+      <p>二级提示：写出核心关系，再检查是否重复了“${escapeHtml(item.sourceErrorType)}”。</p>
+      <p>三级解析：${escapeHtml(item.detailedSolution?.methodSummary || "")}</p>
+    </details>
+    <button class="ghost" data-submit-training="${item.id}">${records[item.id]?.submitted ? "已提交" : "提交本题记录"}</button>
+  </article>`).join("");
+  const completed = batch.progress?.answered || Object.keys(records).length;
+  const canRetry = completed >= (batch.questionCount || 10);
+  shell("专项/综合训练", `${loopProgress("training")}
+  <section class="panel">
+    <h2>${escapeHtml(batch.trainingTheme || loop.trainingPlan.goal)}</h2>
+    <div class="metrics">
+      <div class="metric"><span>训练题数</span><strong>${batch.questionCount}</strong></div>
+      <div class="metric"><span>已提交</span><strong>${completed}</strong></div>
+      <div class="metric"><span>当前正确率</span><strong>${batch.progress?.accuracy || 0}%</strong></div>
+      <div class="metric"><span>复测标准</span><strong>${canRetry ? "可复测" : "未达标"}</strong></div>
+    </div>
+  </section>
+  <section class="panel">
+    <h2>${batch.trainingType === "comprehensive" ? "20题综合训练" : "10题专项训练"}</h2>
+    <p class="mode-help">训练题按来源错题、错误步骤、错误类型和知识点生成；提示使用会记录，不能把“看答案做对”当成已掌握。</p>
+    <div class="cards">${cards}</div>
+    <div class="row">
+      <button class="primary" id="createComprehensive">生成20题综合训练</button>
+      <button class="primary" id="goRetry" ${canRetry ? "" : "disabled"}>进入复测与原题重做</button>
+      <button class="ghost" data-view="knowledgeReview">重新复习</button>
+    </div>
+  </section>`);
+  document.querySelectorAll("[data-submit-training]").forEach((button) => {
+    button.onclick = async () => {
+      const qid = button.dataset.submitTraining;
+      const answer = document.querySelector(`[data-train-answer="${qid}"]`)?.value || "";
+      const stepsText = document.querySelector(`[data-train-steps="${qid}"]`)?.value || "";
+      const hintLevelUsed = Number(document.querySelector(`[data-train-hint="${qid}"]`)?.value || 0);
+      const res = await api("/api/training-records", {
+        method: "POST",
+        body: JSON.stringify({ trainingBatchId: batch.id, trainingQuestionId: qid, answer, stepsText, hintLevelUsed })
+      });
+      const nextRecords = { ...(readFlowState().trainingRecords || {}), [qid]: { submitted: true, answer, stepsText, hintLevelUsed, correct: res.record.correct } };
+      writeFlowState({ trainingRecords: nextRecords, stage: "TARGETED_TRAINING" });
+      if (res.warning) alert(res.warning);
+      state.trainingBatch = res.batch;
+      renderSimilarTrainingV2();
+    };
+  });
+  const createComprehensive = $("#createComprehensive");
+  if (createComprehensive) createComprehensive.onclick = async () => {
+    const created = await api("/api/training-batches", {
+      method: "POST",
+      body: JSON.stringify({ studentId: state.student.id, submissionId: batch.submissionId, sourceWrongQuestionId: batch.sourceWrongQuestionId, trainingType: "comprehensive" })
+    });
+    state.trainingBatch = created.batch;
+    writeFlowState({ trainingRecords: {}, stage: "COMPREHENSIVE_TRAINING" });
+    renderSimilarTrainingV2();
+  };
+  const retry = $("#goRetry");
+  if (retry) retry.onclick = async () => {
+    const retest = await api("/api/retests", { method: "POST", body: JSON.stringify({ trainingBatchId: batch.id }) });
+    writeFlowState({ retestId: retest.retest.id, retest });
+    setView("originalRetry");
+  };
 }
 
 async function renderOriginalRetry() {
