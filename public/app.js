@@ -10,6 +10,8 @@ const routeToView = {
   "/review": "knowledgeReview",
   "/similar-training": "similarTraining",
   "/original-retry": "originalRetry",
+  "/paper-report": "paperReport",
+  "/question-review": "questionReview",
   "/report": "improvement",
   "/ability-profile": "profile"
 };
@@ -82,6 +84,8 @@ const state = {
   current: 0,
   responses: {},
   lastResults: null,
+  lastSubmission: JSON.parse(localStorage.getItem("lastSubmission") || "null"),
+  reviewQuestionIndex: Number(localStorage.getItem("reviewQuestionIndex") || 0),
   scratchTool: localStorage.getItem("scratchTool") || "pen",
   scratchColor: localStorage.getItem("scratchColor") || "#172033",
   scratchWidth: Number(localStorage.getItem("scratchWidth") || 3),
@@ -257,6 +261,8 @@ function render() {
     similarTraining: renderSimilarTraining,
     originalRetry: renderOriginalRetry,
     masteryVerify: renderMasteryVerify,
+    paperReport: renderPaperReport,
+    questionReview: renderQuestionReview,
     trainingPlan: renderSimilarTraining,
     retest: renderOriginalRetry,
     improvement: renderImprovement,
@@ -427,9 +433,11 @@ async function renderHome() {
       body: JSON.stringify({ studentId: state.student.id })
     });
     localStorage.removeItem(`lastResults:${state.student.id}`);
+    localStorage.removeItem("lastSubmission");
     Object.keys(localStorage).filter((key) => key.startsWith(`mistakeFlow:${state.student.id}`)).forEach((key) => localStorage.removeItem(key));
     state.responses = {};
     state.lastResults = null;
+    state.lastSubmission = null;
     alert("演示数据已重置。");
     renderHome();
   };
@@ -870,7 +878,10 @@ function bindPadToolbar() {
 
 async function submitRound() {
   saveCurrentScratch(state.questions[state.current]);
-  const missing = state.questions.filter((q) => !state.responses[q.id]);
+  const hasContent = (response) => Boolean(response && (
+    response.answer || response.selectedOption || response.formulaText || response.stepsText || response.scratchImage || response.answerImage || response.strokeCount
+  ));
+  const missing = state.questions.filter((q) => !hasContent(state.responses[q.id]));
   const answered = state.questions.length - missing.length;
   const marked = state.questions.filter((q) => state.responses[q.id]?.flagged).length;
   const subjectiveWithDraftOnly = state.questions.filter((q) => q.type !== "choice" && state.responses[q.id]?.scratchImage && !state.responses[q.id]?.stepsText && !state.responses[q.id]?.answer).length;
@@ -889,25 +900,46 @@ async function submitRound() {
   state.view = "grading";
   localStorage.setItem("view", "grading");
   renderGrading();
-  await new Promise((resolve) => setTimeout(resolve, 1300));
-  const results = [];
-  for (const q of state.questions) {
-    const payload = state.responses[q.id] || { questionId: q.id, durationMs: 0 };
-    const res = await api("/api/attempts", {
+  await new Promise((resolve) => setTimeout(resolve, 900));
+  try {
+    const payload = {
+      studentId: state.student.id,
+      examinationId: `${state.trainingMode}_${state.chapterId}_${Date.now()}`,
+      paperName: `${state.student.mathType} · ${mode().name} · ${new Date().toLocaleString()}`,
+      mode: state.trainingMode,
+      chapterId: state.chapterId,
+      questionIds: state.questions.map((q) => q.id),
+      responses: state.questions.map((q, index) => ({
+        questionId: q.id,
+        orderIndex: index,
+        ...(state.responses[q.id] || {})
+      })),
+      answerOrder: state.questions.map((q) => q.id),
+      durationMs: Date.now() - state.startedAt,
+      revisionCount: Number(localStorage.getItem(`revisionCount:${state.student.id}`) || 0)
+    };
+    const res = await api("/api/submissions", {
       method: "POST",
-      body: JSON.stringify({
-        studentId: state.student.id,
-        ...payload
-      })
+      body: JSON.stringify(payload)
     });
-    results.push(res);
+    state.lastSubmission = res.submission;
+    state.lastResults = (res.submission?.attemptIds || []).map((id, index) => ({
+      attempt: (res.report?.questionAnalyses?.[index] || {}),
+      question: state.questions[index]
+    }));
+    localStorage.setItem("lastSubmission", JSON.stringify(res.submission));
+    localStorage.setItem(`lastSubmittedAt:${state.student.id}`, new Date().toISOString());
+    const key = responseKey();
+    if (key) localStorage.removeItem(key);
+    state.view = "paperReport";
+    localStorage.setItem("view", "paperReport");
+    renderPaperReport();
+  } catch (error) {
+    state.view = "practice";
+    localStorage.setItem("view", "practice");
+    renderPractice();
+    alert(error.message || "整卷提交失败，请稍后重试。");
   }
-  state.lastResults = results;
-  localStorage.setItem(`lastResults:${state.student.id}`, JSON.stringify(results));
-  localStorage.setItem(`lastSubmittedAt:${state.student.id}`, new Date().toISOString());
-  state.view = "diagnosis";
-  localStorage.setItem("view", "diagnosis");
-  renderDiagnosis();
 }
 
 function renderGrading() {
@@ -976,6 +1008,140 @@ function renderRoundResults() {
     </div>
   </section>
   <section class="panel"><div class="cards">${cards}</div></section>`);
+}
+
+async function ensureLatestSubmission() {
+  if (state.lastSubmission?.report && state.lastSubmission.studentId === state.student.id) return state.lastSubmission;
+  const data = await api(`/api/submissions?studentId=${encodeURIComponent(state.student.id)}`);
+  if (data.latest) {
+    state.lastSubmission = data.latest;
+    localStorage.setItem("lastSubmission", JSON.stringify(data.latest));
+  }
+  return state.lastSubmission;
+}
+
+function percentBar(value) {
+  const safe = Math.max(0, Math.min(100, Number(value || 0)));
+  return `<div class="bar"><i style="width:${safe}%"></i></div>`;
+}
+
+function objectRows(map, formatter) {
+  return Object.entries(map || {}).map(([name, item]) => formatter(name, item)).join("");
+}
+
+async function renderPaperReport() {
+  const submission = await ensureLatestSubmission();
+  if (!submission?.report) {
+    shell("整卷诊断报告", `<section class="panel"><h2>还没有整卷诊断报告</h2><p class="mode-help">完成一整套题后点击“提交整卷”，系统会生成统一批改和诊断。</p><button class="primary" data-view="practice">去刷题</button></section>`);
+    return;
+  }
+  const report = submission.report;
+  const summary = report.summary || {};
+  const typeRows = objectRows(report.byType, (name, item) => `<article class="status-card"><h3>${escapeHtml(name)}</h3><p>${item.score}/${item.maxScore} 分 · 正确 ${item.correct}/${item.total}</p>${percentBar(item.maxScore ? Math.round(item.score / item.maxScore * 100) : 0)}</article>`);
+  const chapterRows = objectRows(report.byChapter, (name, item) => `<article class="status-card"><h3>${escapeHtml(name)}</h3><p>${item.score}/${item.maxScore} 分 · 掌握度 ${item.maxScore ? Math.round(item.score / item.maxScore * 100) : 0}%</p>${percentBar(item.maxScore ? Math.round(item.score / item.maxScore * 100) : 0)}</article>`);
+  const knowledgeRows = objectRows(report.byKnowledge, (name, item) => `<article class="status-card"><h3>${escapeHtml(name)}</h3><p>${escapeHtml(item.status)} · ${item.mastery}%</p>${percentBar(item.mastery)}</article>`);
+  const errors = Object.entries(report.errorStats || {}).map(([type, item]) => `<article class="status-card">
+    <h3>${escapeHtml(type)}</h3>
+    <p>出现 ${item.count} 次 · 涉及第 ${item.questionIndexes.join("、")} 题 · 影响 ${item.scoreLoss} 分 · 严重程度：${item.severity}${item.repeated ? " · 重复性错误" : ""}</p>
+  </article>`).join("") || `<article class="status-card"><h3>暂无明显错误类型</h3><p>本卷暂未形成重复性错误。</p></article>`;
+  const abilities = (report.abilityDiagnosis || []).map((item) => `<article class="ability-card">
+    <div class="ability-head"><h3>${escapeHtml(item.name)}</h3><strong>${item.score}</strong></div>
+    ${percentBar(item.score)}
+    <p>${escapeHtml(item.level)} · 依据：${escapeHtml(item.evidence)}</p>
+    <p>${escapeHtml(item.advice)}</p>
+  </article>`).join("");
+  const problems = (report.topProblems || []).map((item, index) => `<article class="card"><h3>${index + 1}. ${escapeHtml(item.type)}</h3><p>涉及第 ${item.questionIndexes.join("、")} 题，累计影响 ${item.scoreLoss} 分，严重程度 ${item.severity}。</p></article>`).join("");
+  const tasks = (report.recommendedTasks || []).map((task) => `<article class="training-task"><span class="badge">${escapeHtml(task.stage)}</span><h3>${escapeHtml(task.title)}</h3><p>${escapeHtml(task.target)}</p><p>知识点：${escapeHtml(task.knowledgePoint)} · 错误类型：${escapeHtml(task.errorType)}</p></article>`).join("");
+  const questions = (report.questionAnalyses || []).map((item, index) => `<article class="status-card">
+    <h3>第 ${index + 1} 题 · ${escapeHtml(item.typeLabel)}</h3>
+    <p>${item.score}/${item.maxScore} 分 · ${item.finalAnswerCorrect ? "正确" : item.gradingStatus === "recognition_error" ? "识别不完整" : "需订正"} · ${escapeHtml(item.deductionReason || "")}</p>
+    <button class="ghost" data-review-index="${index}">查看逐题解析</button>
+  </article>`).join("");
+  shell("整卷诊断报告", `${loopProgress("diagnosis")}
+  <section class="panel product-dashboard">
+    <div class="dashboard-head">
+      <div>
+        <span class="badge ${submission.status === "diagnosis_complete" ? "" : "warn"}">${escapeHtml(submission.status)}</span>
+        <h2>${escapeHtml(summary.paperName || submission.paperName || "本次整卷")}</h2>
+        <p>${escapeHtml(summary.comment || "系统已完成整卷统一保存、识别、批改和诊断。")}</p>
+      </div>
+      <div class="row">
+        <button class="primary" data-view="questionReview">进入逐题解析</button>
+        <button class="ghost" data-view="knowledgeReview">开始知识点复习</button>
+        <button class="ghost" data-view="similarTraining">开始专项训练</button>
+      </div>
+    </div>
+    <div class="metrics">
+      <div class="metric"><span>得分</span><strong>${summary.totalScore}/${summary.totalMax}</strong></div>
+      <div class="metric"><span>得分率</span><strong>${summary.scoreRate}%</strong></div>
+      <div class="metric"><span>正确/错误/未答</span><strong>${summary.correctCount}/${summary.wrongCount}/${summary.unansweredCount}</strong></div>
+      <div class="metric"><span>能力等级</span><strong>${escapeHtml(summary.level)}</strong></div>
+    </div>
+  </section>
+  <section class="panel"><h2>批改状态</h2><div class="grading-steps">${(submission.gradingStatusHistory || []).map((item, index) => `<div class="grading-step active"><span>${index + 1}</span><strong>${escapeHtml(item.status)}</strong></div>`).join("")}</div></section>
+  <section class="panel"><h2>各题型得分</h2><div class="cards">${typeRows}</div></section>
+  <section class="panel"><h2>各章节掌握度</h2><div class="cards">${chapterRows}</div></section>
+  <section class="panel"><h2>知识点掌握度</h2><div class="cards">${knowledgeRows}</div></section>
+  <section class="panel"><h2>错误类型分布</h2><div class="cards">${errors}</div></section>
+  <section class="panel"><h2>能力诊断</h2><div class="ability-grid">${abilities}</div></section>
+  <section class="panel"><h2>最严重的三个问题</h2><div class="cards">${problems || "<p class='mode-help'>本卷暂无高严重度问题。</p>"}</div></section>
+  <section class="panel"><h2>推荐学习任务</h2><div class="cards">${tasks}</div></section>
+  <section class="panel"><h2>错题与逐题入口</h2><div class="cards">${questions}</div></section>`);
+  document.querySelectorAll("[data-review-index]").forEach((button) => {
+    button.onclick = () => {
+      state.reviewQuestionIndex = Number(button.dataset.reviewIndex);
+      localStorage.setItem("reviewQuestionIndex", String(state.reviewQuestionIndex));
+      setView("questionReview");
+    };
+  });
+}
+
+async function renderQuestionReview() {
+  const submission = await ensureLatestSubmission();
+  const report = submission?.report;
+  const list = report?.questionAnalyses || [];
+  if (!list.length) {
+    shell("逐题解析", `<section class="panel"><h2>暂无逐题解析</h2><button class="primary" data-view="paperReport">返回整卷报告</button></section>`);
+    return;
+  }
+  const index = Math.max(0, Math.min(list.length - 1, state.reviewQuestionIndex || 0));
+  const item = list[index];
+  const nav = list.map((q, i) => `<button class="${i === index ? "active" : ""} ${q.finalAnswerCorrect ? "done" : ""}" data-question-index="${i}">${i + 1}</button>`).join("");
+  const steps = (item.steps || []).map((step) => `<details class="${stepStatusClass(step.status)}" open>
+    <summary><span>步骤 ${step.stepNumber}</span><strong>${escapeHtml(step.judgment)}</strong><em>${step.score}/${step.maxScore} 分</em></summary>
+    <p>学生步骤：${escapeHtml(step.studentContent || "未识别到有效步骤")}</p>
+    <p>标准/归一表达：${escapeHtml(step.normalizedExpression || "")}</p>
+    <p>判断说明：${escapeHtml(step.errorDescription || "")}</p>
+    <p>正确修正：${escapeHtml(step.correction || "")}</p>
+    <p>涉及知识点：${escapeHtml(step.relatedKnowledgePoint || "")}</p>
+  </details>`).join("");
+  shell("逐题解析", `<section class="panel progress-panel"><div class="question-dots">${nav}</div></section>
+  <section class="panel analysis-card">
+    <div class="analysis-head">
+      <h3>第 ${index + 1} 题 · ${escapeHtml(item.typeLabel)}</h3>
+      <span class="badge ${item.finalAnswerCorrect ? "" : "bad"}">${item.score}/${item.maxScore} 分</span>
+    </div>
+    <article class="exam-paper text-mode"><p>${escapeHtml(item.title)}</p></article>
+    <div class="result-grid compact">
+      <p><span>学生原始答案</span><strong>${escapeHtml(item.studentAnswer || "未作答/未识别")}</strong></p>
+      <p><span>学生过程</span><strong>${escapeHtml(item.studentSteps || "未识别到可判分过程")}</strong></p>
+      <p><span>标准答案</span><strong>${escapeHtml(item.standardAnswer || "待校对")}</strong></p>
+      <p><span>扣分原因</span><strong>${escapeHtml(item.deductionReason || "无")}</strong></p>
+      <p><span>第一处错误</span><strong>${item.firstErrorStep ? `步骤 ${item.firstErrorStep}` : "未发现/待识别"}</strong></p>
+      <p><span>知识点</span><strong>${escapeHtml((item.knowledgePoints || []).join("、"))}</strong></p>
+      <p><span>相似易错点</span><strong>${escapeHtml((item.errorTypes || []).join("、") || "暂无")}</strong></p>
+      <p><span>批改状态</span><strong>${escapeHtml(item.gradingStatus)}</strong></p>
+    </div>
+  </section>
+  <section class="panel"><h2>步骤对照</h2><div class="step-list">${steps}</div></section>
+  <section class="panel"><h2>标准解题提示</h2><p class="mode-help">${escapeHtml(item.standardSteps || "该题暂无标准步骤，需教研补充。")}</p><div class="row"><button class="primary" data-view="paperReport">返回整卷报告</button><button class="ghost" data-view="similarTraining">进入相似题训练</button><button class="ghost" data-view="originalRetry">原题重做</button></div></section>`);
+  document.querySelectorAll("[data-question-index]").forEach((button) => {
+    button.onclick = () => {
+      state.reviewQuestionIndex = Number(button.dataset.questionIndex);
+      localStorage.setItem("reviewQuestionIndex", String(state.reviewQuestionIndex));
+      renderQuestionReview();
+    };
+  });
 }
 
 function bindCanvas() {

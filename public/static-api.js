@@ -52,7 +52,7 @@
   ];
 
   const key = `staticDemo:${sessionId}`;
-  const readStore = () => JSON.parse(localStorage.getItem(key) || '{"students":[],"attempts":[]}');
+  const readStore = () => JSON.parse(localStorage.getItem(key) || '{"students":[],"attempts":[],"submissions":[]}');
   const writeStore = (store) => localStorage.setItem(key, JSON.stringify(store));
   const json = (data, status = 200) => Promise.resolve(new Response(JSON.stringify(data), {
     status,
@@ -91,6 +91,51 @@
     if (correct === true) return { reason: "已掌握", advice: "本题表现稳定，可在做题集中安排间隔复刷。" };
     if (correct === null) return { reason: "待识别", advice: "静态演示版已保存草稿轨迹；接入 OpenAI/OCR 后可识别手写步骤并自动判分。" };
     return { reason: question.reason, advice: `优先复习「${question.point}」，再做 3 道同知识点变式题。` };
+  };
+
+  const typeLabelFor = (type) => type === "choice" ? "选择题" : type === "fill" ? "填空题" : "主观题";
+  const hasResponseContent = (payload = {}) => Boolean(payload.answer || payload.selectedOption || payload.formulaText || payload.stepsText || payload.scratchImage || payload.answerImage || payload.strokeCount);
+  const scoreForAttempt = (question, attempt) => {
+    const maxScore = question.type === "choice" ? 5 : question.type === "fill" ? 5 : 10;
+    if (!attempt || attempt.correct === null) return { score: 0, maxScore };
+    if (attempt.correct) return { score: maxScore, maxScore };
+    return { score: attempt.stepsText || attempt.scratchImageStored || attempt.strokeCount > 2 ? Math.max(1, Math.floor(maxScore * 0.35)) : 0, maxScore };
+  };
+  const stepAnalysisFor = (question, attempt) => {
+    const scored = scoreForAttempt(question, attempt);
+    if (!attempt || attempt.correct === null) return [{ stepNumber: 1, status: "blank", judgment: "静态演示版已保存草稿，等待真实 OCR/AI 识别", score: 0, maxScore: scored.maxScore, studentContent: attempt?.stepsText || "未识别到可判分步骤", normalizedExpression: "pending_ocr", errorDescription: "该题识别不完整，请重新上传或手动确认；其他题目继续批改。", correction: "接入服务端 OpenAI/OCR 后可逐步识别公式、推导过程和第一处错误。", relatedKnowledgePoint: question.point }];
+    if (attempt.correct) return [{ stepNumber: 1, status: "correct", judgment: "最终答案正确", score: scored.maxScore, maxScore: scored.maxScore, studentContent: attempt.answer || attempt.selectedOption || attempt.stepsText || "直接作答", normalizedExpression: attempt.answer || attempt.selectedOption || "", errorDescription: "暂未发现明显错误。", correction: question.explanation, relatedKnowledgePoint: question.point }];
+    return [{ stepNumber: 1, status: scored.score ? "partial" : "wrong", judgment: scored.score ? "有部分过程，但结果或关键步骤不正确" : "答案错误或缺少有效过程", score: scored.score, maxScore: scored.maxScore, studentContent: attempt.stepsText || attempt.answer || attempt.selectedOption || "未作答", normalizedExpression: attempt.answer || attempt.selectedOption || "", errorDescription: attempt.reason || question.reason, correction: question.explanation, relatedKnowledgePoint: question.point }];
+  };
+  const buildSubmissionReport = (submission, store) => {
+    const qs = submission.questionIds.map((qid) => questions.find((q) => q.id === qid)).filter(Boolean);
+    const atts = submission.attemptIds.map((aid) => store.attempts.find((a) => a.id === aid)).filter(Boolean);
+    const byId = new Map(atts.map((attempt) => [attempt.questionId, attempt]));
+    const questionAnalyses = qs.map((question, index) => {
+      const attempt = byId.get(question.id);
+      const scored = scoreForAttempt(question, attempt);
+      return { questionId: question.id, orderIndex: index, type: question.type, typeLabel: typeLabelFor(question.type), chapterName: question.chapterName, knowledgePoints: [question.point], title: question.stem, studentAnswer: attempt?.answer || attempt?.selectedOption || "", studentSteps: attempt?.stepsText || "", standardAnswer: question.answer, standardSteps: question.explanation, score: scored.score, maxScore: scored.maxScore, finalAnswerCorrect: attempt?.correct === true, processCorrect: attempt?.correct === true, gradingStatus: attempt?.gradingStatus || "missing", errorTypes: attempt?.correct ? [] : [attempt?.reason || question.reason || "待识别"], deductionReason: attempt?.correct ? "无明显扣分" : (attempt?.reason || question.reason || "待识别"), firstErrorStep: attempt?.correct ? null : 1, steps: stepAnalysisFor(question, attempt), advice: attempt?.advice || "" };
+    });
+    const totalScore = questionAnalyses.reduce((sum, item) => sum + item.score, 0);
+    const totalMax = Math.max(1, questionAnalyses.reduce((sum, item) => sum + item.maxScore, 0));
+    const correctCount = questionAnalyses.filter((item) => item.finalAnswerCorrect).length;
+    const unansweredCount = atts.filter((attempt) => attempt.abandoned).length;
+    const byType = {}, byChapter = {}, byKnowledge = {}, errorStats = {};
+    const addBucket = (map, name, item) => { map[name] = map[name] || { score: 0, maxScore: 0, total: 0, correct: 0 }; map[name].score += item.score; map[name].maxScore += item.maxScore; map[name].total += 1; if (item.finalAnswerCorrect) map[name].correct += 1; };
+    questionAnalyses.forEach((item) => {
+      addBucket(byType, item.typeLabel, item);
+      addBucket(byChapter, item.chapterName, item);
+      addBucket(byKnowledge, item.knowledgePoints[0], item);
+      if (!item.finalAnswerCorrect) {
+        const type = item.errorTypes[0] || "待识别";
+        errorStats[type] = errorStats[type] || { count: 0, questionIndexes: [], questionIds: [], scoreLoss: 0, severity: "低", repeated: false };
+        errorStats[type].count += 1; errorStats[type].questionIndexes.push(item.orderIndex + 1); errorStats[type].questionIds.push(item.questionId); errorStats[type].scoreLoss += item.maxScore - item.score;
+      }
+    });
+    Object.values(byKnowledge).forEach((item) => { item.mastery = item.maxScore ? Math.round(item.score / item.maxScore * 100) : 0; item.status = item.mastery >= 85 ? "已掌握" : item.mastery >= 70 ? "基本掌握" : item.mastery >= 50 ? "掌握不稳定" : item.mastery > 0 ? "薄弱知识点" : "完全未掌握"; });
+    Object.values(errorStats).forEach((item) => { item.severity = item.scoreLoss >= 20 || item.count >= 4 ? "高" : item.scoreLoss >= 10 || item.count >= 2 ? "中" : "低"; item.repeated = item.count >= 2; });
+    const weak = Object.entries(byKnowledge).filter(([, item]) => item.mastery < 70).map(([name]) => name);
+    return { summary: { examinationId: submission.examinationId, paperName: submission.paperName, submittedAt: submission.submittedAt, totalScore, totalMax, scoreRate: Math.round(totalScore / totalMax * 100), correctCount, wrongCount: questionAnalyses.length - correctCount - unansweredCount, unansweredCount, objectiveScore: questionAnalyses.filter((item) => item.type !== "subjective").reduce((sum, item) => sum + item.score, 0), subjectiveScore: questionAnalyses.filter((item) => item.type === "subjective").reduce((sum, item) => sum + item.score, 0), durationMs: submission.durationMs, timeout: false, level: "静态演示诊断", estimatedExamLevel: "演示环境不冒充真实考试预测", comment: weak.length ? `静态演示显示薄弱点集中在 ${weak.slice(0, 3).join("、")}。` : "本卷表现稳定。" }, byType, byChapter, byKnowledge, errorStats, abilityDiagnosis: ["基础计算能力", "公式应用能力", "审题能力", "建模能力", "推理能力", "综合分析能力"].map((name, index) => ({ name, score: Math.max(35, 82 - index * 7), level: "演示评估", evidence: "来自本卷客观题判分与主观题保存状态", questionIds: [], advice: "接入服务端后可基于真实步骤识别更新。" })), questionAnalyses, historyCompare: [], topProblems: Object.entries(errorStats).slice(0, 3).map(([type, item]) => ({ type, ...item })), priorityKnowledge: weak.slice(0, 5), recommendedTasks: weak.slice(0, 4).map((point, index) => ({ id: `task_${index}`, stage: ["复习", "基础巩固题", "同类变式题", "综合应用题"][index] || "复测", knowledgePoint: point, errorType: Object.keys(errorStats)[0] || "待识别", title: `${point}专项补强`, target: "完成复习、训练和复测", status: "pending" })), loop: { current: "诊断完成", stages: ["检测", "诊断", "复习", "训练", "复测", "提升"], nextAction: weak[0] ? `${weak[0]}专项补强` : "综合提升训练" } };
   };
 
   function studentFrom(body) {
@@ -246,7 +291,7 @@
       return json({ student, demo: true, sessionId });
     }
     if (method === "POST" && path === "/api/demo/reset") {
-      writeStore({ students: store.students, attempts: [] });
+      writeStore({ students: store.students, attempts: [], submissions: [] });
       return json({ ok: true, student: store.students[0] || studentFrom({}) });
     }
     if (method === "GET" && path === "/api/questions") {
@@ -293,6 +338,89 @@
       store.attempts.push(attempt);
       writeStore(store);
       return json({ attempt, question });
+    }
+    if (method === "POST" && path === "/api/submissions") {
+      const student = store.students.find((s) => s.id === body.studentId) || studentFrom({});
+      const questionIds = Array.isArray(body.questionIds) ? body.questionIds : [];
+      const responses = Array.isArray(body.responses) ? body.responses : [];
+      const submission = {
+        id: `sub_${Date.now()}_${Math.random().toString(16).slice(2)}`,
+        submissionId: "",
+        examinationId: body.examinationId || `static_${Date.now()}`,
+        studentId: student.id,
+        paperName: body.paperName || `${student.mathType} 静态演示整卷`,
+        mode: body.mode || "",
+        chapterId: body.chapterId || "",
+        status: "diagnosis_complete",
+        gradingStatusHistory: [
+          { status: "submit_confirmed", at: nowIso() },
+          { status: "uploading", at: nowIso() },
+          { status: "recognizing", at: nowIso() },
+          { status: "objective_grading_done", at: nowIso() },
+          { status: "subjective_analysis_done", at: nowIso() },
+          { status: "diagnosis_complete", at: nowIso() }
+        ],
+        questionIds,
+        attemptIds: [],
+        responsesLocked: responses.map((item, index) => ({ questionId: item.questionId, answer: item.answer || "", selectedOption: item.selectedOption || "", formulaText: item.formulaText || "", stepsText: item.stepsText || "", hasScratchImage: Boolean(item.scratchImage), hasAnswerImage: Boolean(item.answerImage), strokeCount: Number(item.strokeCount || 0), durationMs: Number(item.durationMs || 0), answerOrder: index, abandoned: !hasResponseContent(item) })),
+        completenessIssues: [],
+        durationMs: Number(body.durationMs || 0),
+        answerOrder: Array.isArray(body.answerOrder) ? body.answerOrder : questionIds,
+        revisionCount: Number(body.revisionCount || 0),
+        submittedAt: nowIso(),
+        createdAt: nowIso(),
+        updatedAt: nowIso(),
+        report: null
+      };
+      questionIds.forEach((qid, index) => {
+        const question = questions.find((item) => item.id === qid);
+        if (!question) return;
+        const payload = responses.find((item) => item.questionId === qid) || { questionId: qid };
+        const correct = scoreAnswer(question, payload);
+        const diagnosis = diagnose(question, correct, payload);
+        if (!hasResponseContent(payload)) submission.completenessIssues.push({ questionId: qid, type: "unanswered", severity: "warn", message: `第${index + 1}题未作答` });
+        if (question.type !== "choice" && correct === null) submission.completenessIssues.push({ questionId: qid, type: "pending_ocr", severity: "warn", message: `第${index + 1}题主观过程等待真实 OCR/AI 识别` });
+        const attempt = {
+          id: `att_${Date.now()}_${index}_${Math.random().toString(16).slice(2)}`,
+          studentId: student.id,
+          submissionId: submission.id,
+          questionId: question.id,
+          orderIndex: index,
+          chapterId: question.chapterId,
+          answer: payload.answer || payload.selectedOption || payload.formulaText || "",
+          selectedOption: payload.selectedOption || "",
+          formulaText: payload.formulaText || "",
+          stepsText: payload.stepsText || "",
+          strokeCount: Number(payload.strokeCount || 0),
+          scratchImageStored: Boolean(payload.scratchImage),
+          answerImageStored: Boolean(payload.answerImage),
+          durationMs: Number(payload.durationMs || 0),
+          gradingStatus: correct === null ? "pending_recognition" : "graded",
+          correct,
+          reason: diagnosis.reason,
+          advice: diagnosis.advice,
+          evidence: [question.explanation],
+          abandoned: !hasResponseContent(payload),
+          createdAt: nowIso()
+        };
+        store.attempts.push(attempt);
+        submission.attemptIds.push(attempt.id);
+      });
+      submission.report = buildSubmissionReport(submission, store);
+      store.submissions = store.submissions || [];
+      store.submissions.push(submission);
+      writeStore(store);
+      return json({ submission, report: submission.report });
+    }
+    if (method === "GET" && path === "/api/submissions") {
+      const studentId = url.searchParams.get("studentId");
+      const list = (store.submissions || []).filter((item) => !studentId || item.studentId === studentId).sort((a, b) => String(b.submittedAt).localeCompare(String(a.submittedAt)));
+      return json({ submissions: list, latest: list[0] || null });
+    }
+    if (method === "GET" && path.startsWith("/api/submissions/")) {
+      const submissionId = path.split("/").pop();
+      const submission = (store.submissions || []).find((item) => item.id === submissionId || item.submissionId === submissionId);
+      return submission ? json({ submission, report: submission.report }) : json({ error: "整卷提交不存在" }, 404);
     }
     if (method === "GET" && path === "/api/report") return json({ attempts: store.attempts, report: buildReport(url.searchParams.get("studentId")) });
     if (method === "GET" && path === "/api/learning-loop") return json({ loop: buildLoop(url.searchParams.get("studentId")) });

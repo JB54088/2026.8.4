@@ -59,6 +59,10 @@ function db() {
     store.meta.questionSchemaVersion = 12;
     saveDb(store);
   }
+  if (!Array.isArray(store.submissions)) {
+    store.submissions = [];
+    saveDb(store);
+  }
   return store;
 }
 
@@ -138,6 +142,7 @@ function seedDb() {
   return {
     meta: { createdAt: nowIso(), version: 1 },
     students,
+    submissions: [],
     attempts: [],
     notes: [],
     questions: buildQuestions()
@@ -863,6 +868,7 @@ async function api(req, res) {
     const student = store.students.find((s) => s.id === studentId && s.isDemo);
     if (!student) return send(res, 404, { error: "演示会话不存在" });
     store.attempts = store.attempts.filter((a) => a.studentId !== student.id);
+    store.submissions = Array.isArray(store.submissions) ? store.submissions.filter((s) => s.studentId !== student.id) : [];
     store.notes = Array.isArray(store.notes) ? store.notes.filter((n) => n.studentId !== student.id) : [];
     student.lastLoginAt = nowIso();
     saveDb(store);
@@ -991,6 +997,136 @@ async function api(req, res) {
     return;
   }
 
+  if (req.method === "POST" && url.pathname === "/api/submissions") {
+    const body = await parseBody(req);
+    const student = store.students.find((s) => s.id === body.studentId);
+    if (!student) return send(res, 404, { error: "学生不存在" });
+    const questionIds = Array.isArray(body.questionIds) ? body.questionIds : [];
+    const questions = questionIds.map((qid) => store.questions.find((q) => q.id === qid)).filter(Boolean);
+    if (!questions.length) return send(res, 400, { error: "整卷提交缺少有效题目" });
+    const responses = Array.isArray(body.responses) ? body.responses : [];
+    const submissionId = id("sub");
+    const completenessIssues = inspectPaperCompleteness(questions, responses);
+    const submission = {
+      id: submissionId,
+      submissionId,
+      examinationId: body.examinationId || `${body.mode || "practice"}_${body.chapterId || "mixed"}_${Date.now()}`,
+      studentId: student.id,
+      paperName: body.paperName || `${student.mathType || "考研数学"} ${body.mode || "训练"}整卷`,
+      mode: body.mode || "",
+      chapterId: body.chapterId || "",
+      status: "uploading",
+      gradingStatusHistory: [
+        { status: "submit_confirmed", at: nowIso() },
+        { status: "uploading", at: nowIso() }
+      ],
+      questionIds: questions.map((q) => q.id),
+      attemptIds: [],
+      responsesLocked: responses.map((item, index) => ({
+        questionId: item.questionId,
+        answer: item.answer || "",
+        selectedOption: item.selectedOption || "",
+        formulaText: item.formulaText || "",
+        stepsText: item.stepsText || "",
+        hasScratchImage: Boolean(item.scratchImage),
+        hasAnswerImage: Boolean(item.answerImage),
+        strokeCount: Number(item.strokeCount || 0),
+        durationMs: Number(item.durationMs || 0),
+        flagged: Boolean(item.flagged),
+        favorite: Boolean(item.favorite),
+        answerOrder: index,
+        abandoned: !responseHasContent(item)
+      })),
+      completenessIssues,
+      durationMs: Number(body.durationMs || 0),
+      answerOrder: Array.isArray(body.answerOrder) ? body.answerOrder : responses.map((item) => item.questionId),
+      revisionCount: Number(body.revisionCount || 0),
+      timeout: Boolean(body.timeout),
+      submittedAt: nowIso(),
+      createdAt: nowIso(),
+      updatedAt: nowIso(),
+      report: null
+    };
+    store.submissions = store.submissions || [];
+    store.submissions.push(submission);
+    saveDb(store);
+
+    submission.status = "recognizing";
+    submission.gradingStatusHistory.push({ status: "recognizing", at: nowIso() });
+    for (let index = 0; index < questions.length; index += 1) {
+      const question = questions[index];
+      const payload = responses.find((item) => item.questionId === question.id) || { questionId: question.id };
+      try {
+        const attempt = await buildAttemptFromResponse(store, student, question, {
+          ...payload,
+          mode: body.mode,
+          chapterId: body.chapterId,
+          examinationId: submission.examinationId
+        }, submission.id, index);
+        store.attempts.push(attempt);
+        submission.attemptIds.push(attempt.id);
+      } catch (error) {
+        const fallback = {
+          id: id("att"),
+          studentId: student.id,
+          submissionId: submission.id,
+          questionId: question.id,
+          examinationId: submission.examinationId,
+          orderIndex: index,
+          chapterId: question.chapterId,
+          answer: "",
+          selectedOption: "",
+          stepsText: "",
+          formulaText: "",
+          strokeCount: 0,
+          scratchImageStored: false,
+          answerImageStored: false,
+          strokePointCount: 0,
+          durationMs: 0,
+          gradingStatus: "recognition_error",
+          correct: null,
+          reason: "该题识别不完整",
+          advice: "请重新上传或手动确认该题答案，其余题目不受影响。",
+          evidence: [String(error.message || error)],
+          abandoned: true,
+          createdAt: nowIso()
+        };
+        store.attempts.push(fallback);
+        submission.attemptIds.push(fallback.id);
+        submission.completenessIssues.push({ questionId: question.id, type: "grading_exception", severity: "error", message: `第${index + 1}题批改异常，已标记为需复核` });
+      }
+    }
+    submission.status = "diagnosis_generating";
+    submission.gradingStatusHistory.push({ status: "objective_grading_done", at: nowIso() });
+    submission.gradingStatusHistory.push({ status: "subjective_analysis_done", at: nowIso() });
+    submission.gradingStatusHistory.push({ status: "diagnosis_generating", at: nowIso() });
+    submission.report = buildSubmissionDiagnosis(store, submission);
+    submission.status = submission.completenessIssues.some((item) => item.severity === "error") ? "partial_recognition_failed" : "diagnosis_complete";
+    submission.gradingStatusHistory.push({ status: submission.status, at: nowIso() });
+    submission.updatedAt = nowIso();
+    saveDb(store);
+    send(res, 200, { submission, report: submission.report });
+    return;
+  }
+
+  if (req.method === "GET" && url.pathname === "/api/submissions") {
+    const studentId = url.searchParams.get("studentId");
+    const list = (store.submissions || [])
+      .filter((item) => !studentId || item.studentId === studentId)
+      .sort((a, b) => String(b.submittedAt).localeCompare(String(a.submittedAt)));
+    const latest = list[0] || null;
+    send(res, 200, { submissions: list, latest });
+    return;
+  }
+
+  if (req.method === "GET" && url.pathname.startsWith("/api/submissions/")) {
+    const submissionId = cleanId(url.pathname.split("/").pop());
+    const submission = (store.submissions || []).find((item) => item.id === submissionId || item.submissionId === submissionId);
+    if (!submission) return send(res, 404, { error: "整卷提交不存在" });
+    send(res, 200, { submission, report: submission.report });
+    return;
+  }
+
   if (req.method === "GET" && url.pathname === "/api/report") {
     const studentId = url.searchParams.get("studentId");
     const attempts = store.attempts.filter((a) => a.studentId === studentId);
@@ -1079,6 +1215,289 @@ function scoreForAttempt(question, attempt) {
   if (attempt.correct) return { score: maxScore, maxScore };
   const hasProcess = Number(attempt.strokeCount || 0) > 2 || Number(attempt.strokePointCount || 0) > 20 || String(attempt.stepsText || "").trim();
   return { score: hasProcess ? Math.max(1, Math.floor(maxScore * 0.35)) : 0, maxScore };
+}
+
+function answerValueFrom(payload = {}, recognition = {}) {
+  return payload.answer
+    || payload.selectedOption
+    || payload.formulaText
+    || payload.recognizedAnswer
+    || recognition.recognizedAnswer
+    || "";
+}
+
+function responseHasContent(payload = {}) {
+  return Boolean(
+    String(payload.answer || payload.selectedOption || payload.formulaText || payload.stepsText || "").trim()
+    || payload.scratchImage
+    || payload.answerImage
+    || Number(payload.strokeCount || 0) > 0
+    || (Array.isArray(payload.strokes) && payload.strokes.length)
+  );
+}
+
+function strokePointCount(payload = {}) {
+  return Array.isArray(payload.strokes)
+    ? payload.strokes.reduce((sum, stroke) => sum + (Array.isArray(stroke.points) ? stroke.points.length : Array.isArray(stroke) ? stroke.length : 0), 0)
+    : 0;
+}
+
+function inspectPaperCompleteness(questions, responses) {
+  const issues = [];
+  questions.forEach((question, index) => {
+    const payload = responses.find((item) => item.questionId === question.id) || {};
+    const label = `第${index + 1}题`;
+    if (!responseHasContent(payload)) {
+      issues.push({ questionId: question.id, type: "unanswered", severity: "warn", message: `${label}未作答` });
+      return;
+    }
+    if (question.type !== "choice" && !String(payload.stepsText || "").trim() && !payload.scratchImage && !payload.answerImage) {
+      issues.push({ questionId: question.id, type: "missing_process", severity: "warn", message: `${label}缺少可分析的解题过程` });
+    }
+    if (question.type !== "choice" && (payload.answer || payload.formulaText) && !String(payload.stepsText || "").trim() && !payload.scratchImage) {
+      issues.push({ questionId: question.id, type: "answer_without_process", severity: "warn", message: `${label}只有答案，缺少过程` });
+    }
+    if (payload.uploadError) {
+      issues.push({ questionId: question.id, type: "upload_failed", severity: "error", message: `${label}图片上传失败` });
+    }
+  });
+  return issues;
+}
+
+async function buildAttemptFromResponse(store, student, question, payload, submissionId, orderIndex) {
+  const recognition = await recognizeScratch(question, payload);
+  const finalAnswer = answerValueFrom(payload, recognition);
+  const hasReviewedAnswer = Boolean(question.answer) && question.answerStatus !== "pending_review";
+  const correct = recognition.modelJudgment && typeof recognition.isCorrect === "boolean"
+    ? recognition.isCorrect
+    : (finalAnswer && hasReviewedAnswer ? grade(question, finalAnswer) : null);
+  const gradingStatus = recognition.recognitionError
+    ? "recognition_error"
+    : recognition.modelJudgment
+      ? "ai_reviewed"
+      : (!hasReviewedAnswer ? "pending_answer_review" : (finalAnswer ? "graded" : "pending_recognition"));
+  const diagnosis = diagnose(question, { ...payload, answer: finalAnswer }, correct);
+  if (recognition.recognitionError) {
+    diagnosis.mainReason = "识别服务不可用";
+    diagnosis.advice = recognition.recognitionError.includes("no credits")
+      ? "OpenAI API 账户没有可用额度。系统已保存整卷答卷，客观题继续批改，主观题标记为需复核。"
+      : `手写识别服务调用失败：${recognition.recognitionError}`;
+    diagnosis.evidence.push(`识别错误：${recognition.recognitionError}`);
+  }
+  if (!responseHasContent(payload)) {
+    diagnosis.mainReason = "未作答";
+    diagnosis.advice = "该题没有检测到答案、过程或草稿内容，建议在原题重做中补全。";
+  }
+  if (recognition.modelJudgment && recognition.weakPoint) diagnosis.mainReason = recognition.weakPoint;
+  if (recognition.modelJudgment && recognition.advice) diagnosis.advice = recognition.advice;
+  if (recognition.modelJudgment && recognition.firstError) diagnosis.evidence.push(`第一处错误：${recognition.firstError}`);
+  return {
+    id: id("att"),
+    studentId: student.id,
+    submissionId,
+    questionId: question.id,
+    examinationId: payload.examinationId || `${payload.mode || "practice"}_${payload.chapterId || question.chapterId}`,
+    orderIndex,
+    chapterId: question.chapterId,
+    answer: finalAnswer,
+    recognizedAnswer: recognition.recognizedAnswer,
+    recognitionConfidence: recognition.confidence,
+    recognizedSteps: recognition.stepsSummary || payload.stepsText || "",
+    recognitionEngine: recognition.engine,
+    selectedOption: payload.selectedOption || "",
+    stepsText: payload.stepsText || "",
+    formulaText: payload.formulaText || "",
+    flagged: Boolean(payload.flagged),
+    favorite: Boolean(payload.favorite),
+    abandoned: !responseHasContent(payload),
+    strokeCount: Number(payload.strokeCount || 0),
+    scratchImageStored: Boolean(payload.scratchImage),
+    answerImageStored: Boolean(payload.answerImage),
+    strokePointCount: strokePointCount(payload),
+    durationMs: Number(payload.durationMs || 0),
+    gradingStatus,
+    correct,
+    reason: diagnosis.mainReason,
+    advice: diagnosis.advice,
+    recommendedPractice: recognition.recommendedPractice || "",
+    evidence: diagnosis.evidence,
+    steps: buildStepAnalysis(question, { ...payload, answer: finalAnswer, correct, gradingStatus, reason: diagnosis.mainReason, recognizedAnswer: recognition.recognizedAnswer, recognizedSteps: recognition.stepsSummary }),
+    createdAt: nowIso()
+  };
+}
+
+function severityForError(count, scoreLoss) {
+  if (scoreLoss >= 20 || count >= 4) return "高";
+  if (scoreLoss >= 10 || count >= 2) return "中";
+  return "低";
+}
+
+function abilityEvidenceFor(name, attempts, questions) {
+  const related = attempts.filter((attempt) => {
+    const question = questions.find((item) => item.id === attempt.questionId) || {};
+    const text = `${question.point || ""} ${question.reason || ""} ${attempt.reason || ""}`;
+    if (name === "基础计算能力") return /计算|化简|积分|导数|行列式/.test(text);
+    if (name === "公式应用能力") return /公式|换元|分部|概率|极限/.test(text);
+    if (name === "审题能力") return /审题|条件|遗漏|数量关系/.test(text);
+    if (name === "建模能力") return /建模|应用|利润|函数应用/.test(text);
+    if (name === "推理能力") return /推理|证明|步骤|逻辑/.test(text);
+    if (name === "综合分析能力") return Number(question.difficulty || 0) >= 4;
+    if (name === "解题规范性") return attempt.gradingStatus === "pending_recognition" || /书写|过程|步骤/.test(text);
+    if (name === "时间管理能力") return Number(attempt.durationMs || 0) > 180000;
+    if (name === "难题处理能力") return Number(question.difficulty || 0) >= 4;
+    return attempt.flagged || attempt.correct === false;
+  });
+  const total = related.length || attempts.length || 1;
+  const good = related.filter((attempt) => attempt.correct === true).length;
+  const score = Math.round(good / total * 100);
+  return {
+    name,
+    score,
+    level: score >= 85 ? "优秀" : score >= 70 ? "基本稳定" : score >= 50 ? "不稳定" : "薄弱",
+    evidence: related.slice(0, 4).map((attempt) => `第${attempt.orderIndex + 1}题`).join("、") || "来自本卷整体表现",
+    questionIds: related.slice(0, 6).map((attempt) => attempt.questionId),
+    advice: score >= 70 ? "保持当前节奏，增加限时综合题验证迁移能力。" : "先回到对应知识点复习，再用同类题和变式题复测。"
+  };
+}
+
+function buildSubmissionDiagnosis(store, submission) {
+  const questions = submission.questionIds.map((qid) => store.questions.find((q) => q.id === qid)).filter(Boolean);
+  const attempts = submission.attemptIds.map((aid) => store.attempts.find((a) => a.id === aid)).filter(Boolean);
+  const attemptByQuestion = new Map(attempts.map((attempt) => [attempt.questionId, attempt]));
+  const questionAnalyses = questions.map((question, index) => {
+    const attempt = attemptByQuestion.get(question.id);
+    const scored = scoreForAttempt(question, attempt);
+    const reason = reasonForAttempt(question, attempt);
+    return {
+      questionId: question.id,
+      orderIndex: index,
+      type: question.type,
+      typeLabel: typeLabelFor(question.type),
+      chapterId: question.chapterId,
+      chapterName: question.chapterName,
+      knowledgePoints: [normalizeWeakPoint(question, attempt)],
+      title: question.stem || question.point || question.chapterName,
+      stemHtml: question.stemHtml || "",
+      stemImage: question.stemImage || "",
+      studentAnswer: attempt?.recognizedAnswer || attempt?.answer || attempt?.selectedOption || "",
+      studentSteps: attempt?.stepsText || attempt?.recognizedSteps || "",
+      standardAnswer: question.answer || "待校对",
+      standardSteps: question.explanation || "",
+      score: scored.score,
+      maxScore: scored.maxScore,
+      finalAnswerCorrect: attempt?.correct === true,
+      processCorrect: attempt?.correct === true && attempt?.gradingStatus !== "pending_recognition",
+      gradingStatus: attempt?.gradingStatus || "missing",
+      errorTypes: attempt?.correct === true ? [] : [reason],
+      deductionReason: attempt?.correct === true ? "无明显扣分" : reason,
+      firstErrorStep: buildStepAnalysis(question, attempt).find((step) => step.status !== "correct")?.stepNumber || null,
+      steps: buildStepAnalysis(question, attempt),
+      advice: attempt?.advice || ""
+    };
+  });
+  const totalScore = questionAnalyses.reduce((sum, item) => sum + item.score, 0);
+  const totalMax = Math.max(1, questionAnalyses.reduce((sum, item) => sum + item.maxScore, 0));
+  const correctCount = questionAnalyses.filter((item) => item.finalAnswerCorrect).length;
+  const unansweredCount = attempts.filter((attempt) => attempt.abandoned).length + Math.max(0, questions.length - attempts.length);
+  const objectiveScore = questionAnalyses.filter((item) => ["choice", "fill"].includes(item.type)).reduce((sum, item) => sum + item.score, 0);
+  const subjectiveScore = questionAnalyses.filter((item) => !["choice", "fill"].includes(item.type)).reduce((sum, item) => sum + item.score, 0);
+  const byType = {};
+  const byChapter = {};
+  const byKnowledge = {};
+  questionAnalyses.forEach((item) => {
+    byType[item.typeLabel] = byType[item.typeLabel] || { score: 0, maxScore: 0, total: 0, correct: 0 };
+    byType[item.typeLabel].score += item.score;
+    byType[item.typeLabel].maxScore += item.maxScore;
+    byType[item.typeLabel].total += 1;
+    if (item.finalAnswerCorrect) byType[item.typeLabel].correct += 1;
+    byChapter[item.chapterName] = byChapter[item.chapterName] || { score: 0, maxScore: 0, total: 0, correct: 0 };
+    byChapter[item.chapterName].score += item.score;
+    byChapter[item.chapterName].maxScore += item.maxScore;
+    byChapter[item.chapterName].total += 1;
+    if (item.finalAnswerCorrect) byChapter[item.chapterName].correct += 1;
+    item.knowledgePoints.forEach((point) => {
+      byKnowledge[point] = byKnowledge[point] || { score: 0, maxScore: 0, total: 0, correct: 0, status: "" };
+      byKnowledge[point].score += item.score;
+      byKnowledge[point].maxScore += item.maxScore;
+      byKnowledge[point].total += 1;
+      if (item.finalAnswerCorrect) byKnowledge[point].correct += 1;
+    });
+  });
+  Object.values(byKnowledge).forEach((item) => {
+    const rate = item.maxScore ? Math.round(item.score / item.maxScore * 100) : 0;
+    item.mastery = rate;
+    item.status = rate >= 85 ? "已掌握" : rate >= 70 ? "基本掌握" : rate >= 50 ? "掌握不稳定" : rate > 0 ? "薄弱知识点" : "完全未掌握";
+  });
+  const errorMap = {};
+  questionAnalyses.filter((item) => !item.finalAnswerCorrect).forEach((item) => {
+    const loss = item.maxScore - item.score;
+    item.errorTypes.forEach((type) => {
+      errorMap[type] = errorMap[type] || { count: 0, questionIndexes: [], questionIds: [], scoreLoss: 0, severity: "低", repeated: false };
+      errorMap[type].count += 1;
+      errorMap[type].questionIndexes.push(item.orderIndex + 1);
+      errorMap[type].questionIds.push(item.questionId);
+      errorMap[type].scoreLoss += loss;
+    });
+  });
+  Object.values(errorMap).forEach((item) => {
+    item.severity = severityForError(item.count, item.scoreLoss);
+    item.repeated = item.count >= 2;
+  });
+  const weakKnowledgePoints = Object.entries(byKnowledge)
+    .filter(([, item]) => item.status.includes("薄弱") || item.status.includes("未掌握") || item.status.includes("不稳定"))
+    .sort((a, b) => a[1].mastery - b[1].mastery)
+    .map(([name]) => name);
+  const abilityNames = ["基础计算能力", "公式应用能力", "审题能力", "建模能力", "推理能力", "综合分析能力", "解题规范性", "时间管理能力", "难题处理能力", "检查纠错能力"];
+  const abilityDiagnosis = abilityNames.map((name) => abilityEvidenceFor(name, attempts, questions));
+  const percent = Math.round(totalScore / totalMax * 100);
+  const history = (store.submissions || [])
+    .filter((item) => item.studentId === submission.studentId && item.status === "diagnosis_complete" && item.id !== submission.id)
+    .slice(-5)
+    .map((item) => ({ submissionId: item.id, submittedAt: item.submittedAt, score: item.report?.summary?.totalScore || 0, percent: item.report?.summary?.scoreRate || 0 }));
+  const recommendedTasks = weakKnowledgePoints.slice(0, 4).map((point, index) => ({
+    id: `task_${submission.id}_${index + 1}`,
+    stage: index === 0 ? "复习" : index === 1 ? "基础巩固题" : index === 2 ? "同类变式题" : "综合应用题",
+    knowledgePoint: point,
+    errorType: Object.keys(errorMap)[0] || "综合应用不足",
+    title: `${point}专项补强`,
+    target: "完成复习、同类训练和变式复测后再更新掌握度",
+    status: "pending"
+  }));
+  return {
+    summary: {
+      examinationId: submission.examinationId,
+      paperName: submission.paperName,
+      submittedAt: submission.submittedAt,
+      totalScore,
+      totalMax,
+      scoreRate: percent,
+      correctCount,
+      wrongCount: questionAnalyses.length - correctCount - unansweredCount,
+      unansweredCount,
+      objectiveScore,
+      subjectiveScore,
+      durationMs: submission.durationMs,
+      timeout: Boolean(submission.timeout),
+      level: percent >= 85 ? "冲刺高分" : percent >= 70 ? "基础较稳" : percent >= 50 ? "薄弱点明显" : "需要系统补漏",
+      estimatedExamLevel: `${Math.round(percent * 1.5)}分水平区间`,
+      comment: weakKnowledgePoints.length ? `本卷主要短板集中在 ${weakKnowledgePoints.slice(0, 3).join("、")}。` : "本卷表现稳定，可进入更高强度综合训练。"
+    },
+    byType,
+    byChapter,
+    byKnowledge,
+    errorStats: errorMap,
+    abilityDiagnosis,
+    questionAnalyses,
+    historyCompare: history,
+    topProblems: Object.entries(errorMap).sort((a, b) => b[1].scoreLoss - a[1].scoreLoss).slice(0, 3).map(([type, item]) => ({ type, ...item })),
+    priorityKnowledge: weakKnowledgePoints.slice(0, 5),
+    recommendedTasks,
+    loop: {
+      current: "诊断完成",
+      stages: ["检测", "诊断", "复习", "训练", "复测", "提升"],
+      nextAction: recommendedTasks[0]?.title || "进入综合提升训练"
+    }
+  };
 }
 
 function normalizeWeakPoint(question, attempt) {
