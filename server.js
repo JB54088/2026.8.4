@@ -54,9 +54,9 @@ function writeJson(file, value) {
 function db() {
   if (!fs.existsSync(DB_FILE)) writeJson(DB_FILE, seedDb());
   const store = readJson(DB_FILE);
-  if (!Array.isArray(store.questions) || store.questions.length < 10000 || store.meta.questionSchemaVersion !== 11) {
+  if (!Array.isArray(store.questions) || store.questions.length < 10000 || store.meta.questionSchemaVersion !== 12) {
     store.questions = buildQuestions();
-    store.meta.questionSchemaVersion = 11;
+    store.meta.questionSchemaVersion = 12;
     saveDb(store);
   }
   return store;
@@ -170,7 +170,92 @@ function buildQuestions() {
   const handPicked = q.map(([qid, subjects, chapterId, chapterName, point, reason, type, level, stem, options, answer, aliases, explanation], index) => ({
     id: qid, subjects, chapterId, chapterName, point, reason, type, level, difficulty: difficultyFor(level), stem, options, answer, aliases, explanation, ...sourceMeta(index)
   }));
-  return [...readPastExamQuestions(), ...buildExamStyleQuestions(), ...handPicked, ...buildGeneratedQuestions()];
+  return [...readPastExamQuestions(), ...buildSubjectiveQuestions(), ...buildExamStyleQuestions(), ...handPicked, ...buildGeneratedQuestions()];
+}
+
+function buildSubjectiveQuestions() {
+  const common = ["数学一", "数学二", "数学三"];
+  return [
+    {
+      id: "subjective_integral_model_001",
+      subjects: common,
+      chapterId: "integral",
+      chapterName: "一元函数积分学",
+      point: "定积分应用建模",
+      reason: "建模错误",
+      type: "subjective",
+      level: "综合提升",
+      difficulty: 4,
+      stem: "某商品原售价60元，成本40元。若每涨价1元，销量减少2件。设原销量为100件，求使总利润为2400元时的涨价额，并写出完整建模过程。",
+      options: [],
+      answer: "(20+x)(100-2x)=2400",
+      aliases: ["(60+x-40)(100-2x)=2400"],
+      explanation: "设涨价额为 x，则单件利润为 60+x-40=20+x，销量为 100-2x，总利润模型为 (20+x)(100-2x)=2400。关键评分点是变量设定、单件利润、销量表达式、方程建立与结论。",
+      scoringPoints: [
+        { label: "正确设涨价额 x", score: 2 },
+        { label: "写出单件利润 20+x", score: 3 },
+        { label: "写出销量 100-2x", score: 2 },
+        { label: "建立方程 (20+x)(100-2x)=2400", score: 2 },
+        { label: "求解并给出符合题意结论", score: 1 }
+      ],
+      sourceType: "teacher_original",
+      source: "签约教师审核题",
+      reviewStatus: "教师已审核",
+      qualityTier: "exam_standard"
+    },
+    {
+      id: "subjective_multi_extreme_001",
+      subjects: common,
+      chapterId: "multi",
+      chapterName: "多元函数微分学",
+      point: "多元函数极值",
+      reason: "条件遗漏",
+      type: "subjective",
+      level: "综合提升",
+      difficulty: 4,
+      stem: "求函数 z=x^2+y^2-2x-4y+1 的极值，并说明取得极值的点。",
+      options: [],
+      answer: "极小值-4，点(1,2)",
+      aliases: ["(1,2)处取极小值-4", "-4"],
+      explanation: "配方 z=(x-1)^2+(y-2)^2-4，所以在 (1,2) 处取得极小值 -4。需要写出配方或一阶偏导、二阶判别过程。",
+      scoringPoints: [
+        { label: "正确求驻点或完成配方", score: 3 },
+        { label: "判断极值类型", score: 3 },
+        { label: "给出极值点", score: 2 },
+        { label: "给出极值", score: 2 }
+      ],
+      sourceType: "teacher_original",
+      source: "签约教师审核题",
+      reviewStatus: "教师已审核",
+      qualityTier: "exam_standard"
+    },
+    {
+      id: "subjective_linear_rank_001",
+      subjects: common,
+      chapterId: "linear",
+      chapterName: "线性代数",
+      point: "矩阵秩与方程组",
+      reason: "概念理解错误",
+      type: "subjective",
+      level: "综合提升",
+      difficulty: 4,
+      stem: "设三阶矩阵 A 的秩为 2，说明齐次线性方程组 Ax=0 的解空间维数，并写出判断依据。",
+      options: [],
+      answer: "解空间维数为1",
+      aliases: ["基础解系含1个向量", "3-2=1"],
+      explanation: "齐次线性方程组解空间维数等于未知量个数减矩阵秩，即 3-2=1。",
+      scoringPoints: [
+        { label: "指出未知量个数为3", score: 2 },
+        { label: "使用维数=未知量个数-秩", score: 4 },
+        { label: "计算出1", score: 2 },
+        { label: "表达基础解系含1个向量", score: 2 }
+      ],
+      sourceType: "teacher_original",
+      source: "签约教师审核题",
+      reviewStatus: "教师已审核",
+      qualityTier: "exam_standard"
+    }
+  ];
 }
 
 function buildExamStyleQuestions() {
@@ -405,9 +490,34 @@ function normalizeAnswer(value) {
     .toLowerCase();
 }
 
+function numericValue(value) {
+  const raw = normalizeAnswer(value).replace(/^答案[:：]?/, "").replace(/[。；;]$/g, "");
+  if (!raw) return null;
+  if (/^[+-]?\d+(\.\d+)?$/.test(raw)) return Number(raw);
+  const fraction = raw.match(/^([+-]?\d+(?:\.\d+)?)\/([+-]?\d+(?:\.\d+)?)$/);
+  if (fraction && Number(fraction[2]) !== 0) return Number(fraction[1]) / Number(fraction[2]);
+  return null;
+}
+
+function equivalentAnswer(expected, actual) {
+  const left = normalizeAnswer(expected)
+    .replace(/（/g, "(").replace(/）/g, ")").replace(/，/g, ",")
+    .replace(/＋/g, "+").replace(/－/g, "-").replace(/×/g, "*").replace(/÷/g, "/");
+  const right = normalizeAnswer(actual)
+    .replace(/（/g, "(").replace(/）/g, ")").replace(/，/g, ",")
+    .replace(/＋/g, "+").replace(/－/g, "-").replace(/×/g, "*").replace(/÷/g, "/");
+  if (!left || !right) return false;
+  if (left === right) return true;
+  const leftNum = numericValue(left);
+  const rightNum = numericValue(right);
+  if (leftNum !== null && rightNum !== null) return Math.abs(leftNum - rightNum) < 1e-8;
+  const compact = (value) => value.replace(/\*/g, "").replace(/\^1(?!\d)/g, "").replace(/\+c$/i, "+c").replace(/c$/i, "c");
+  return compact(left) === compact(right);
+}
+
 function grade(question, answer) {
-  const accepted = [question.answer, ...(question.aliases || [])].map(normalizeAnswer);
-  return accepted.includes(normalizeAnswer(answer));
+  const accepted = [question.answer, ...(question.aliases || [])];
+  return accepted.some((item) => equivalentAnswer(item, answer));
 }
 
 function extractJson(text) {
@@ -709,8 +819,8 @@ async function api(req, res) {
           ...seed,
           id: demoId,
           inviteCode: `DEMO_${sessionId}`,
-          name: String(body.name || "演示同学").slice(0, 20),
-          mathType: body.mathType || "数学二",
+          name: String(body.name || "王同学").slice(0, 20),
+          mathType: body.mathType || "数学一",
           targetScore: Number(body.targetScore || 120),
           stage: body.stage || "强化阶段",
           dailyMinutes: Number(body.dailyMinutes || 60),
@@ -719,8 +829,8 @@ async function api(req, res) {
         };
         store.students.push(demoStudent);
       }
-      demoStudent.name = String(body.name || demoStudent.name || "演示同学").slice(0, 20);
-      demoStudent.mathType = body.mathType || demoStudent.mathType || "数学二";
+      demoStudent.name = String(body.name || demoStudent.name || "王同学").slice(0, 20);
+      demoStudent.mathType = body.mathType || demoStudent.mathType || "数学一";
       demoStudent.stage = body.stage || demoStudent.stage || "强化阶段";
       demoStudent.lastLoginAt = nowIso();
       saveDb(store);
@@ -824,7 +934,7 @@ async function api(req, res) {
     const question = store.questions.find((q) => q.id === body.questionId);
     if (!student || !question) return send(res, 404, { error: "学生或题目不存在" });
     const recognition = await recognizeScratch(question, body);
-    const finalAnswer = body.answer || body.selectedOption || body.recognizedAnswer || recognition.recognizedAnswer || "";
+    const finalAnswer = body.answer || body.selectedOption || body.formulaText || body.recognizedAnswer || recognition.recognizedAnswer || "";
     const hasReviewedAnswer = Boolean(question.answer) && question.answerStatus !== "pending_review";
     const correct = recognition.modelJudgment && typeof recognition.isCorrect === "boolean"
       ? recognition.isCorrect
@@ -857,8 +967,12 @@ async function api(req, res) {
       recognitionEngine: recognition.engine,
       selectedOption: body.selectedOption || "",
       stepsText: body.stepsText || "",
+      formulaText: body.formulaText || "",
+      flagged: Boolean(body.flagged),
+      favorite: Boolean(body.favorite),
       strokeCount: Number(body.strokeCount || 0),
       scratchImageStored: Boolean(body.scratchImage),
+      answerImageStored: Boolean(body.answerImage),
       strokePointCount: Array.isArray(body.strokes)
         ? body.strokes.reduce((sum, stroke) => sum + (Array.isArray(stroke.points) ? stroke.points.length : Array.isArray(stroke) ? stroke.length : 0), 0)
         : 0,

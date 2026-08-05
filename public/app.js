@@ -68,7 +68,7 @@ const trainingModes = {
 const state = {
   student: JSON.parse(localStorage.getItem("student") || "null"),
   view: routeToView[currentRoutePath()] || localStorage.getItem("view") || "home",
-  selectedMathType: localStorage.getItem("selectedMathType") || "数学二",
+  selectedMathType: localStorage.getItem("selectedMathType") || "数学一",
   trainingMode: localStorage.getItem("trainingMode") || "reinforce",
   paperExam: null,
   chapters: [],
@@ -164,6 +164,63 @@ function escapeHtml(value) {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
+}
+
+function uiMessage(message, type = "info") {
+  let host = document.querySelector(".toast-host");
+  if (!host) {
+    host = document.createElement("div");
+    host.className = "toast-host";
+    document.body.appendChild(host);
+  }
+  const item = document.createElement("div");
+  item.className = `toast ${type}`;
+  item.textContent = message;
+  host.appendChild(item);
+  setTimeout(() => item.remove(), 2600);
+}
+
+window.alert = (message) => uiMessage(String(message || ""), "info");
+
+function uiConfirm({ title = "确认操作", message = "", confirmText = "确定", cancelText = "取消" } = {}) {
+  return new Promise((resolve) => {
+    const overlay = document.createElement("div");
+    overlay.className = "modal-overlay";
+    overlay.innerHTML = `<div class="modal-card" role="dialog" aria-modal="true">
+      <h3>${escapeHtml(title)}</h3>
+      <p>${escapeHtml(message)}</p>
+      <div class="modal-actions">
+        <button class="ghost" data-modal-cancel>${escapeHtml(cancelText)}</button>
+        <button class="primary" data-modal-ok>${escapeHtml(confirmText)}</button>
+      </div>
+    </div>`;
+    document.body.appendChild(overlay);
+    const done = (value) => {
+      overlay.remove();
+      resolve(value);
+    };
+    overlay.querySelector("[data-modal-cancel]").onclick = () => done(false);
+    overlay.querySelector("[data-modal-ok]").onclick = () => done(true);
+    overlay.onclick = (event) => {
+      if (event.target === overlay) done(false);
+    };
+  });
+}
+
+function responseKey() {
+  if (!state.student) return "";
+  return `paperResponses:${state.student.id}:${state.trainingMode}:${state.chapterId}:${state.questionCount}:${state.difficulty}:${state.sourceType}`;
+}
+
+function persistResponses() {
+  const key = responseKey();
+  if (key) localStorage.setItem(key, JSON.stringify(state.responses || {}));
+}
+
+function restoreResponses() {
+  const key = responseKey();
+  if (!key) return;
+  state.responses = JSON.parse(localStorage.getItem(key) || "{}");
 }
 
 async function init() {
@@ -268,7 +325,7 @@ function renderLogin() {
       method: "POST",
       body: JSON.stringify({
         demo: true,
-        name: $("#name").value || "演示同学",
+        name: $("#name").value || "王同学",
         inviteCode: "demo",
         password: $("#password").value || "demo123",
         sessionId: demoSessionId,
@@ -471,6 +528,11 @@ async function loadQuestions(refresh) {
   }
   state.current = 0;
   state.responses = {};
+  if (refresh) {
+    localStorage.removeItem(responseKey());
+  } else {
+    restoreResponses();
+  }
   state.lastResults = null;
   resetScratch();
 }
@@ -516,7 +578,7 @@ async function renderPractice() {
   const q = state.questions[state.current];
   const saved = state.responses[q.id] || {};
   const options = q.type === "choice" ? `<div class="option-strip">${q.options.map((option, index) => `<button class="choice ${saved.answer === option ? "active" : ""}" data-choice="${escapeHtml(option)}">${String.fromCharCode(65 + index)}. ${escapeHtml(option)}</button>`).join("")}</div>` : "";
-  const answerPanel = q.type === "choice" ? renderChoicePanel() : renderScratchPanel();
+  const answerPanel = q.type === "choice" ? renderChoicePanel(q) : renderScratchPanel(q);
   shell("刷题", `<section class="panel question-top">
     <p><span class="badge">${escapeHtml(mode().name)}</span> <span class="badge warn">${difficultyText(q.difficulty)}</span> <span class="badge">${escapeHtml(q.source)}</span> ${escapeHtml(q.chapterName)} · ${escapeHtml(q.point)} · 第 ${state.current + 1}/${state.questions.length} 题</p>
     ${questionStem(q)}
@@ -529,14 +591,17 @@ async function renderPractice() {
   bindPractice(q);
 }
 
-function renderChoicePanel() {
+function renderChoicePanel(q) {
+  const saved = state.responses[q.id] || {};
   return `<section class="panel choice-panel">
     <div class="scratch-head">
       <div>
         <h3>选择题作答</h3>
-        <p>选择题点击上方选项只会保存答案，做完整套后统一交卷看结果。</p>
+        <p>选择题点击上方选项会自动保存；也可以标记不确定、收藏到做题集，做完整套后统一交卷。</p>
       </div>
       <div class="row">
+        <button class="ghost ${saved.flagged ? "active" : ""}" id="flagQuestion">标记不确定</button>
+        <button class="ghost ${saved.favorite ? "active" : ""}" id="favoriteQuestion">收藏</button>
         <button class="ghost" id="showScratch">打开草稿</button>
         <button class="ghost" id="prev">上一题</button>
         <button class="ghost" id="next">下一题</button>
@@ -547,20 +612,41 @@ function renderChoicePanel() {
   </section>`;
 }
 
-function renderScratchPanel() {
+function renderScratchPanel(q) {
+  const saved = state.responses[q.id] || {};
+  const isFill = q.type === "fill";
   return `<section class="panel scratch-panel">
     <div class="scratch-head">
       <div>
-        <h3>手写草稿</h3>
-        <p>填空题、计算题和需要演算的选择题只保留这张草稿纸，先保存作答，最后统一交卷。</p>
+        <h3>${isFill ? "填空题作答" : "主观题作答"}</h3>
+        <p>题目在上方，作答区在下方。草稿、最终答案和关键步骤会一起提交，AI据此定位错因。</p>
       </div>
       <div class="row">
+        <button class="ghost ${saved.flagged ? "active" : ""}" id="flagQuestion">标记不确定</button>
+        <button class="ghost ${saved.favorite ? "active" : ""}" id="favoriteQuestion">收藏</button>
         <button class="ghost" id="prev">上一题</button>
         <button class="ghost" id="saveScratch">保存本题</button>
         <button class="ghost" id="next">保存并下一题</button>
         <button class="ghost" id="refresh">刷新新题</button>
         <button class="primary" id="finishRound">交卷并生成诊断</button>
       </div>
+    </div>
+    <div class="answer-form grid two">
+      <label>最终答案
+        <input id="finalAnswer" value="${escapeHtml(saved.answer || "")}" placeholder="${isFill ? "例如 1/2、0.5、x^2+C" : "写出最终结论"}">
+      </label>
+      <label>公式/表达式
+        <input id="formulaAnswer" value="${escapeHtml(saved.formulaText || "")}" placeholder="可填写关键公式或数学表达式">
+      </label>
+    </div>
+    <label class="steps-box">关键步骤
+      <textarea id="stepsText" placeholder="按 1、2、3 写出设、列式、变形、计算、结论">${escapeHtml(saved.stepsText || "")}</textarea>
+    </label>
+    <div class="row upload-row">
+      <label class="upload-button">上传答题图片
+        <input id="answerImage" type="file" accept="image/png,image/jpeg,image/webp">
+      </label>
+      <span id="uploadName" class="badge">${saved.uploadName ? escapeHtml(saved.uploadName) : "未上传图片"}</span>
     </div>
     ${renderPadToolbar()}
     <div class="paper-stage">
@@ -598,6 +684,25 @@ function bindPractice(q) {
   const clearPad = $("#clearPad");
   const saveScratch = $("#saveScratch");
   const finishRound = $("#finishRound");
+  const flagQuestion = $("#flagQuestion");
+  const favoriteQuestion = $("#favoriteQuestion");
+  const finalAnswer = $("#finalAnswer");
+  const formulaAnswer = $("#formulaAnswer");
+  const stepsText = $("#stepsText");
+  const answerImage = $("#answerImage");
+  const syncTextAnswer = () => {
+    if (!finalAnswer && !formulaAnswer && !stepsText) return;
+    const saved = state.responses[q.id] || { questionId: q.id };
+    state.responses[q.id] = {
+      ...saved,
+      questionId: q.id,
+      answer: finalAnswer?.value || saved.answer || "",
+      formulaText: formulaAnswer?.value || "",
+      stepsText: stepsText?.value || "",
+      durationMs: Date.now() - state.startedAt
+    };
+    persistResponses();
+  };
   document.querySelectorAll("[data-jump]").forEach((button) => {
     button.onclick = () => {
       saveCurrentScratch(q);
@@ -621,12 +726,14 @@ function bindPractice(q) {
   if (refresh) refresh.onclick = async () => { await loadQuestions(true); renderPractice(); };
   if (clearPad) clearPad.onclick = () => {
     delete state.responses[q.id];
+    persistResponses();
     resetScratch();
     renderPractice();
   };
   bindPadToolbar();
   if (saveScratch) saveScratch.onclick = () => {
-    if (saveCurrentScratch(q)) alert("本题草稿已保存，交卷后统一诊断。");
+    syncTextAnswer();
+    if (saveCurrentScratch(q) || state.responses[q.id]) alert("本题作答已保存，交卷后统一诊断。");
   };
   if (finishRound) finishRound.onclick = async () => {
     saveCurrentScratch(q);
@@ -644,28 +751,85 @@ function bindPractice(q) {
     button.onclick = () => {
       document.querySelectorAll("[data-choice]").forEach((item) => item.classList.remove("active"));
       button.classList.add("active");
+      const saved = state.responses[q.id] || {};
       state.responses[q.id] = {
+        ...saved,
         questionId: q.id,
         answer: button.dataset.choice,
         selectedOption: button.dataset.choice,
         durationMs: Date.now() - state.startedAt
       };
+      persistResponses();
     };
   });
+  [finalAnswer, formulaAnswer, stepsText].filter(Boolean).forEach((input) => {
+    input.oninput = syncTextAnswer;
+  });
+  if (answerImage) {
+    answerImage.onchange = () => {
+      const file = answerImage.files?.[0];
+      if (!file) return;
+      if (!file.type.startsWith("image/") || file.size > 3 * 1024 * 1024) {
+        alert("请上传 3MB 以内的图片文件。");
+        answerImage.value = "";
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = () => {
+        const saved = state.responses[q.id] || { questionId: q.id };
+        state.responses[q.id] = { ...saved, questionId: q.id, uploadName: file.name, answerImage: reader.result };
+        persistResponses();
+        $("#uploadName").textContent = file.name;
+      };
+      reader.readAsDataURL(file);
+    };
+  }
+  if (flagQuestion) {
+    flagQuestion.onclick = () => {
+      const saved = state.responses[q.id] || { questionId: q.id };
+      state.responses[q.id] = { ...saved, questionId: q.id, flagged: !saved.flagged };
+      persistResponses();
+      renderPractice();
+    };
+  }
+  if (favoriteQuestion) {
+    favoriteQuestion.onclick = () => {
+      const saved = state.responses[q.id] || { questionId: q.id };
+      state.responses[q.id] = { ...saved, questionId: q.id, favorite: !saved.favorite };
+      persistResponses();
+      renderPractice();
+    };
+  }
   if ($("#pad")) bindCanvas();
 }
 
 function saveCurrentScratch(q) {
   const canvas = $("#pad");
-  if (!canvas || q.type === "choice") return false;
-  if (!state.strokeCount) return false;
+  const saved = state.responses[q.id] || { questionId: q.id };
+  const finalAnswer = $("#finalAnswer")?.value || saved.answer || "";
+  const formulaText = $("#formulaAnswer")?.value || saved.formulaText || "";
+  const stepsText = $("#stepsText")?.value || saved.stepsText || "";
+  if (!canvas || q.type === "choice") {
+    if (finalAnswer || formulaText || stepsText) {
+      state.responses[q.id] = { ...saved, questionId: q.id, answer: finalAnswer, formulaText, stepsText, durationMs: Date.now() - state.startedAt };
+      persistResponses();
+      return true;
+    }
+    return false;
+  }
+  if (!state.strokeCount && !finalAnswer && !formulaText && !stepsText && !saved.answerImage) return false;
   state.responses[q.id] = {
+    ...saved,
     questionId: q.id,
+    answer: finalAnswer,
+    formulaText,
+    stepsText,
     durationMs: Date.now() - state.startedAt,
       scratchImage: canvas.toDataURL("image/png"),
       strokes: state.strokes,
       strokeCount: state.strokeCount
   };
+  persistResponses();
   return true;
 }
 
@@ -705,16 +869,22 @@ function bindPadToolbar() {
 }
 
 async function submitRound() {
+  saveCurrentScratch(state.questions[state.current]);
   const missing = state.questions.filter((q) => !state.responses[q.id]);
   const answered = state.questions.length - missing.length;
   const marked = state.questions.filter((q) => state.responses[q.id]?.flagged).length;
   const subjectiveWithDraftOnly = state.questions.filter((q) => q.type !== "choice" && state.responses[q.id]?.scratchImage && !state.responses[q.id]?.stepsText && !state.responses[q.id]?.answer).length;
-  const ok = confirm([
-    `本轮共 ${state.questions.length} 题，已完成 ${answered} 题，未完成 ${missing.length} 题。`,
-    `标记疑问 ${marked} 题。`,
-    subjectiveWithDraftOnly ? `检测到 ${subjectiveWithDraftOnly} 道主观/填空题只有草稿，尚未整理正式答案。` : "",
-    "提交后将锁定本轮答案，并进入 AI 批改与诊断流程。是否继续？"
-  ].filter(Boolean).join("\n"));
+  const ok = await uiConfirm({
+    title: "提交整套试卷",
+    message: [
+      `本轮共 ${state.questions.length} 题，已完成 ${answered} 题，未完成 ${missing.length} 题。`,
+      `标记疑问 ${marked} 题。`,
+      subjectiveWithDraftOnly ? `检测到 ${subjectiveWithDraftOnly} 道题只有草稿，尚未整理正式答案。` : "",
+      "提交后将锁定本轮答案，并进入 AI 批改与诊断流程。"
+    ].filter(Boolean).join("\n"),
+    confirmText: "提交并批改",
+    cancelText: "继续检查"
+  });
   if (!ok) return;
   state.view = "grading";
   localStorage.setItem("view", "grading");
@@ -734,6 +904,7 @@ async function submitRound() {
   }
   state.lastResults = results;
   localStorage.setItem(`lastResults:${state.student.id}`, JSON.stringify(results));
+  localStorage.setItem(`lastSubmittedAt:${state.student.id}`, new Date().toISOString());
   state.view = "diagnosis";
   localStorage.setItem("view", "diagnosis");
   renderDiagnosis();
