@@ -41,6 +41,8 @@
     q("integral_002", common, "integral", "一元函数积分学", "变上限积分", "方法选择错误", "choice", "强化训练", 4, "设 F(x)=∫(0 到 x^2) e^(-t^2)dt，则 F'(x) = ?", ["2xe^(-x^4)", "e^(-x^4)", "2x·e^(-x^2)", "∫(0 到 2x)e^(-t^2)dt"], "2xe^(-x^4)", "变上限积分先代上限，再乘以上限函数导数。"),
     q("integral_003", common, "integral", "一元函数积分学", "不定积分常数", "表达不完整", "fill", "基础训练", 1, "计算 ∫2x dx。", [], "x^2+C", "不定积分结果需要加任意常数 C。"),
     q("integral_004", common, "integral", "一元函数积分学", "分部积分", "综合应用不足", "fill", "强化训练", 4, "计算 ∫(0 到 1) x ln(1+x) dx。", [], "1/4", "分部积分后化为有理函数积分。"),
+    q("subjective_integral_model_001", common, "integral", "一元函数积分学", "定积分应用建模", "建模错误", "subjective", "综合提升", 4, "某商品原售价60元，成本40元。若每涨价1元，销量减少2件。设原销量为100件，求使总利润为2400元时的涨价额，并写出完整建模过程。", [], "(20+x)(100-2x)=2400", "设涨价额为 x，则单件利润为 60+x-40=20+x，销量为 100-2x，总利润模型为 (20+x)(100-2x)=2400。"),
+    q("subjective_multi_extreme_001", common, "multi", "多元函数微分学", "多元函数极值", "条件遗漏", "subjective", "综合提升", 4, "求函数 z=x^2+y^2-2x-4y+1 的极值，并说明取得极值的点。", [], "极小值-4，点(1,2)", "配方 z=(x-1)^2+(y-2)^2-4，所以在 (1,2) 处取得极小值 -4。"),
     q("multi_001", common, "multi", "多元函数微分学", "偏导数", "计算过程错误", "choice", "基础训练", 2, "z=x^2y+3y，求 z 对 x 的偏导数。", ["2xy", "x^2+3", "2x+3", "x^2y"], "2xy", "对 x 求偏导时把 y 看作常数。"),
     q("linear_001", common, "linear", "线性代数", "矩阵秩", "概念理解错误", "choice", "强化训练", 4, "3阶矩阵 A 的秩为 2，则齐次方程 Ax=0 的基础解系含有几个解向量？", ["0", "1", "2", "3"], "1", "基础解系个数为未知量个数减秩。"),
     q("linear_002", common, "linear", "线性代数", "行列式", "计算过程错误", "fill", "基础训练", 1, "矩阵 [[1,2],[3,4]] 的行列式是？", [], "-2", "二阶行列式 ad-bc=4-6=-2。"),
@@ -56,11 +58,34 @@
     status,
     headers: { "content-type": "application/json; charset=utf-8" }
   }));
+  const normalizeAnswer = (value) => String(value || "")
+    .replace(/\s+/g, "")
+    .replace(/（/g, "(").replace(/）/g, ")").replace(/，/g, ",")
+    .replace(/＋/g, "+").replace(/－/g, "-").replace(/×/g, "*").replace(/÷/g, "/")
+    .toLowerCase();
+  const numericValue = (value) => {
+    const raw = normalizeAnswer(value).replace(/^答案[:：]?/, "").replace(/[。；;]$/g, "");
+    if (!raw) return null;
+    if (/^[+-]?\d+(\.\d+)?$/.test(raw)) return Number(raw);
+    const fraction = raw.match(/^([+-]?\d+(?:\.\d+)?)\/([+-]?\d+(?:\.\d+)?)$/);
+    if (fraction && Number(fraction[2]) !== 0) return Number(fraction[1]) / Number(fraction[2]);
+    return null;
+  };
+  const equivalentAnswer = (expected, actual) => {
+    const left = normalizeAnswer(expected);
+    const right = normalizeAnswer(actual);
+    if (!left || !right) return false;
+    if (left === right) return true;
+    const leftNum = numericValue(left);
+    const rightNum = numericValue(right);
+    if (leftNum !== null && rightNum !== null) return Math.abs(leftNum - rightNum) < 1e-8;
+    const compact = (value) => value.replace(/\*/g, "").replace(/\^1(?!\d)/g, "").replace(/\+c$/i, "+c").replace(/c$/i, "c");
+    return compact(left) === compact(right);
+  };
   const scoreAnswer = (question, attempt) => {
-    const value = String(attempt.answer || attempt.selectedOption || "").replace(/\s+/g, "").toLowerCase();
-    const answer = String(question.answer || "").replace(/\s+/g, "").toLowerCase();
+    const value = attempt.answer || attempt.selectedOption || attempt.formulaText || "";
     if (!value && question.type !== "choice" && attempt.strokeCount > 0) return null;
-    return Boolean(value && answer && value === answer);
+    return Boolean(value && equivalentAnswer(question.answer, value));
   };
   const diagnose = (question, correct, attempt) => {
     if (correct === true) return { reason: "已掌握", advice: "本题表现稳定，可在做题集中安排间隔复刷。" };
@@ -75,8 +100,8 @@
       student = {
         id: `demo_${sessionId}`,
         inviteCode: "demo",
-        name: body.name || "演示同学",
-        mathType: body.mathType || "数学二",
+        name: body.name || "王同学",
+        mathType: body.mathType || "数学一",
         targetScore: Number(body.targetScore || 120),
         stage: body.stage || "强化阶段",
         dailyMinutes: Number(body.dailyMinutes || 60),
@@ -250,7 +275,13 @@
         chapterId: question.chapterId,
         answer: body.answer || body.selectedOption || "",
         selectedOption: body.selectedOption || "",
+        formulaText: body.formulaText || "",
+        stepsText: body.stepsText || "",
+        flagged: Boolean(body.flagged),
+        favorite: Boolean(body.favorite),
         strokeCount: Number(body.strokeCount || 0),
+        scratchImageStored: Boolean(body.scratchImage),
+        answerImageStored: Boolean(body.answerImage),
         durationMs: Number(body.durationMs || 0),
         gradingStatus: correct === null ? "pending_recognition" : "graded",
         correct,
