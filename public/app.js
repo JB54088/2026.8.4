@@ -5,6 +5,8 @@ const routeToView = {
   "/": "home",
   "/login": "home",
   "/dashboard": "home",
+  "/math-type": "mathTypeChooser",
+  "/chapters": "chapters",
   "/practice": "practice",
   "/diagnosis": "diagnosis",
   "/review": "knowledgeReview",
@@ -13,7 +15,12 @@ const routeToView = {
   "/paper-report": "paperReport",
   "/question-review": "questionReview",
   "/report": "improvement",
-  "/ability-profile": "profile"
+  "/ability-profile": "profile",
+  "/collection": "collection",
+  "/past-exams": "pastExams",
+  "/training-plan": "trainingPlan",
+  "/retest": "retest",
+  "/mastery-verify": "masteryVerify"
 };
 const viewToRoute = Object.fromEntries(Object.entries(routeToView).map(([path, view]) => [view, path]));
 function currentRoutePath() {
@@ -70,7 +77,7 @@ const trainingModes = {
 const state = {
   student: JSON.parse(localStorage.getItem("student") || "null"),
   view: routeToView[currentRoutePath()] || localStorage.getItem("view") || "home",
-  selectedMathType: localStorage.getItem("selectedMathType") || "数学一",
+  selectedMathType: localStorage.getItem("selectedMathType") || JSON.parse(localStorage.getItem("student") || "null")?.mathType || "数学一",
   trainingMode: localStorage.getItem("trainingMode") || "reinforce",
   paperExam: null,
   chapters: [],
@@ -97,20 +104,12 @@ const state = {
 };
 
 const navs = [
-  ["home", "训练入口"],
-  ["chapters", "章节训练"],
+  ["home", "课程首页"],
+  ["chapters", "章节学习"],
   ["practice", "刷题"],
-  ["diagnosis", "AI诊断"],
-  ["knowledgeReview", "知识点复习"],
-  ["understandingCheck", "理解检查"],
-  ["similarTraining", "相似题训练"],
-  ["originalRetry", "原题重做"],
-  ["masteryVerify", "掌握验证"],
-  ["improvement", "提升报告"],
-  ["profile", "能力画像"],
-  ["pastExams", "真题库"],
-  ["report", "报告"],
-  ["collection", "做题集"]
+  ["collection", "错题本"],
+  ["report", "学习报告"],
+  ["pastExams", "真题库"]
 ];
 const sourceOptions = [
   ["all", "全部题源"],
@@ -161,7 +160,72 @@ function selectMode(key) {
 
 function saveStudent(student) {
   state.student = student;
+  state.selectedMathType = student?.mathType || state.selectedMathType;
   localStorage.setItem("student", JSON.stringify(student));
+  localStorage.setItem("selectedMathType", state.selectedMathType);
+}
+
+function chapterGroup(chapter) {
+  if (chapter.id === "linear" || /线性代数/.test(chapter.name || "")) return "线性代数";
+  if (chapter.id === "prob" || /概率/.test(chapter.name || "")) return "概率论与数理统计";
+  return "高等数学";
+}
+
+function chapterQuestionCount(chapter) {
+  return Number(chapter?.countsByMathType?.[state.student?.mathType] ?? chapter?.count ?? 0);
+}
+
+function chapterProgress(progress, chapterId) {
+  const attempts = Array.isArray(progress?.attempts)
+    ? progress.attempts.filter((item) => item.studentId === state.student?.id && item.chapterId === chapterId)
+    : [];
+  const reportItem = progress?.report?.byChapter?.[chapterId] || progress?.report?.byChapter?.[state.chapters.find((item) => item.id === chapterId)?.name];
+  const completed = Number(reportItem?.total ?? attempts.length);
+  const correct = Number(reportItem?.correct ?? attempts.filter((item) => item.correct === true).length);
+  return { completed, accuracy: completed ? Math.round(correct / completed * 100) : 0 };
+}
+
+async function loadProgress() {
+  if (!state.student) return { attempts: [], report: {} };
+  try {
+    return await api(`/api/report?studentId=${encodeURIComponent(state.student.id)}`);
+  } catch (error) {
+    return { attempts: [], report: {} };
+  }
+}
+
+async function persistMathType(mathType) {
+  state.selectedMathType = mathType;
+  localStorage.setItem("selectedMathType", mathType);
+  if (!state.student) {
+    renderLogin();
+    return;
+  }
+  try {
+    const payload = {
+      demo: Boolean(state.student.isDemo),
+      name: state.student.name,
+      inviteCode: state.student.isDemo ? "demo" : state.student.inviteCode,
+      password: state.student.isDemo ? "demo123" : "",
+      sessionId: demoSessionId,
+      mathType,
+      targetScore: state.student.targetScore,
+      stage: state.student.stage || mode().stage,
+      dailyMinutes: state.student.dailyMinutes || 60
+    };
+    const res = await api("/api/login", { method: "POST", body: JSON.stringify(payload) });
+    saveStudent(res.student);
+    state.chapterId = "integral";
+    state.questions = [];
+    state.current = 0;
+    state.responses = {};
+    state.view = "home";
+    localStorage.setItem("view", "home");
+    history.replaceState({ view: "home" }, "", `${APP_BASE_PATH}/dashboard`);
+    render();
+  } catch (error) {
+    alert(error.message || "数学类型保存失败，请稍后重试。");
+  }
 }
 
 function escapeHtml(value) {
@@ -254,6 +318,7 @@ function render() {
   if (!state.student) return renderLogin();
   const map = {
     home: renderHome,
+    mathTypeChooser: renderMathTypeChooser,
     chapters: renderChapters,
     practice: renderPractice,
     grading: renderGrading,
@@ -276,6 +341,25 @@ function render() {
     collection: renderCollection
   };
   return (map[state.view] || renderHome)();
+}
+
+function renderMathTypeChooser() {
+  const mathTypes = [
+    { name: "数学一", scope: "高等数学、线性代数、概率论与数理统计", note: "适用于理工、经济管理等专业的数学一考试。" },
+    { name: "数学二", scope: "高等数学、线性代数", note: "不展示概率论内容，重点覆盖高等数学和线性代数。" },
+    { name: "数学三", scope: "高等数学、线性代数、概率论与数理统计", note: "适用于经济管理类专业的数学三考试。" }
+  ];
+  shell("请选择你的考试数学类型", `<section class="panel math-type-chooser">
+    <div class="chooser-head">
+      <div><span class="badge">${escapeHtml(state.student.name)}，先确认考试范围</span><h2>请选择你的考试数学类型</h2><p>选择后，章节、知识点和题目都会自动按照你的考试范围过滤。</p></div>
+    </div>
+    <div class="select-grid">${mathTypes.map((item) => `<button class="select-card ${state.student.mathType === item.name ? "active" : ""}" data-math-type="${item.name}">
+      <strong>${item.name}</strong><span>${item.scope}</span><small>${item.note}</small><em>${state.student.mathType === item.name ? "当前选择" : "选择此类型"}</em>
+    </button>`).join("")}</div>
+  </section>`);
+  document.querySelectorAll("[data-math-type]").forEach((button) => {
+    button.onclick = () => persistMathType(button.dataset.mathType);
+  });
 }
 
 function renderLogin() {
@@ -324,8 +408,9 @@ function renderLogin() {
       })
     });
     saveStudent(res.student);
-    state.view = "home";
-    localStorage.setItem("view", "home");
+    state.view = "mathTypeChooser";
+    localStorage.setItem("view", "mathTypeChooser");
+    history.replaceState({ view: "mathTypeChooser" }, "", `${APP_BASE_PATH}/math-type`);
     render();
   };
 
@@ -346,89 +431,56 @@ function renderLogin() {
     });
     saveStudent(res.student);
     localStorage.setItem("demoMode", "1");
-    state.view = "home";
-    localStorage.setItem("view", "home");
-    history.replaceState({ view: "home" }, "", `${APP_BASE_PATH}/dashboard`);
+    state.view = "mathTypeChooser";
+    localStorage.setItem("view", "mathTypeChooser");
+    history.replaceState({ view: "mathTypeChooser" }, "", `${APP_BASE_PATH}/math-type`);
     render();
   };
 }
 
 async function renderHome() {
   const loop = await loadLoop();
+  const progress = await loadProgress();
   const demoOn = localStorage.getItem("demoMode") === "1";
-  const cards = Object.entries(trainingModes).map(([key, item]) => `<article class="mode-card ${state.trainingMode === key ? "active" : ""}">
-    <div>
-      <h3>${item.name}</h3>
-      <p>${item.description}</p>
-      <p class="mode-meta">${item.difficultyLabel} · 默认 ${item.count} 题</p>
-    </div>
-    <button class="primary" data-mode="${key}">${key === "foundation" ? "选择基础题目" : key === "reinforce" ? "选择强化题目" : "选择模拟题目"}</button>
-  </article>`).join("");
+  const report = progress.report || {};
+  const attempts = Array.isArray(progress.attempts) ? progress.attempts.filter((item) => item.studentId === state.student.id) : [];
+  const completed = Number(report.total ?? attempts.length);
+  const accuracy = Number(report.accuracy ?? (attempts.length ? Math.round(attempts.filter((item) => item.correct === true).length / attempts.length * 100) : 0));
+  const weakPoints = loop?.diagnosis?.weakKnowledgePoints || [];
+  const chapters = state.chapters.filter((chapter) => chapter.subjects.includes(state.student.mathType));
 
-  shell("训练入口", `<section class="panel">
-    <div class="metrics">
-      <div class="metric"><span>考试类型</span><strong>${state.student.mathType}</strong></div>
-      <div class="metric"><span>当前模式</span><strong>${mode().name}</strong></div>
-      <div class="metric"><span>本轮题量</span><strong>${state.questionCount}</strong></div>
-      <div class="metric"><span>作答方式</span><strong>做题空间识别</strong></div>
-    </div>
-  </section>
-  <section class="panel">
-    <h2>选择训练模式</h2>
-    <div class="mode-grid">${cards}</div>
-  </section>
-  <section class="panel note-panel">
-    <h2>题库原则</h2>
-    <p>真题只会来自可追溯导入，不用原创题冒充。当前内置题先按考研风格审核题、自研题和教师审核变式题区分，后续可以把你授权的真题文件批量导入。</p>
-  </section>`);
-
-  $("#title").textContent = "训练入口";
-  $("#view").insertAdjacentHTML("afterbegin", `<section class="panel product-dashboard">
+  shell(`${state.student.mathType} · 课程首页`, `<section class="panel course-home-head">
     <div class="dashboard-head">
-      <div>
-        <span class="badge ${demoOn ? "warn" : ""}">${demoOn ? "产品演示模式" : "真实学生数据"}</span>
-        <h2>AI数学个性化学习闭环</h2>
-        <p>从作答与做题空间识别开始，完成批改、错因诊断、专项训练、变式复测和能力画像更新。</p>
-      </div>
-      <div class="row">
-        <button class="primary" data-view="diagnosis">查看AI诊断</button>
-        <button class="ghost" id="toggleDemo">${demoOn ? "退出演示模式" : "进入演示模式"}</button>
-        ${state.student?.isDemo ? `<button class="ghost danger" id="resetDemo">重置演示数据</button>` : ""}
-      </div>
+      <div><span class="badge ${demoOn ? "warn" : ""}">${demoOn ? "演示学习空间" : "个人学习空间"}</span><h2>${state.student.mathType} · 课程首页</h2><p>只展示与你当前考试数学类型匹配的章节和题目，按章节推进学习。</p></div>
+      <div class="row"><button class="primary" id="switchMathType">切换数学类型</button>${state.student?.isDemo ? `<button class="ghost danger" id="resetDemo">重置演示数据</button>` : ""}</div>
     </div>
-    ${loopProgress("assessment")}
-  </section>
-  <section class="panel">
-    <div class="metrics">
-      <div class="metric"><span>最近诊断</span><strong>${loop.diagnosis.accuracy}%</strong></div>
-      <div class="metric"><span>薄弱点</span><strong>${loop.diagnosis.weakKnowledgePoints.length}</strong></div>
-      <div class="metric"><span>待复习知识点</span><strong>${loop.homeCounters?.reviewPending ?? loop.diagnosis.weakKnowledgePoints.length}</strong></div>
-      <div class="metric"><span>待重做错题</span><strong>${loop.homeCounters?.retryPending ?? 1}</strong></div>
-    </div>
-    <div class="next-actions">
-      <button class="ghost" data-view="knowledgeReview">继续知识点复习</button>
-      <button class="ghost" data-view="similarTraining">继续相似题训练</button>
-      <button class="ghost" data-view="originalRetry">重新挑战原错题</button>
-      <button class="ghost" data-view="improvement">提升报告</button>
-      <button class="ghost" data-view="profile">能力画像</button>
+    <div class="metrics course-summary">
+      <div class="metric"><span>当前考试类型</span><strong>${state.student.mathType}</strong></div>
+      <div class="metric"><span>已完成题目</span><strong>${completed}</strong></div>
+      <div class="metric"><span>总体正确率</span><strong>${accuracy}%</strong></div>
+      <div class="metric"><span>薄弱知识点</span><strong>${weakPoints.length}</strong></div>
     </div>
   </section>
   <section class="panel">
-    <h2>学习任务</h2>
-    <div class="cards">
-      <article class="card"><h3>本轮诊断结论</h3><p>${escapeHtml(loop.diagnosis.summary)}</p></article>
-      <article class="card"><h3>下一步学习路径</h3><p>${escapeHtml(loop.recoveryPath?.nextAction || loop.trainingPlan.goal)}</p></article>
-      <article class="card"><h3>完成标准</h3><p>${escapeHtml(loop.trainingCriteria?.summary || loop.trainingPlan.completionStandard)}</p></article>
-    </div>
-  </section>`);
+    <div class="section-heading"><div><h2>继续学习</h2><p>从当前类型的章节中选择一个入口开始做题。</p></div><button class="ghost" data-view="chapters">查看全部章节</button></div>
+    <div class="next-actions"><button class="primary" data-chapter="${escapeHtml(state.chapterId)}">继续当前章节</button><button class="ghost" data-view="report">查看学习报告</button></div>
+  </section>
+  <section class="panel">
+    <div class="section-heading"><div><h2>章节学习</h2><p>章节题量、完成情况和正确率会随着你的真实作答自动更新。</p></div></div>
+    ${renderChapterGroups(progress, chapters)}
+  </section>
+  <section class="panel learning-advice"><h2>下一步建议</h2><p>${escapeHtml(loop?.recoveryPath?.nextAction || "先完成一个章节的基础训练，系统会根据你的作答结果安排后续练习。")}</p>${weakPoints.length ? `<div class="weak-point-list">${weakPoints.slice(0, 4).map((point) => `<span>${escapeHtml(point)}</span>`).join("")}</div>` : ""}</section>`);
+
   document.querySelectorAll("[data-view]").forEach((button) => button.onclick = () => setView(button.dataset.view));
+  document.querySelectorAll("[data-chapter]").forEach((button) => {
+    button.onclick = async () => {
+      state.chapterId = button.dataset.chapter;
+      await loadQuestions(false);
+      setView("practice");
+    };
+  });
+  $("#switchMathType").onclick = () => setView("mathTypeChooser");
   const toggleDemo = $("#toggleDemo");
-  if (toggleDemo) toggleDemo.onclick = () => {
-    const next = localStorage.getItem("demoMode") !== "1";
-    localStorage.setItem("demoMode", next ? "1" : "0");
-    state.loop = null;
-    renderHome();
-  };
   const resetDemo = $("#resetDemo");
   if (resetDemo) resetDemo.onclick = async () => {
     await api("/api/demo/reset", {
@@ -444,31 +496,28 @@ async function renderHome() {
     alert("演示数据已重置。");
     renderHome();
   };
-  document.querySelectorAll("[data-mode]").forEach((button) => {
-    button.onclick = async () => {
-      selectMode(button.dataset.mode);
-      if (state.trainingMode === "mock") {
-        state.chapterId = "all";
-        await loadQuestions(true);
-        setView("practice");
-      } else {
-        setView("chapters");
-      }
-    };
-  });
 }
 
-function renderChapters() {
-  const currentMode = mode();
-  const items = state.chapters
-    .filter((chapter) => chapter.subjects.includes(state.student.mathType))
-    .map((chapter) => `<article class="card">
-      <h3>${chapter.name} <span class="badge">${chapter.count}题</span></h3>
-      <p>适用：${chapter.subjects.join("、")}；当前题组：${currentMode.difficultyLabel}</p>
-      <button class="primary" data-chapter="${chapter.id}">刷本章${currentMode.name}</button>
-    </article>`).join("");
+function renderChapterGroups(progress, chapters) {
+  const groups = ["高等数学", "线性代数", "概率论与数理统计"];
+  return `<div class="chapter-groups">${groups.map((group) => {
+    const items = chapters.filter((chapter) => chapterGroup(chapter) === group);
+    if (!items.length) return "";
+    return `<section class="chapter-group"><h3>${group}</h3><div class="chapter-card-grid">${items.map((chapter) => {
+      const stats = chapterProgress(progress, chapter.id);
+      const total = chapterQuestionCount(chapter);
+      return `<article class="chapter-card"><div class="chapter-card-head"><div><h4>${escapeHtml(chapter.name)}</h4><p>${total} 道可用题目</p></div><span class="chapter-rate">${stats.accuracy}%</span></div><div class="chapter-card-meta"><span>已完成 ${stats.completed} 题</span><span>正确率 ${stats.accuracy}%</span></div><div class="bar"><i style="width:${Math.min(100, total ? Math.round(stats.completed / total * 100) : 0)}%"></i></div><button class="primary" data-chapter="${escapeHtml(chapter.id)}">${stats.completed ? "继续学习" : "开始做题"}</button></article>`;
+    }).join("")}</div></section>`;
+  }).join("")}</div>`;
+}
 
-  shell(`${currentMode.name}`, `<section class="panel">
+async function renderChapters() {
+  const currentMode = mode();
+  const progress = await loadProgress();
+  const chapters = state.chapters.filter((chapter) => chapter.subjects.includes(state.student.mathType));
+
+  shell(`${state.student.mathType} · 章节学习`, `<section class="panel chapter-filter-panel">
+    <div class="section-heading"><div><span class="badge">${state.student.mathType}</span><h2>${state.student.mathType} · 章节学习</h2><p>当前只显示适用于${state.student.mathType}的章节，选择章节后进入做题。</p></div><button class="ghost" id="switchMathType">切换数学类型</button></div>
     <div class="mode-tabs large">
       ${Object.entries(trainingModes).map(([key, item]) => `<button class="${state.trainingMode === key ? "active" : ""}" data-switch-mode="${key}">${item.name}<small>${item.difficultyLabel}</small></button>`).join("")}
     </div>
@@ -490,7 +539,7 @@ function renderChapters() {
       </label>
     </div>
   </section>
-  <section class="panel"><div class="cards">${items}</div></section>`);
+  <section class="panel">${chapters.length ? renderChapterGroups(progress, chapters) : `<div class="empty-state"><h3>当前类型暂未配置章节</h3><p>请切换数学类型或联系管理员导入对应题库。</p></div>`}</section>`);
 
   $("#questionCount").value = String(state.questionCount);
   $("#difficulty").value = state.difficulty;
@@ -520,6 +569,7 @@ function renderChapters() {
       setView("practice");
     };
   });
+  $("#switchMathType").onclick = () => setView("mathTypeChooser");
 }
 
 async function loadQuestions(refresh) {
@@ -585,6 +635,17 @@ function questionStem(q) {
   </div>`;
 }
 
+function questionAnswerControls(q) {
+  if (q.type === "choice") {
+    const selected = state.responses[q.id]?.selectedOption || "";
+    return `<div class="practice-choice-list" aria-label="选择答案">${(q.options || []).map((option, index) => {
+      const letter = String.fromCharCode(65 + index);
+      return `<button class="practice-choice ${selected === option || selected === letter ? "active" : ""}" data-choice="${escapeHtml(option)}" data-choice-letter="${letter}">${letter}. ${escapeHtml(option)}</button>`;
+    }).join("")}</div>`;
+  }
+  return `<p class="practice-answer-hint">${q.type === "fill" ? "请在做题空间中写出最终答案和必要步骤。" : "请在做题空间中完整写出解题过程和最终答案。"}</p>`;
+}
+
 async function renderPractice() {
   state.trainingCanvasQuestion = null;
   if (!state.questions.length) await loadQuestions(false);
@@ -593,11 +654,15 @@ async function renderPractice() {
     return;
   }
   const q = state.questions[state.current];
+  const chapter = state.chapters.find((item) => item.id === q.chapterId);
+  const answeredCount = state.questions.filter((item) => Boolean(state.responses[item.id]?.selectedOption || state.responses[item.id]?.scratchImage || state.responses[item.id]?.strokeCount)).length;
   loadScratchForQuestion(q);
   shell("刷题", `<div class="practice-simple">
     <section class="question-only">
+      <div class="practice-context"><span>${escapeHtml(state.student.mathType)}</span><span>${escapeHtml(chapter?.name || q.chapterName || "当前章节")}</span><span>${escapeHtml(q.point || "本题知识点")}</span><strong>已完成 ${answeredCount} / ${state.questions.length}</strong></div>
       <div class="question-count">第${state.current + 1}题 / 共${state.questions.length}题</div>
       ${questionStem(q)}
+      ${questionAnswerControls(q)}
     </section>
     ${renderWritingPanel(q)}
   </div>`);
@@ -611,6 +676,7 @@ function renderWritingPanel() {
       <canvas id="pad" width="1800" height="1120"></canvas>
     </div>
     <div class="practice-actions">
+      ${state.current > 0 ? `<button class="ghost" id="prev">上一题</button>` : ""}
       <button class="ghost" id="clearPad">清空手写</button>
       <button class="ghost" id="undoPad">撤销</button>
       <button class="ghost" id="redoPad">重做</button>
@@ -621,11 +687,25 @@ function renderWritingPanel() {
 }
 
 function bindPractice(q) {
+  const prev = $("#prev");
   const next = $("#next");
   const clearPad = $("#clearPad");
   const undoPad = $("#undoPad");
   const redoPad = $("#redoPad");
   const finishRound = $("#finishRound");
+  document.querySelectorAll("[data-choice]").forEach((button) => {
+    button.onclick = () => {
+      const saved = state.responses[q.id] || { questionId: q.id };
+      state.responses[q.id] = { ...saved, selectedOption: button.dataset.choice, answer: button.dataset.choiceLetter };
+      persistResponses();
+      document.querySelectorAll("[data-choice]").forEach((item) => item.classList.toggle("active", item === button));
+    };
+  });
+  if (prev) prev.onclick = () => {
+    saveCurrentScratch(q, { keepEmpty: true });
+    state.current -= 1;
+    renderPractice();
+  };
   if (next) next.onclick = () => {
     saveCurrentScratch(q);
     if (state.current >= state.questions.length - 1) {
@@ -666,13 +746,18 @@ function bindPractice(q) {
 function saveCurrentScratch(q, options = {}) {
   const canvas = $("#pad");
   const saved = state.responses[q.id] || { questionId: q.id };
-  if (!canvas) return false;
+  if (!canvas) {
+    if (!saved.selectedOption && !options.keepEmpty) return false;
+    state.responses[q.id] = { ...saved, questionId: q.id, durationMs: Date.now() - state.startedAt };
+    persistResponses();
+    return Boolean(saved.selectedOption);
+  }
   if (!state.strokeCount && !options.keepEmpty) return false;
   state.responses[q.id] = {
     ...saved,
     questionId: q.id,
-    answer: "",
-    selectedOption: "",
+    answer: saved.answer || "",
+    selectedOption: saved.selectedOption || "",
     formulaText: "",
     stepsText: "",
     durationMs: Date.now() - state.startedAt,
@@ -1284,21 +1369,8 @@ async function loadLoop() {
 }
 
 function loopProgress(active) {
-  const nodes = [
-    ["assessment", "检测"],
-    ["diagnosis", "诊断"],
-    ["review", "复习"],
-    ["check", "检查"],
-    ["training", "训练"],
-    ["retry", "原题重做"],
-    ["verify", "掌握验证"],
-    ["improvement", "提升"]
-  ];
-  const order = nodes.map(([key]) => key);
-  const activeIndex = Math.max(0, order.indexOf(active));
-  return `<div class="loop-progress">${nodes.map(([key, label], index) => `<div class="loop-node ${index < activeIndex ? "done" : index === activeIndex ? "active" : ""}">
-    <span>${index + 1}</span><strong>${label}</strong><small>${index < activeIndex ? "已完成" : index === activeIndex ? "当前" : "待完成"}</small>
-  </div>`).join("")}</div>`;
+  // The learning loop remains available to the diagnostic engine, but is intentionally hidden from the student-facing navigation.
+  return "";
 }
 
 function stepStatusClass(status) {
@@ -1450,436 +1522,4 @@ async function renderSimilarTraining() {
       <div class="metric"><span>训练层级</span><strong>${levels.length}</strong></div>
       <div class="metric"><span>已通过</span><strong>${completed}</strong></div>
       <div class="metric"><span>提示使用</span><strong>${stateFlow.hintsUsed || 0}</strong></div>
-      <div class="metric"><span>完成标准</span><strong>${canRetry ? "可重做" : "未达标"}</strong></div>
-    </div>
-  </section>
-  <section class="panel"><h2>由易到难训练</h2><div class="cards">${cards}</div><div class="row"><button class="ghost" id="useHint">使用一级提示</button><button class="primary" id="goRetry" ${canRetry ? "" : "disabled"}>回到原错题重做</button><button class="ghost" data-view="knowledgeReview">重新复习</button></div></section>`);
-  document.querySelectorAll("[data-complete-training]").forEach((button) => {
-    button.onclick = () => {
-      const nextDone = { ...done, [button.dataset.completeTraining]: true };
-      writeFlowState({ trainingDone: nextDone, stage: "WAITING_FOR_RETRY" });
-      renderSimilarTraining();
-    };
-  });
-  const hint = $("#useHint");
-  if (hint) hint.onclick = () => {
-    writeFlowState({ hintsUsed: Number(stateFlow.hintsUsed || 0) + 1 });
-    renderSimilarTraining();
-  };
-  const retry = $("#goRetry");
-  if (retry) retry.onclick = () => setView("originalRetry");
-}
-
-function hasCompleteTrainingBatch(batch) {
-  const total = Number(batch?.total || batch?.questionCount || 0);
-  return Boolean(batch && total > 0 && Array.isArray(batch.questions) && batch.questions.length === total
-    && batch.questions.every((question) => String(question.stem || "").trim().length >= 12
-      && String(question.answer || "").trim()
-      && !/静态演示|占位|围绕某错误|题目生成中|请先作答|placeholder/i.test(question.stem)));
-}
-
-function trainingRecordFor(question) {
-  return readFlowState().trainingRecords?.[question.id] || {};
-}
-
-function loadTrainingScratch(question) {
-  const record = trainingRecordFor(question);
-  state.strokes = Array.isArray(record.strokes) ? record.strokes : [];
-  state.strokeCount = state.strokes.length || Number(record.strokeCount || 0);
-  state.redoStrokes = [];
-  state.startedAt = Date.now() - Number(record.durationMs || 0);
-}
-
-function saveTrainingDraft(question, options = {}) {
-  if (!question) return false;
-  const flow = readFlowState();
-  const records = { ...(flow.trainingRecords || {}) };
-  const previous = records[question.id] || {};
-  const canvas = $("#pad");
-  const next = {
-    ...previous,
-    questionId: question.id,
-    strokes: state.strokes,
-    strokeCount: state.strokeCount,
-    durationMs: Date.now() - state.startedAt
-  };
-  if (options.fields) Object.assign(next, options.fields);
-  if (canvas && state.strokeCount && !options.skipImage) next.scratchImage = canvas.toDataURL("image/png");
-  records[question.id] = next;
-  writeFlowState({ trainingRecords: records, trainingBatchId: state.trainingBatch?.id || flow.trainingBatchId });
-  return true;
-}
-
-function trainingOptionValue(option) {
-  return String(option || "").replace(/^[A-D][.、]\s*/i, "").trim();
-}
-
-function renderTrainingAnswerControls(question, record) {
-  if (question.questionType === "choice") {
-    const picked = record.selectedOption || record.answer || "";
-    return `<div class="training-choices">${(question.options || []).map((option) => {
-      const value = trainingOptionValue(option);
-      return `<button class="training-choice ${picked === value ? "active" : ""}" data-training-choice="${escapeHtml(value)}">${escapeHtml(option)}</button>`;
-    }).join("")}</div>`;
-  }
-  if (question.questionType === "fill") {
-    return `<label class="training-fill">答案<input id="trainingAnswer" value="${escapeHtml(record.answer || "")}" placeholder="填写最终结果"></label>`;
-  }
-  return `<div class="training-writing">
-    <div class="paper-stage"><canvas id="pad" width="1800" height="1120"></canvas></div>
-    <div class="training-pad-actions"><button class="ghost" id="trainingClear">清空</button><button class="ghost" id="trainingUndo">撤销</button><button class="ghost" id="trainingRedo">重做</button></div>
-  </div>`;
-}
-
-function trainingFeedback(question, record) {
-  if (!record.submitted) return "";
-  const status = record.correct === true ? "本题正确" : record.correct === false ? "本题需要复盘" : "已提交，主观过程等待 OCR/AI 识别";
-  const cls = record.correct === true ? "good" : record.correct === false ? "bad" : "pending";
-  const solution = question.detailedSolution || {};
-  return `<section class="training-feedback ${cls}">
-    <h3>${status}</h3>
-    <p><strong>标准答案：</strong>${escapeHtml(question.answer)}</p>
-    <p><strong>考查知识点：</strong>${escapeHtml(question.knowledgePoint || question.subKnowledgePoint || "")}</p>
-    <p><strong>解题思路：</strong>${escapeHtml(solution.preAnalysis || solution.methodSummary || question.explanation || "")}</p>
-    <div class="training-solution-steps">${(solution.steps || []).map((step) => `<p><strong>${escapeHtml(step.title || `步骤${step.order}`)}：</strong>${escapeHtml(step.content || "")}</p>`).join("")}</div>
-    <p><strong>易错点：</strong>${escapeHtml(solution.commonPitfall || question.sourceErrorType || "")}</p>
-  </section>`;
-}
-
-async function submitTrainingQuestion(batch, question) {
-  saveTrainingDraft(question, { fields: {}, keepEmpty: true });
-  const draft = trainingRecordFor(question);
-  const hasAnswer = Boolean(draft.answer || draft.selectedOption || draft.formulaText || draft.stepsText || draft.strokeCount || draft.scratchImage);
-  if (!hasAnswer) {
-    alert("请先完成本题，再提交本题记录。");
-    return;
-  }
-  const res = await api("/api/training-records", {
-    method: "POST",
-    body: JSON.stringify({
-      trainingBatchId: batch.id,
-      trainingQuestionId: question.id,
-      answer: draft.answer || draft.selectedOption || draft.formulaText || "",
-      selectedOption: draft.selectedOption || "",
-      formulaText: draft.formulaText || "",
-      stepsText: draft.stepsText || "",
-      scratchImage: draft.scratchImage || "",
-      strokeCount: draft.strokeCount || 0,
-      durationMs: draft.durationMs || 0,
-      hintLevelUsed: Number(draft.hintLevelUsed || 0)
-    })
-  });
-  const flow = readFlowState();
-  writeFlowState({
-    trainingRecords: { ...(flow.trainingRecords || {}), [question.id]: { ...draft, submitted: true, correct: res.record.correct, score: res.record.score } },
-    trainingBatchId: batch.id,
-    stage: "TARGETED_TRAINING"
-  });
-  state.trainingBatch = res.batch;
-  if (res.warning) alert(res.warning);
-  renderSimilarTrainingV2();
-}
-
-async function renderSimilarTrainingV2() {
-  let batch = hasCompleteTrainingBatch(state.trainingBatch) ? state.trainingBatch : null;
-  if (!batch) {
-    const data = await api(`/api/training-batches?studentId=${encodeURIComponent(state.student.id)}&trainingType=targeted`);
-    batch = hasCompleteTrainingBatch(data.latest) ? data.latest : null;
-  }
-  if (!batch) {
-    const submission = await ensureLatestSubmission();
-    if (!submission) {
-      shell("相似题训练", `<section class="panel"><h2>还没有可匹配的错题</h2><p>请先完成一份试卷并提交，系统会读取原题、答案、步骤和错误类型后生成训练题。</p><button class="primary" data-view="practice">进入刷题</button></section>`);
-      return;
-    }
-    const created = await api("/api/training-batches", {
-      method: "POST",
-      body: JSON.stringify({ studentId: state.student.id, submissionId: submission.id, trainingType: "targeted" })
-    });
-    batch = created.batch;
-    writeFlowState({ trainingBatchId: batch.id, trainingRecords: {}, trainingIndex: 0, stage: "TARGETED_TRAINING" });
-  }
-  state.trainingBatch = batch;
-  const flow = readFlowState();
-  if (flow.trainingBatchId !== batch.id) writeFlowState({ trainingBatchId: batch.id, trainingRecords: {}, trainingIndex: 0, trainingCompleted: false });
-  const latestFlow = readFlowState();
-  const records = latestFlow.trainingRecords || {};
-  const total = Number(batch.total || batch.questionCount);
-  const index = Math.max(0, Math.min(total - 1, Number(latestFlow.trainingIndex || 0)));
-  const question = batch.questions[index];
-  const record = records[question.id] || {};
-  state.trainingCanvasQuestion = question.questionType === "subjective" ? question : null;
-  loadTrainingScratch(question);
-  const completed = batch.progress?.answered || Object.values(records).filter((item) => item.submitted).length;
-  const progress = Math.round(completed / total * 100);
-  const isLast = index === total - 1;
-  const purpose = question.trainingPurpose || (index < 10 ? "当前最严重错误专项" : "综合巩固");
-  shell("相似题训练", `<section class="panel similar-training-page">
-    <div class="similar-training-head">
-      <div><span class="badge">${escapeHtml(purpose)}</span><h2>第 ${index + 1} 题 / 共 ${total} 题</h2><p>${escapeHtml(question.typeLabel || (question.questionType === "choice" ? "选择题" : question.questionType === "fill" ? "填空题" : "解答题"))} · 难度 ${question.difficultyLevel} · ${escapeHtml(question.knowledgePoint || question.subKnowledgePoint || "")}</p></div>
-      <div class="training-progress"><strong>${progress}%</strong><span>已提交 ${completed}/${total}</span><i><b style="width:${progress}%"></b></i></div>
-    </div>
-    <article class="training-question">
-      <div class="training-question-number">题目 ${index + 1}</div>
-      <div class="training-stem">${escapeHtml(question.stem)}</div>
-      ${question.formula ? `<div class="training-formula">${escapeHtml(question.formula)}</div>` : ""}
-      ${renderTrainingAnswerControls(question, record)}
-    </article>
-    ${trainingFeedback(question, record)}
-    <div class="training-navigation">
-      <button class="ghost" id="trainingPrev" ${index === 0 ? "disabled" : ""}>上一题</button>
-      <button class="ghost" id="trainingSave">暂存</button>
-      <button class="primary" id="trainingSubmitQuestion" ${record.submitted ? "disabled" : ""}>${record.submitted ? "已提交本题" : "提交本题"}</button>
-      <button class="ghost" id="trainingNext" ${isLast ? "disabled" : ""}>下一题</button>
-      <button class="primary" id="trainingSubmitBatch">提交本轮训练</button>
-    </div>
-  </section>
-  <section class="panel training-batch-actions">
-    ${batch.trainingType === "targeted" ? `<button class="ghost" id="createComprehensive">生成20题综合训练</button>` : ""}
-    <button class="ghost" id="goRetry" ${completed >= total ? "" : "disabled"}>进入复测与原题重做</button>
-  </section>`);
-
-  const saveCurrent = () => {
-    const fields = {};
-    if (question.questionType === "choice") fields.selectedOption = document.querySelector(".training-choice.active")?.dataset.trainingChoice || "";
-    if (question.questionType === "fill") fields.answer = $("#trainingAnswer")?.value.trim() || "";
-    saveTrainingDraft(question, { fields, keepEmpty: true });
-  };
-  document.querySelectorAll("[data-training-choice]").forEach((button) => {
-    button.onclick = () => {
-      document.querySelectorAll("[data-training-choice]").forEach((item) => item.classList.remove("active"));
-      button.classList.add("active");
-      saveTrainingDraft(question, { fields: { selectedOption: button.dataset.trainingChoice, answer: button.dataset.trainingChoice }, keepEmpty: true });
-    };
-  });
-  const input = $("#trainingAnswer");
-  if (input) input.oninput = () => saveTrainingDraft(question, { fields: { answer: input.value }, keepEmpty: true });
-  const nextIndex = (next) => { saveCurrent(); writeFlowState({ trainingIndex: next, trainingBatchId: batch.id }); renderSimilarTrainingV2(); };
-  const prev = $("#trainingPrev");
-  if (prev) prev.onclick = () => nextIndex(index - 1);
-  const next = $("#trainingNext");
-  if (next) next.onclick = () => nextIndex(index + 1);
-  const save = $("#trainingSave");
-  if (save) save.onclick = () => { saveCurrent(); alert("本题已暂存，切换题目或刷新页面后仍可恢复。"); };
-  const submit = $("#trainingSubmitQuestion");
-  if (submit) submit.onclick = () => submitTrainingQuestion(batch, question);
-  const submitBatch = $("#trainingSubmitBatch");
-  if (submitBatch) submitBatch.onclick = async () => {
-    saveCurrent();
-    const remaining = total - Object.values(readFlowState().trainingRecords || {}).filter((item) => item.submitted).length;
-    const ok = await uiConfirm({ title: "提交本轮训练", message: remaining ? `还有 ${remaining} 道题未提交，是否仍然提交本轮训练？` : "本轮训练已全部提交，确认结束本轮训练？", confirmText: "确认提交", cancelText: "继续作答" });
-    if (ok) { writeFlowState({ trainingCompleted: true, trainingBatchId: batch.id }); alert("本轮训练记录已保存，可进入复测验证掌握情况。"); }
-  };
-  const clear = $("#trainingClear");
-  if (clear) clear.onclick = () => { state.redoStrokes = state.strokes.slice(); state.strokes = []; state.strokeCount = 0; saveTrainingDraft(question, { keepEmpty: true, skipImage: true }); redrawCanvas(); };
-  const undo = $("#trainingUndo");
-  if (undo) undo.onclick = () => { const stroke = state.strokes.pop(); if (stroke) state.redoStrokes.push(stroke); state.strokeCount = state.strokes.length; saveTrainingDraft(question, { keepEmpty: true, skipImage: true }); redrawCanvas(); };
-  const redo = $("#trainingRedo");
-  if (redo) redo.onclick = () => { const stroke = state.redoStrokes.pop(); if (stroke) state.strokes.push(stroke); state.strokeCount = state.strokes.length; saveTrainingDraft(question, { keepEmpty: true, skipImage: true }); redrawCanvas(); };
-  if ($("#pad")) bindCanvas();
-  const createComprehensive = $("#createComprehensive");
-  if (createComprehensive) createComprehensive.onclick = async () => {
-    const created = await api("/api/training-batches", { method: "POST", body: JSON.stringify({ studentId: state.student.id, submissionId: batch.submissionId, sourceWrongQuestionId: batch.sourceWrongQuestionId, trainingType: "comprehensive" }) });
-    state.trainingBatch = created.batch;
-    writeFlowState({ trainingBatchId: created.batch.id, trainingRecords: {}, trainingIndex: 0, stage: "COMPREHENSIVE_TRAINING" });
-    renderSimilarTrainingV2();
-  };
-  const retry = $("#goRetry");
-  if (retry) retry.onclick = async () => {
-    const retest = await api("/api/retests", { method: "POST", body: JSON.stringify({ trainingBatchId: batch.id }) });
-    writeFlowState({ retestId: retest.retest.id, retest });
-    setView("originalRetry");
-  };
-}
-
-async function renderOriginalRetry() {
-  const loop = await loadLoop();
-  const retry = loop.originalRetry;
-  const stateFlow = readFlowState();
-  shell("原题重做", `${loopProgress("retry")}
-  <section class="panel">
-    <h2>回到原题，看看你是否已经真正掌握</h2>
-    <p class="mode-help">本页保留原题内容，不显示第一次答案、标准答案和完整解析。你可以查看第一次错因摘要，但不会直接看到正确做法。</p>
-    <article class="exam-paper text-mode"><p>${escapeHtml(retry.stem)}</p></article>
-  </section>
-  <section class="panel">
-    <h2>重新作答</h2>
-    <div class="grid two">
-      <label>最终答案<input id="retryAnswer" value="${escapeHtml(stateFlow.retryAnswer || "")}" placeholder="写出最终答案"></label>
-      <label>用时（秒）<input id="retryDuration" type="number" value="${stateFlow.retryDuration || retry.durationSecond || 0}"></label>
-    </div>
-    <label>关键步骤<textarea id="retrySteps" placeholder="写出设、列式、化简和结论">${escapeHtml(stateFlow.retrySteps || "")}</textarea></label>
-    <details class="mistake-peek"><summary>我第一次错在哪里？</summary><p>${escapeHtml(retry.firstMistakeSummary)}</p></details>
-    <div class="row"><button class="primary" id="submitRetry">提交原题重做</button><button class="ghost" data-view="similarTraining">返回相似题训练</button></div>
-  </section>`);
-  const submit = $("#submitRetry");
-  if (submit) submit.onclick = () => {
-    const answer = $("#retryAnswer").value.trim();
-    const steps = $("#retrySteps").value.trim();
-    const duration = Number($("#retryDuration").value || 0);
-    const corrected = retry.acceptedSignals.some((signal) => `${answer}\n${steps}`.includes(signal));
-    writeFlowState({
-      retryAnswer: answer,
-      retrySteps: steps,
-      retryDuration: duration,
-      retrySubmitted: true,
-      retryCorrected: corrected,
-      sameErrorRepeated: !corrected,
-      stage: corrected ? "MASTERED" : "NEEDS_REINFORCEMENT"
-    });
-    setView("masteryVerify");
-  };
-}
-
-async function renderMasteryVerify() {
-  const loop = await loadLoop();
-  const stateFlow = readFlowState();
-  const verify = loop.masteryVerification;
-  const mastered = stateFlow.retryCorrected === true || verify.status === "MASTERED";
-  shell("掌握验证", `${loopProgress("verify")}
-  <section class="panel">
-    <h2>${mastered ? "原关键错误已纠正" : "仍需回到补救路径"}</h2>
-    <div class="metrics">
-      <div class="metric"><span>判断结果</span><strong>${mastered ? "已掌握" : "仍需巩固"}</strong></div>
-      <div class="metric"><span>是否重复原错</span><strong>${stateFlow.sameErrorRepeated ? "是" : "否"}</strong></div>
-      <div class="metric"><span>提示使用</span><strong>${stateFlow.hintsUsed || 0}</strong></div>
-      <div class="metric"><span>掌握变化</span><strong>${loop.improvement.beforeMastery}%→${loop.improvement.afterMastery}%</strong></div>
-    </div>
-  </section>
-  <section class="panel">
-    <h2>AI再次分析</h2>
-    <div class="cards">
-      <article class="card"><h3>第一次关键错误</h3><p>${escapeHtml(verify.firstError)}</p></article>
-      <article class="card"><h3>第二次表现</h3><p>${escapeHtml(mastered ? verify.masteredFeedback : verify.reinforceFeedback)}</p></article>
-      <article class="card"><h3>下一步</h3><p>${escapeHtml(mastered ? "进入错题攻克报告，更新掌握度。" : "返回知识点复习，换一种讲解方式，并降低相似题难度。")}</p></article>
-    </div>
-    <div class="row"><button class="primary" data-view="${mastered ? "improvement" : "knowledgeReview"}">${mastered ? "查看错题攻克报告" : "重新学习"}</button><button class="ghost" data-view="originalRetry">再次重做</button></div>
-  </section>`);
-}
-
-async function renderTrainingPlan() {
-  const loop = await loadLoop();
-  const plan = loop.trainingPlan;
-  const tasks = plan.items.map((item, index) => `<article class="training-task">
-    <div><span class="badge">${escapeHtml(item.type)}</span><h3>${index + 1}. ${escapeHtml(item.title)}</h3></div>
-    <p>${escapeHtml(item.purpose)}</p>
-    <p><strong>对应薄弱点：</strong>${escapeHtml(item.knowledgePoint)} · ${escapeHtml(item.errorType)}</p>
-    <button class="ghost" data-complete-task="${index}">${item.completed ? "已完成" : "标记完成"}</button>
-  </article>`).join("");
-  shell("针对训练", `${loopProgress("training")}
-  <section class="panel">
-    <h2>${escapeHtml(plan.goal)}</h2>
-    <div class="metrics">
-      <div class="metric"><span>训练题量</span><strong>${plan.totalQuestions}</strong></div>
-      <div class="metric"><span>预计用时</span><strong>${plan.estimatedMinutes}分钟</strong></div>
-      <div class="metric"><span>完成标准</span><strong>${escapeHtml(plan.completionStandard)}</strong></div>
-      <div class="metric"><span>训练顺序</span><strong>四阶段</strong></div>
-    </div>
-  </section>
-  <section class="panel"><h2>训练任务</h2><div class="cards">${tasks}</div><div class="row"><button class="primary" id="finishTraining">完成训练并进入复测</button><button class="ghost" data-view="diagnosis">返回诊断</button></div></section>`);
-  document.querySelectorAll("[data-complete-task]").forEach((button) => {
-    button.onclick = () => {
-      button.textContent = "已完成";
-      button.disabled = true;
-    };
-  });
-  const finish = $("#finishTraining");
-  if (finish) finish.onclick = () => setView("retest");
-}
-
-async function renderRetest() {
-  const loop = await loadLoop();
-  const retest = loop.retest;
-  const questions = retest.questions.map((q, index) => `<article class="card retest-card">
-    <h3>复测 ${index + 1} · ${escapeHtml(q.typeLabel)} <span class="badge warn">${escapeHtml(q.difficulty)}</span></h3>
-    <p class="stem">${escapeHtml(q.stem)}</p>
-    <p><strong>复测目标：</strong>${escapeHtml(q.target)}</p>
-    <p><strong>AI判断：</strong>${escapeHtml(q.result)}</p>
-  </article>`).join("");
-  shell("复测", `${loopProgress("retest")}
-  <section class="panel">
-    <h2>同知识点变式复测</h2>
-    <p>复测题与原错题知识点一致，但数字、情境和问法不同，用来验证训练后是否真正掌握。</p>
-    <div class="metrics">
-      <div class="metric"><span>复测得分</span><strong>${retest.score}</strong></div>
-      <div class="metric"><span>独立完成</span><strong>${retest.independent ? "是" : "否"}</strong></div>
-      <div class="metric"><span>提示使用</span><strong>${retest.hintsUsed}</strong></div>
-      <div class="metric"><span>是否达标</span><strong>${retest.passed ? "达标" : "需巩固"}</strong></div>
-    </div>
-  </section>
-  <section class="panel"><div class="cards">${questions}</div><div class="row"><button class="primary" data-view="improvement">查看提升报告</button><button class="ghost" data-view="trainingPlan">返回训练</button></div></section>`);
-}
-
-async function renderImprovement() {
-  const loop = await loadLoop();
-  const item = loop.improvement;
-  const comparison = loop.comparisonReport;
-  shell("错题攻克报告", `${loopProgress("improvement")}
-  <section class="panel improvement-hero">
-    <h2>训练前后能力变化</h2>
-    <div class="metrics">
-      <div class="metric"><span>训练前掌握度</span><strong>${item.beforeMastery}%</strong></div>
-      <div class="metric"><span>训练后掌握度</span><strong>${item.afterMastery}%</strong></div>
-      <div class="metric"><span>提升</span><strong>+${item.improvementValue}%</strong></div>
-      <div class="metric"><span>结论</span><strong>${escapeHtml(item.status)}</strong></div>
-    </div>
-  </section>
-  <section class="panel">
-    <h2>第一次与第二次作答对比</h2>
-    <div class="comparison-grid">
-      <article class="comparison-col">
-        <h3>第一次作答</h3>
-        <p><strong>得分：</strong>${escapeHtml(comparison?.firstScore || item.beforeMastery + "%")}</p>
-        <p><strong>用时：</strong>${escapeHtml(comparison?.firstDuration || "未记录")}</p>
-        <p><strong>错误步骤：</strong>${escapeHtml(comparison?.firstErrorStep || item.originalError)}</p>
-        <p><strong>作答摘要：</strong>${escapeHtml(comparison?.firstSteps || "见诊断页")}</p>
-      </article>
-      <article class="comparison-col good">
-        <h3>重新作答</h3>
-        <p><strong>得分：</strong>${escapeHtml(comparison?.retryScore || item.afterMastery + "%")}</p>
-        <p><strong>用时：</strong>${escapeHtml(comparison?.retryDuration || "已重新记录")}</p>
-        <p><strong>步骤表现：</strong>${escapeHtml(comparison?.retryStepPerformance || "关键错误已纠正")}</p>
-        <p><strong>是否重复原错：</strong>${escapeHtml(comparison?.sameErrorRepeated ? "是" : "否")}</p>
-      </article>
-    </div>
-  </section>
-  <section class="panel">
-    <h2>闭环结论</h2>
-    <div class="cards">
-      <article class="card"><h3>原错误</h3><p>${escapeHtml(item.originalError)}</p></article>
-      <article class="card"><h3>训练结果</h3><p>${escapeHtml(item.trainingResult)}</p></article>
-      <article class="card"><h3>仍需关注</h3><p>${escapeHtml(item.nextRisk)}</p></article>
-    </div>
-    <div class="row"><button class="primary" data-view="profile">更新能力画像</button><button class="ghost" data-view="chapters">进入下一轮学习</button></div>
-  </section>`);
-}
-
-async function renderProfile() {
-  const loop = await loadLoop();
-  const abilities = loop.profile.abilities.map((item) => `<article class="ability-card">
-    <div class="ability-head"><h3>${escapeHtml(item.name)}</h3><strong>${item.current}</strong></div>
-    <div class="bar"><i style="width:${item.current}%"></i></div>
-    <p>上次：${item.previous} · 趋势：${escapeHtml(item.trend)} · 依据：${escapeHtml(item.evidence)}</p>
-    <p>建议：${escapeHtml(item.suggestion)}</p>
-  </article>`).join("");
-  shell("能力画像", `<section class="panel">
-    <h2>个人数学能力画像</h2>
-    <p>能力分数来自当前学生的作答、步骤分析、错误类型和复测表现；演示模式使用固定样例数据，不使用随机数。</p>
-  </section>
-  <section class="panel ability-grid">${abilities}</section>`);
-}
-
-$("#logout").onclick = () => {
-  localStorage.clear();
-  location.reload();
-};
-
-window.onpopstate = () => {
-  state.view = routeToView[currentRoutePath()] || "home";
-  localStorage.setItem("view", state.view);
-  render();
-};
-
-init().catch((error) => {
-  document.body.innerHTML = `<pre>${error.message}</pre>`;
-});
+      <div class="metric"><span>完成标准</span><strong>${canRetry ? "可重做" : "未达标"}</strong></
