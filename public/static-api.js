@@ -114,7 +114,8 @@
     const questionAnalyses = qs.map((question, index) => {
       const attempt = byId.get(question.id);
       const scored = scoreForAttempt(question, attempt);
-      return { questionId: question.id, orderIndex: index, type: question.type, typeLabel: typeLabelFor(question.type), chapterName: question.chapterName, knowledgePoints: [question.point], title: question.stem, studentAnswer: attempt?.answer || attempt?.selectedOption || "", studentSteps: attempt?.stepsText || "", standardAnswer: question.answer, standardSteps: question.explanation, score: scored.score, maxScore: scored.maxScore, finalAnswerCorrect: attempt?.correct === true, processCorrect: attempt?.correct === true, gradingStatus: attempt?.gradingStatus || "missing", errorTypes: attempt?.correct ? [] : [attempt?.reason || question.reason || "待识别"], deductionReason: attempt?.correct ? "无明显扣分" : (attempt?.reason || question.reason || "待识别"), firstErrorStep: attempt?.correct ? null : 1, steps: stepAnalysisFor(question, attempt), advice: attempt?.advice || "" };
+      const processIssue = attempt?.correct === true && question.type === "subjective" && !String(attempt?.stepsText || "").trim();
+      return { questionId: question.id, orderIndex: index, type: question.type, typeLabel: typeLabelFor(question.type), chapterName: question.chapterName, knowledgePoints: [question.point], title: question.stem, studentAnswer: attempt?.answer || attempt?.selectedOption || "", studentSteps: attempt?.stepsText || "", standardAnswer: question.answer, standardSteps: question.explanation, score: scored.score, maxScore: scored.maxScore, finalAnswerCorrect: attempt?.correct === true, processCorrect: attempt?.correct === true && !processIssue, answerCorrectButProcessIssue: processIssue, needsDeepDiagnosis: attempt?.correct !== true || processIssue, analysisDepth: attempt?.correct !== true || processIssue ? "deep" : "light", processIssue: { hasIssue: Boolean(processIssue), reason: processIssue ? "结果正确但主观题缺少可复核过程" : "", severity: processIssue ? "medium" : "none" }, gradingStatus: attempt?.gradingStatus || "missing", errorTypes: attempt?.correct && !processIssue ? [] : [processIssue ? "结果正确但过程有问题" : attempt?.reason || question.reason || "待识别"], deductionReason: attempt?.correct && !processIssue ? "正确题仅记录结果" : (processIssue ? "结果正确但过程有问题" : attempt?.reason || question.reason || "待识别"), firstErrorStep: attempt?.correct && !processIssue ? null : 1, lastCorrectStep: null, errorTag: { knowledgePoint: question.chapterName, subKnowledgePoint: question.point, errorType: processIssue ? "结果正确但过程有问题" : attempt?.reason || question.reason || "待识别", errorPosition: "第1步" }, steps: stepAnalysisFor(question, attempt), advice: attempt?.advice || "" };
     });
     const totalScore = questionAnalyses.reduce((sum, item) => sum + item.score, 0);
     const totalMax = Math.max(1, questionAnalyses.reduce((sum, item) => sum + item.maxScore, 0));
@@ -126,7 +127,7 @@
       addBucket(byType, item.typeLabel, item);
       addBucket(byChapter, item.chapterName, item);
       addBucket(byKnowledge, item.knowledgePoints[0], item);
-      if (!item.finalAnswerCorrect) {
+      if (item.needsDeepDiagnosis) {
         const type = item.errorTypes[0] || "待识别";
         errorStats[type] = errorStats[type] || { count: 0, questionIndexes: [], questionIds: [], scoreLoss: 0, severity: "低", repeated: false };
         errorStats[type].count += 1; errorStats[type].questionIndexes.push(item.orderIndex + 1); errorStats[type].questionIds.push(item.questionId); errorStats[type].scoreLoss += item.maxScore - item.score;
@@ -141,7 +142,7 @@
   const createStaticTrainingBatch = (store, studentId, body = {}) => {
     const latest = (store.submissions || []).filter((item) => item.studentId === studentId).sort((a, b) => String(b.submittedAt).localeCompare(String(a.submittedAt)))[0];
     if (!latest) throw new Error("没有整卷报告，无法生成训练");
-    const wrong = (latest.report?.questionAnalyses || []).find((item) => !item.finalAnswerCorrect) || latest.report?.questionAnalyses?.[0] || {};
+    const wrong = (latest.report?.questionAnalyses || []).find((item) => item.needsDeepDiagnosis) || (latest.report?.questionAnalyses || []).find((item) => !item.finalAnswerCorrect) || latest.report?.questionAnalyses?.[0] || {};
     const count = body.trainingType === "comprehensive" ? 20 : 10;
     const typePattern = body.trainingType === "comprehensive"
       ? ["choice", "fill", "subjective", "subjective", "choice", "fill", "subjective", "subjective", "choice", "fill", "subjective", "subjective", "choice", "fill", "subjective", "subjective", "subjective", "subjective", "subjective", "subjective"]

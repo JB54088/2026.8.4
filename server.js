@@ -569,7 +569,18 @@ ${questionPromptText(question)}
 {
   "recognizedAnswer": "识别出的最终答案，没有则为空字符串",
   "stepsSummary": "学生解题步骤摘要",
+  "structuredSteps": [
+    {"stepNumber":1,"studentRaw":"学生原始步骤","normalized":"结构化后的数学表达","status":"correct|wrong|partial|uncertain","knowledgePoint":"使用的知识点或公式","linkWithPrevious":"是否能承接上一步","conditionCheck":"公式条件是否满足","errorDescription":"如果错误，说明具体错误"}
+  ],
   "isCorrect": true 或 false 或 null,
+  "processHasIssue": true 或 false,
+  "processIssueReason": "如果答案正确但过程有问题，说明原因；否则为空",
+  "lastCorrectStep": 0,
+  "firstWrongStep": 0,
+  "errorType": "具体错误类型",
+  "rootCause": "根本原因；证据不足时写可能原因，需要后续训练确认",
+  "affectedSteps": ["受影响的后续步骤"],
+  "uncertainRegions": [{"label":"低置信区域","message":"需要学生确认的内容"}],
   "weakPoint": "薄弱点",
   "firstError": "第一处错误",
   "advice": "给学生的补救建议",
@@ -604,6 +615,15 @@ ${questionPromptText(question)}
     recognizedAnswer: String(parsed.recognizedAnswer || ""),
     confidence: Math.max(0, Math.min(100, Number(parsed.confidence || 0))),
     stepsSummary: String(parsed.stepsSummary || "AI已读取草稿，但没有返回步骤摘要。"),
+    structuredSteps: Array.isArray(parsed.structuredSteps) ? parsed.structuredSteps : [],
+    processHasIssue: Boolean(parsed.processHasIssue),
+    processIssueReason: String(parsed.processIssueReason || ""),
+    lastCorrectStep: Number(parsed.lastCorrectStep || 0),
+    firstWrongStep: Number(parsed.firstWrongStep || 0),
+    errorType: String(parsed.errorType || ""),
+    rootCause: String(parsed.rootCause || ""),
+    affectedSteps: Array.isArray(parsed.affectedSteps) ? parsed.affectedSteps : [],
+    uncertainRegions: Array.isArray(parsed.uncertainRegions) ? parsed.uncertainRegions : [],
     isCorrect: typeof parsed.isCorrect === "boolean" ? parsed.isCorrect : null,
     weakPoint: String(parsed.weakPoint || ""),
     firstError: String(parsed.firstError || ""),
@@ -976,6 +996,15 @@ async function api(req, res) {
       recognizedAnswer: recognition.recognizedAnswer,
       recognitionConfidence: recognition.confidence,
       recognizedSteps: recognition.stepsSummary,
+      structuredSteps: recognition.structuredSteps || [],
+      processHasIssue: Boolean(recognition.processHasIssue),
+      processIssueReason: recognition.processIssueReason || "",
+      lastCorrectStep: Number(recognition.lastCorrectStep || 0),
+      firstWrongStep: Number(recognition.firstWrongStep || 0),
+      aiErrorType: recognition.errorType || "",
+      rootCause: recognition.rootCause || "",
+      affectedSteps: recognition.affectedSteps || [],
+      uncertainRegions: recognition.uncertainRegions || [],
       recognitionEngine: recognition.engine,
       selectedOption: body.selectedOption || "",
       stepsText: body.stepsText || "",
@@ -1446,13 +1475,22 @@ async function buildAttemptFromResponse(store, student, question, payload, submi
     recognitionConfidence: recognition.confidence,
     ocrResult: {
       recognizedAnswer: recognition.recognizedAnswer || "",
-      structuredSteps: recognition.stepsSummary || payload.stepsText || "",
+      structuredSteps: recognition.structuredSteps?.length ? recognition.structuredSteps : (recognition.stepsSummary || payload.stepsText || ""),
       confidenceScore: Number(recognition.confidence || 0),
-      uncertainRegions: Number(recognition.confidence || 0) > 0 && Number(recognition.confidence || 0) < 70
+      uncertainRegions: recognition.uncertainRegions?.length ? recognition.uncertainRegions : Number(recognition.confidence || 0) > 0 && Number(recognition.confidence || 0) < 70
         ? [{ label: "low_confidence_formula", message: "该位置手写内容识别置信度较低，建议确认后重新批改。" }]
         : []
     },
     recognizedSteps: recognition.stepsSummary || payload.stepsText || "",
+    structuredSteps: recognition.structuredSteps || [],
+    processHasIssue: Boolean(recognition.processHasIssue),
+    processIssueReason: recognition.processIssueReason || "",
+    lastCorrectStep: Number(recognition.lastCorrectStep || 0),
+    firstWrongStep: Number(recognition.firstWrongStep || 0),
+    aiErrorType: recognition.errorType || "",
+    rootCause: recognition.rootCause || "",
+    affectedSteps: recognition.affectedSteps || [],
+    uncertainRegions: recognition.uncertainRegions || [],
     recognitionEngine: recognition.engine,
     selectedOption: payload.selectedOption || "",
     stepsText: payload.stepsText || "",
@@ -1521,6 +1559,8 @@ function buildSubmissionDiagnosis(store, submission) {
     const steps = buildStepAnalysis(question, attempt);
     const firstWrong = steps.find((step) => step.status !== "correct") || null;
     const lastCorrect = [...steps].reverse().find((step) => step.status === "correct") || null;
+    const processIssue = detectProcessIssue(question, attempt, steps);
+    const needsDeepDiagnosis = attempt?.correct !== true || processIssue.hasIssue;
     const errorTag = classifyErrorTag(question, attempt, firstWrong || {});
     return {
       questionId: question.id,
@@ -1545,10 +1585,14 @@ function buildSubmissionDiagnosis(store, submission) {
       score: scored.score,
       maxScore: scored.maxScore,
       finalAnswerCorrect: attempt?.correct === true,
-      processCorrect: attempt?.correct === true && attempt?.gradingStatus !== "pending_recognition",
+      processCorrect: attempt?.correct === true && !processIssue.hasIssue,
+      answerCorrectButProcessIssue: attempt?.correct === true && processIssue.hasIssue,
+      needsDeepDiagnosis,
+      analysisDepth: needsDeepDiagnosis ? "deep" : "light",
+      processIssue,
       gradingStatus: attempt?.gradingStatus || "missing",
-      errorTypes: attempt?.correct === true ? [] : [reason],
-      deductionReason: attempt?.correct === true ? "无明显扣分" : reason,
+      errorTypes: needsDeepDiagnosis ? [processIssue.reason || reason] : [],
+      deductionReason: needsDeepDiagnosis ? (processIssue.reason || reason) : "正确题仅记录结果",
       firstErrorStep: firstWrong?.stepNumber || null,
       lastCorrectStep: lastCorrect?.stepNumber || null,
       errorTag,
@@ -1590,7 +1634,7 @@ function buildSubmissionDiagnosis(store, submission) {
     item.status = rate >= 85 ? "已掌握" : rate >= 70 ? "基本掌握" : rate >= 50 ? "掌握不稳定" : rate > 0 ? "薄弱知识点" : "完全未掌握";
   });
   const errorMap = {};
-  questionAnalyses.filter((item) => !item.finalAnswerCorrect).forEach((item) => {
+  questionAnalyses.filter((item) => item.needsDeepDiagnosis).forEach((item) => {
     const loss = item.maxScore - item.score;
     item.errorTypes.forEach((type) => {
       errorMap[type] = errorMap[type] || { count: 0, questionIndexes: [], questionIds: [], scoreLoss: 0, severity: "低", repeated: false };
@@ -1633,7 +1677,9 @@ function buildSubmissionDiagnosis(store, submission) {
       totalMax,
       scoreRate: percent,
       correctCount,
-      wrongCount: questionAnalyses.length - correctCount - unansweredCount,
+      wrongCount: questionAnalyses.filter((item) => !item.finalAnswerCorrect).length,
+      deepDiagnosisCount: questionAnalyses.filter((item) => item.needsDeepDiagnosis).length,
+      lightRecordCount: questionAnalyses.filter((item) => !item.needsDeepDiagnosis).length,
       unansweredCount,
       objectiveScore,
       subjectiveScore,
@@ -1662,7 +1708,7 @@ function buildSubmissionDiagnosis(store, submission) {
 }
 
 function classifyErrorTag(question, attempt, step = {}) {
-  const reason = reasonForAttempt(question, attempt);
+  const reason = attempt?.aiErrorType || step.errorDescription || reasonForAttempt(question, attempt);
   const firstStep = Number(step.stepNumber || 1);
   return {
     knowledgePoint: question?.chapterName || "考研数学",
@@ -1671,6 +1717,8 @@ function classifyErrorTag(question, attempt, step = {}) {
     errorType: reason || question?.reason || "解题步骤不完整",
     errorPosition: `第${firstStep}步`,
     sourceWrongStep: firstStep,
+    rootCause: attempt?.rootCause || "",
+    affectedSteps: attempt?.affectedSteps || [],
     cognitiveReason: /条件|审题/.test(reason) ? "题目信息转化不完整" : /计算|符号/.test(reason) ? "运算监控和符号检查不足" : /公式|方法/.test(reason) ? "方法触发条件没有识别稳定" : "知识点掌握不稳定",
     correctionSuggestion: step.correction || question?.explanation || "先回到知识点定义和适用条件，再做同错因训练。"
   };
@@ -1734,7 +1782,7 @@ function latestSubmissionFor(store, studentId, submissionId = "") {
 function selectSourceError(store, submission, sourceQuestionId = "") {
   const report = submission?.report || {};
   let item = (report.questionAnalyses || []).find((q) => q.questionId === sourceQuestionId);
-  if (!item) item = (report.questionAnalyses || []).find((q) => !q.finalAnswerCorrect) || (report.questionAnalyses || [])[0];
+  if (!item) item = (report.questionAnalyses || []).find((q) => q.needsDeepDiagnosis) || (report.questionAnalyses || []).find((q) => !q.finalAnswerCorrect) || (report.questionAnalyses || [])[0];
   const question = store.questions.find((q) => q.id === item?.questionId) || {};
   const attempt = store.attempts.find((a) => a.submissionId === submission.id && a.questionId === question.id) || {};
   const firstStep = (item?.steps || []).find((step) => step.status !== "correct") || (item?.steps || [])[0] || {};
@@ -1786,6 +1834,36 @@ function gradeTrainingQuestion(question, body = {}) {
     repeatedOriginalError: !correct && String(body.stepsText || answer).includes(question.sourceErrorType),
     score: correct ? (usedHints >= 3 ? 70 : usedHints ? 85 : 100) : 0
   };
+}
+
+function detectProcessIssue(question, attempt, steps = []) {
+  if (!attempt) {
+    return { hasIssue: true, reason: "未检测到作答记录", severity: "high" };
+  }
+  if (attempt.gradingStatus === "recognition_error") {
+    return { hasIssue: true, reason: "手写内容识别不确定", severity: "medium" };
+  }
+  if (attempt.correct !== true) {
+    return { hasIssue: true, reason: reasonForAttempt(question, attempt), severity: "high" };
+  }
+  if (attempt.processHasIssue) {
+    return { hasIssue: true, reason: attempt.processIssueReason || "结果正确但过程存在问题", severity: "medium" };
+  }
+  const hasStudentProcess = String(attempt.stepsText || "").trim()
+    || Number(attempt.strokeCount || 0) > 0
+    || attempt.scratchImageStored
+    || attempt.answerImageStored
+    || (Array.isArray(attempt.structuredSteps) && attempt.structuredSteps.length);
+  if (!["choice", "fill"].includes(question?.type) && !hasStudentProcess) {
+    return { hasIssue: true, reason: "结果正确但主观题缺少可复核过程", severity: "medium" };
+  }
+  if (Number(attempt.recognitionConfidence || 0) > 0 && Number(attempt.recognitionConfidence || 0) < 70) {
+    return { hasIssue: true, reason: "结果正确但手写识别置信度较低，需要确认过程", severity: "low" };
+  }
+  if (steps.some((step) => step.status && !["correct"].includes(step.status))) {
+    return { hasIssue: true, reason: "结果正确但步骤对照中存在非正确步骤", severity: "medium" };
+  }
+  return { hasIssue: false, reason: "", severity: "none" };
 }
 
 function buildRetestFromBatch(batch) {

@@ -1052,10 +1052,10 @@ async function renderPaperReport() {
   </article>`).join("");
   const problems = (report.topProblems || []).map((item, index) => `<article class="card"><h3>${index + 1}. ${escapeHtml(item.type)}</h3><p>涉及第 ${item.questionIndexes.join("、")} 题，累计影响 ${item.scoreLoss} 分，严重程度 ${item.severity}。</p></article>`).join("");
   const tasks = (report.recommendedTasks || []).map((task) => `<article class="training-task"><span class="badge">${escapeHtml(task.stage)}</span><h3>${escapeHtml(task.title)}</h3><p>${escapeHtml(task.target)}</p><p>知识点：${escapeHtml(task.knowledgePoint)} · 错误类型：${escapeHtml(task.errorType)}</p></article>`).join("");
-  const questions = (report.questionAnalyses || []).map((item, index) => `<article class="status-card">
+  const questions = (report.questionAnalyses || []).map((item, index) => `<article class="status-card ${item.needsDeepDiagnosis ? "needs-diagnosis" : ""}">
     <h3>第 ${index + 1} 题 · ${escapeHtml(item.typeLabel)}</h3>
-    <p>${item.score}/${item.maxScore} 分 · ${item.finalAnswerCorrect ? "正确" : item.gradingStatus === "recognition_error" ? "识别不完整" : "需订正"} · ${escapeHtml(item.deductionReason || "")}</p>
-    <button class="ghost" data-review-index="${index}">查看逐题解析</button>
+    <p>${item.score}/${item.maxScore} 分 · ${item.answerCorrectButProcessIssue ? "结果正确但过程有问题" : item.needsDeepDiagnosis ? "进入深度诊断" : "正确题轻记录"} · ${escapeHtml(item.deductionReason || "")}</p>
+    <button class="ghost" data-review-index="${index}">${item.needsDeepDiagnosis ? "查看错题过程诊断" : "查看记录"}</button>
   </article>`).join("");
   shell("整卷诊断报告", `${loopProgress("diagnosis")}
   <section class="panel product-dashboard">
@@ -1132,6 +1132,7 @@ async function renderQuestionReview() {
       <span class="badge ${item.finalAnswerCorrect ? "" : "bad"}">${item.score}/${item.maxScore} 分</span>
     </div>
     <article class="exam-paper text-mode"><p>${escapeHtml(item.title)}</p></article>
+    <p class="mode-help">${item.needsDeepDiagnosis ? "本题进入错题过程深度诊断：系统优先定位第一处错误步骤、根本原因和后续训练目标。" : "本题答案与过程基本稳定，仅做结果、知识点和用时记录，不生成额外训练。"}</p>
     <div class="result-grid compact">
       <p><span>学生原始答案</span><strong>${escapeHtml(item.studentAnswer || "未作答/未识别")}</strong></p>
       <p><span>学生过程</span><strong>${escapeHtml(item.studentSteps || "未识别到可判分过程")}</strong></p>
