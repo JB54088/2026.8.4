@@ -657,7 +657,7 @@ async function renderPractice() {
   const chapter = state.chapters.find((item) => item.id === q.chapterId);
   const answeredCount = state.questions.filter((item) => Boolean(state.responses[item.id]?.selectedOption || state.responses[item.id]?.scratchImage || state.responses[item.id]?.strokeCount)).length;
   loadScratchForQuestion(q);
-  shell("刷题", `<div class="practice-simple">
+  shell("刷题", `<div class="practice-simple ${q.type === "choice" ? "practice-choice-mode" : ""}">
     <section class="question-only">
       <div class="practice-context"><span>${escapeHtml(state.student.mathType)}</span><span>${escapeHtml(chapter?.name || q.chapterName || "当前章节")}</span><span>${escapeHtml(q.point || "本题知识点")}</span><strong>已完成 ${answeredCount} / ${state.questions.length}</strong></div>
       <div class="question-count">第${state.current + 1}题 / 共${state.questions.length}题</div>
@@ -669,8 +669,18 @@ async function renderPractice() {
   bindPractice(q);
 }
 
-function renderWritingPanel() {
+function renderWritingPanel(q) {
   const isLast = state.current >= state.questions.length - 1;
+  if (q?.type === "choice") {
+    return `<section class="choice-actions-only">
+      <p class="choice-answer-note">请选择一个答案，系统会在整卷提交后统一批改。</p>
+      <div class="practice-actions">
+        ${state.current > 0 ? `<button class="ghost" id="prev">上一题</button>` : ""}
+        <button class="primary" id="next">${isLast ? "提交答卷" : "下一题"}</button>
+        ${isLast ? "" : `<button class="ghost" id="finishRound">提交答卷</button>`}
+      </div>
+    </section>`;
+  }
   return `<section class="writing-only">
     <div class="paper-stage">
       <canvas id="pad" width="1800" height="1120"></canvas>
