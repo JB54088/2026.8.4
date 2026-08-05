@@ -82,8 +82,23 @@
     const compact = (value) => value.replace(/\*/g, "").replace(/\^1(?!\d)/g, "").replace(/\+c$/i, "+c").replace(/c$/i, "c");
     return compact(left) === compact(right);
   };
+  const extractFillAnswerFromWorkSpace = (text = "") => {
+    const lines = String(text || "").split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+    if (!lines.length) return "";
+    const patterns = [/(?:答案|最终答案|结果|填空)\s*[:：=]\s*(.+)$/i, /(?:所以|故|因此)\s*(?:答案|结果)?\s*(?:为|是|=)\s*(.+)$/i, /(?:ans|answer)\s*[:=]\s*(.+)$/i];
+    for (const line of [...lines].reverse()) {
+      for (const pattern of patterns) {
+        const match = line.match(pattern);
+        if (match?.[1]) return match[1].replace(/[。；;，,]$/g, "").trim();
+      }
+    }
+    const last = lines.at(-1) || "";
+    const equation = last.match(/=\s*([^=]+)$/);
+    if (equation?.[1]) return equation[1].replace(/[。；;，,]$/g, "").trim();
+    return last.length <= 40 ? last.replace(/[。；;，,]$/g, "").trim() : "";
+  };
   const scoreAnswer = (question, attempt) => {
-    const value = attempt.answer || attempt.selectedOption || attempt.formulaText || "";
+    const value = attempt.answer || attempt.selectedOption || attempt.formulaText || (question.type === "fill" ? extractFillAnswerFromWorkSpace(attempt.stepsText) : "");
     if (!value && question.type !== "choice" && attempt.strokeCount > 0) return null;
     return Boolean(value && equivalentAnswer(question.answer, value));
   };
@@ -350,12 +365,13 @@
       if (!question) return json({ error: "题目不存在" }, 404);
       const correct = scoreAnswer(question, body);
       const diagnosis = diagnose(question, correct, body);
+      const finalAnswer = body.answer || body.selectedOption || body.formulaText || (question.type === "fill" ? extractFillAnswerFromWorkSpace(body.stepsText) : "");
       const attempt = {
         id: `att_${Date.now()}_${Math.random().toString(16).slice(2)}`,
         studentId: body.studentId,
         questionId: question.id,
         chapterId: question.chapterId,
-        answer: body.answer || body.selectedOption || "",
+        answer: finalAnswer,
         selectedOption: body.selectedOption || "",
         formulaText: body.formulaText || "",
         stepsText: body.stepsText || "",
@@ -415,6 +431,7 @@
         const payload = responses.find((item) => item.questionId === qid) || { questionId: qid };
         const correct = scoreAnswer(question, payload);
         const diagnosis = diagnose(question, correct, payload);
+        const finalAnswer = payload.answer || payload.selectedOption || payload.formulaText || (question.type === "fill" ? extractFillAnswerFromWorkSpace(payload.stepsText) : "");
         if (!hasResponseContent(payload)) submission.completenessIssues.push({ questionId: qid, type: "unanswered", severity: "warn", message: `第${index + 1}题未作答` });
         if (question.type !== "choice" && correct === null) submission.completenessIssues.push({ questionId: qid, type: "pending_ocr", severity: "warn", message: `第${index + 1}题主观过程等待真实 OCR/AI 识别` });
         const attempt = {
@@ -424,7 +441,7 @@
           questionId: question.id,
           orderIndex: index,
           chapterId: question.chapterId,
-          answer: payload.answer || payload.selectedOption || payload.formulaText || "",
+          answer: finalAnswer,
           selectedOption: payload.selectedOption || "",
           formulaText: payload.formulaText || "",
           stepsText: payload.stepsText || "",

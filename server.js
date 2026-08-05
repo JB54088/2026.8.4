@@ -966,7 +966,7 @@ async function api(req, res) {
     const question = store.questions.find((q) => q.id === body.questionId);
     if (!student || !question) return send(res, 404, { error: "学生或题目不存在" });
     const recognition = await recognizeScratch(question, body);
-    const finalAnswer = body.answer || body.selectedOption || body.formulaText || body.recognizedAnswer || recognition.recognizedAnswer || "";
+    const finalAnswer = answerValueForQuestion(question, body, recognition);
     const hasReviewedAnswer = Boolean(question.answer) && question.answerStatus !== "pending_review";
     const correct = recognition.modelJudgment && typeof recognition.isCorrect === "boolean"
       ? recognition.isCorrect
@@ -1397,6 +1397,36 @@ function answerValueFrom(payload = {}, recognition = {}) {
     || "";
 }
 
+function extractFillAnswerFromWorkSpace(text = "") {
+  const lines = String(text || "")
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  if (!lines.length) return "";
+  const patterns = [
+    /(?:答案|最终答案|结果|填空)\s*[:：=]\s*(.+)$/i,
+    /(?:所以|故|因此)\s*(?:答案|结果)?\s*(?:为|是|=)\s*(.+)$/i,
+    /(?:ans|answer)\s*[:=]\s*(.+)$/i
+  ];
+  for (const line of [...lines].reverse()) {
+    for (const pattern of patterns) {
+      const match = line.match(pattern);
+      if (match?.[1]) return match[1].replace(/[。；;，,]$/g, "").trim();
+    }
+  }
+  const last = lines.at(-1) || "";
+  const equation = last.match(/=\s*([^=]+)$/);
+  if (equation?.[1]) return equation[1].replace(/[。；;，,]$/g, "").trim();
+  return last.length <= 40 ? last.replace(/[。；;，,]$/g, "").trim() : "";
+}
+
+function answerValueForQuestion(question, payload = {}, recognition = {}) {
+  const direct = answerValueFrom(payload, recognition);
+  if (direct) return direct;
+  if (question?.type === "fill") return extractFillAnswerFromWorkSpace(payload.stepsText);
+  return "";
+}
+
 function responseHasContent(payload = {}) {
   return Boolean(
     String(payload.answer || payload.selectedOption || payload.formulaText || payload.stepsText || "").trim()
@@ -1437,7 +1467,7 @@ function inspectPaperCompleteness(questions, responses) {
 
 async function buildAttemptFromResponse(store, student, question, payload, submissionId, orderIndex) {
   const recognition = await recognizeScratch(question, payload);
-  const finalAnswer = answerValueFrom(payload, recognition);
+  const finalAnswer = answerValueForQuestion(question, payload, recognition);
   const hasReviewedAnswer = Boolean(question.answer) && question.answerStatus !== "pending_review";
   const correct = recognition.modelJudgment && typeof recognition.isCorrect === "boolean"
     ? recognition.isCorrect
