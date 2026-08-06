@@ -246,8 +246,8 @@ function saveStudent(student) {
 }
 
 function chapterGroup(chapter) {
-  if (chapter.id === "linear" || /线性代数/.test(chapter.name || "")) return "线性代数";
-  if (chapter.id === "prob" || /概率/.test(chapter.name || "")) return "概率论与数理统计";
+  if (chapter.groupId === "linear" || chapter.id === "linear" || /线性代数/.test(chapter.name || "")) return "线性代数";
+  if (chapter.groupId === "prob" || chapter.id === "prob" || /概率/.test(chapter.name || "")) return "概率论与数理统计";
   return "高等数学";
 }
 
@@ -379,8 +379,33 @@ function restoreResponses() {
 async function init() {
   const boot = await api("/api/bootstrap");
   state.chapters = boot.chapters;
+  migratePracticeChapterSelection();
   state.pastExamSources = boot.pastExamSources;
   render();
+}
+
+function migratePracticeChapterSelection() {
+  if (!state.student || !Array.isArray(state.practiceChapterIds)) return;
+  if (state.practiceChapterIds.includes("all")) {
+    state.practiceChapterIds = null;
+    savePracticeConfig();
+    return;
+  }
+
+  const available = availablePracticeChapters();
+  const availableIds = new Set(available.map((chapter) => chapter.id));
+  const hasLegacyGroup = state.practiceChapterIds.some((chapterId) => chapterId === "linear" || chapterId === "prob");
+  if (!hasLegacyGroup) {
+    state.practiceChapterIds = state.practiceChapterIds.filter((chapterId) => availableIds.has(chapterId));
+    return;
+  }
+
+  state.practiceChapterIds = Array.from(new Set(state.practiceChapterIds.flatMap((chapterId) => {
+    if (chapterId === "linear") return available.filter((chapter) => chapter.groupId === "linear" || /线性代数/.test(chapter.name || "")).map((chapter) => chapter.id);
+    if (chapterId === "prob") return available.filter((chapter) => chapter.groupId === "prob" || /概率/.test(chapter.name || "")).map((chapter) => chapter.id);
+    return availableIds.has(chapterId) ? [chapterId] : [];
+  })));
+  savePracticeConfig();
 }
 
 function shell(title, body) {

@@ -11,13 +11,15 @@
   const sessionId = localStorage.getItem("demoSessionId") || crypto.randomUUID();
   localStorage.setItem("demoSessionId", sessionId);
 
+  const classifyQuestionChapter = window.ChapterClassifier?.classifyQuestionChapter || ((question) => question);
+  const syllabusChapters = window.ChapterClassifier?.chapterDefinitions || { linear: [], prob: [] };
   const chapters = [
     { id: "limit", name: "函数、极限与连续", subjects: ["数学一", "数学二", "数学三"], count: 24 },
     { id: "diff", name: "一元函数微分学", subjects: ["数学一", "数学二", "数学三"], count: 28 },
     { id: "integral", name: "一元函数积分学", subjects: ["数学一", "数学二", "数学三"], count: 30 },
     { id: "multi", name: "多元函数微分学", subjects: ["数学一", "数学二", "数学三"], count: 22 },
-    { id: "linear", name: "线性代数", subjects: ["数学一", "数学二", "数学三"], count: 26 },
-    { id: "prob", name: "概率论与数理统计", subjects: ["数学一", "数学三"], count: 20 },
+    ...syllabusChapters.linear.map((chapter) => ({ ...chapter, subjects: ["数学一", "数学二", "数学三"], count: 0 })),
+    ...syllabusChapters.prob.map((chapter) => ({ ...chapter, subjects: ["数学一", "数学三"], count: 0 })),
     { id: "past_exam_2012_math2", name: "2012 数学二真题", subjects: ["数学二"], count: 23 }
   ];
 
@@ -50,6 +52,10 @@
     q("past_2012_math2_q01", ["数学二"], "past_exam_2012_math2", "2012 数学二真题", "选择题第1题", "真题切片练习", "choice", "历年真题", 4, "2012年考研数学二第1题", ["A", "B", "C", "D"], "A", "演示版保留真题切片样式，正式答案可由教研校对后启用。", { sourceType: "past_exam", source: "2012 数学二真题", qualityTier: "past_exam_image", stemImage: "past-exam-slices/2012-math2/q01.jpg" }),
     q("past_2012_math2_q02", ["数学二"], "past_exam_2012_math2", "2012 数学二真题", "选择题第2题", "真题切片练习", "choice", "历年真题", 4, "2012年考研数学二第2题", ["A", "B", "C", "D"], "B", "演示版保留真题切片样式，正式答案可由教研校对后启用。", { sourceType: "past_exam", source: "2012 数学二真题", qualityTier: "past_exam_image", stemImage: "past-exam-slices/2012-math2/q02.jpg" })
   ];
+
+  questions.forEach((question, index) => {
+    questions[index] = classifyQuestionChapter(question);
+  });
 
   // The public demo has no server-side database. Expand each chapter from reviewed
   // seed questions so the fixed 20-question flow is still usable and refreshable.

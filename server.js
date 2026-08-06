@@ -3,6 +3,7 @@ const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
 const { createTrainingQuestion: createGeneratedTrainingQuestion, validateTrainingQuestion } = require("./public/training-factory.js");
+const { classifyQuestionChapter } = require("./public/chapter-classifier.js");
 
 const ROOT = __dirname;
 const PUBLIC = path.join(ROOT, "public");
@@ -32,6 +33,7 @@ const PORT = Number(process.env.PORT || 5188);
 const NODE_ENV = process.env.NODE_ENV || "development";
 const ADMIN_KEY = process.env.ADMIN_KEY || (NODE_ENV === "production" ? "" : "admin2026");
 const PUBLIC_API_BASE_URL = process.env.PUBLIC_API_BASE_URL || "";
+const QUESTION_SCHEMA_VERSION = 16;
 const ALLOWED_ORIGINS = String(process.env.ALLOWED_ORIGINS || "")
   .split(",")
   .map((item) => item.trim())
@@ -55,9 +57,11 @@ function writeJson(file, value) {
 function db() {
   if (!fs.existsSync(DB_FILE)) writeJson(DB_FILE, seedDb());
   const store = readJson(DB_FILE);
-  if (!Array.isArray(store.questions) || store.questions.length < 10000 || store.meta.questionSchemaVersion !== 12) {
+  if (!Array.isArray(store.questions) || store.questions.length < 10000 || store.meta.questionSchemaVersion !== QUESTION_SCHEMA_VERSION) {
     store.questions = buildQuestions();
-    store.meta.questionSchemaVersion = 12;
+    migrateChapterReferences(store);
+    store.meta = store.meta || {};
+    store.meta.questionSchemaVersion = QUESTION_SCHEMA_VERSION;
     saveDb(store);
   }
   if (!Array.isArray(store.submissions)) {
@@ -72,6 +76,36 @@ function db() {
 
 function saveDb(next) {
   writeJson(DB_FILE, next);
+}
+
+function migrateChapterReferences(store) {
+  const questionById = new Map((store.questions || []).map((question) => [question.id, question]));
+  const chapterIdsForQuestionIds = (questionIds) => Array.from(new Set(
+    (Array.isArray(questionIds) ? questionIds : [])
+      .map((questionId) => questionById.get(questionId)?.chapterId)
+      .filter(Boolean)
+  ));
+
+  if (Array.isArray(store.attempts)) {
+    store.attempts = store.attempts.map((attempt) => {
+      const question = questionById.get(attempt.questionId);
+      return question
+        ? { ...attempt, chapterId: question.chapterId, chapterName: question.chapterName }
+        : attempt;
+    });
+  }
+
+  if (Array.isArray(store.submissions)) {
+    store.submissions = store.submissions.map((submission) => {
+      const chapterIds = chapterIdsForQuestionIds(submission.questionIds);
+      if (!chapterIds.length) return submission;
+      return {
+        ...submission,
+        chapterId: chapterIds.length === 1 ? chapterIds[0] : "mixed",
+        chapterIds
+      };
+    });
+  }
 }
 
 function readPastExamSources() {
@@ -182,7 +216,8 @@ function buildQuestions() {
   const handPicked = q.map(([qid, subjects, chapterId, chapterName, point, reason, type, level, stem, options, answer, aliases, explanation], index) => ({
     id: qid, subjects, chapterId, chapterName, point, reason, type, level, difficulty: difficultyFor(level), stem, options, answer, aliases, explanation, ...sourceMeta(index)
   }));
-  return [...readPastExamQuestions(), ...buildSubjectiveQuestions(), ...buildExamStyleQuestions(), ...handPicked, ...buildGeneratedQuestions()];
+  return [...readPastExamQuestions(), ...buildSubjectiveQuestions(), ...buildExamStyleQuestions(), ...handPicked, ...buildGeneratedQuestions()]
+    .map(classifyQuestionChapter);
 }
 
 function buildSubjectiveQuestions() {
@@ -1433,7 +1468,15 @@ function chapterSummary(questions) {
   const map = new Map();
   questions.forEach((q) => {
     if (!map.has(q.chapterId)) {
-      map.set(q.chapterId, { id: q.chapterId, name: q.chapterName, subjects: q.subjects, count: 0, countsByMathType: {} });
+      map.set(q.chapterId, {
+        id: q.chapterId,
+        name: q.chapterName,
+        subjects: q.subjects,
+        count: 0,
+        countsByMathType: {},
+        groupId: q.chapterGroupId || "",
+        syllabusOrder: q.syllabusOrder || 0
+      });
     }
     const item = map.get(q.chapterId);
     item.count += 1;
@@ -1442,7 +1485,19 @@ function chapterSummary(questions) {
       item.countsByMathType[mathType] = (item.countsByMathType[mathType] || 0) + 1;
     });
   });
-  return Array.from(map.values());
+  const groupOrder = { "": 0, linear: 1, prob: 2 };
+  return Array.from(map.values())
+    .map((item, index) => ({ item, index }))
+    .sort((left, right) => {
+      const leftGroup = groupOrder[left.item.groupId] ?? 0;
+      const rightGroup = groupOrder[right.item.groupId] ?? 0;
+      if (leftGroup !== rightGroup) return leftGroup - rightGroup;
+      if (leftGroup > 0 && left.item.syllabusOrder !== right.item.syllabusOrder) {
+        return left.item.syllabusOrder - right.item.syllabusOrder;
+      }
+      return left.index - right.index;
+    })
+    .map(({ item }) => item);
 }
 
 function buildReportFor(store, studentId) {
