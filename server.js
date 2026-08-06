@@ -33,7 +33,7 @@ const PORT = Number(process.env.PORT || 5188);
 const NODE_ENV = process.env.NODE_ENV || "development";
 const ADMIN_KEY = process.env.ADMIN_KEY || (NODE_ENV === "production" ? "" : "admin2026");
 const PUBLIC_API_BASE_URL = process.env.PUBLIC_API_BASE_URL || "";
-const QUESTION_SCHEMA_VERSION = 16;
+const QUESTION_SCHEMA_VERSION = 17;
 const ALLOWED_ORIGINS = String(process.env.ALLOWED_ORIGINS || "")
   .split(",")
   .map((item) => item.trim())
@@ -114,10 +114,26 @@ function readPastExamSources() {
   return readJson(file);
 }
 
+function pastExamSourcesFor(store) {
+  const sources = readPastExamSources();
+  sources.importedQuestionCount = (store?.questions || []).filter((question) =>
+    question.sourceType === "past_exam" && isQuestionReadyForPractice(question)
+  ).length;
+  return sources;
+}
+
 function readPastExamQuestions() {
   const file = path.join(ROOT, "data", "past-exam-questions.json");
   if (!fs.existsSync(file)) return [];
   return readJson(file);
+}
+
+function isQuestionReadyForPractice(question) {
+  if (!question || question.sourceType !== "past_exam") return true;
+  if (question.publishStatus && question.publishStatus !== "published") return false;
+  if (question.answerStatus === "pending_review" && question.practiceStatus !== "trial") return false;
+  if (/(待校对|待审核|草稿|draft)/i.test(String(question.reviewStatus || ""))) return false;
+  return Boolean(question.stem || question.stemImage || question.stemHtml);
 }
 
 function id(prefix) {
@@ -907,7 +923,7 @@ async function api(req, res) {
     send(res, 200, {
       chapters: chapterSummary(store.questions),
       inviteCodes: store.students.map((s) => s.inviteCode),
-      pastExamSources: readPastExamSources(),
+      pastExamSources: pastExamSourcesFor(store),
       aiStatus: {
         handwritingRecognition: Boolean(configuredOpenAIKey()),
         model: process.env.OPENAI_VISION_MODEL || "gpt-5"
@@ -917,7 +933,7 @@ async function api(req, res) {
   }
 
   if (req.method === "GET" && url.pathname === "/api/past-exam-sources") {
-    send(res, 200, readPastExamSources());
+    send(res, 200, pastExamSourcesFor(store));
     return;
   }
 
@@ -1002,7 +1018,9 @@ async function api(req, res) {
     const practiceType = ["new", "wrong", "mixed"].includes(requestedPracticeType) ? requestedPracticeType : "new";
     const attempts = store.attempts.filter((a) => a.studentId === student.id);
     const mathType = student.mathType || "数学二";
-    let pool = store.questions.filter((q) => q.subjects.includes(mathType) && (chapterSet === null || chapterSet.has(q.chapterId)));
+    let pool = store.questions.filter((q) => isQuestionReadyForPractice(q)
+      && q.subjects.includes(mathType)
+      && (chapterSet === null || chapterSet.has(q.chapterId)));
     if (sourceType !== "past_exam") {
       const standardPool = pool.filter((q) => q.qualityTier === "exam_standard");
       if (standardPool.length >= Math.min(count, 10)) {
@@ -1035,7 +1053,10 @@ async function api(req, res) {
     const difficultyPool = !["all", "mode"].includes(difficulty)
       ? sourcePool.filter((q) => String(q.difficulty) === String(difficulty) || q.level.includes(difficulty))
       : sourcePool.filter((q) => modeDifficulty.includes(String(q.difficulty)));
-    if (difficultyPool.length >= count) {
+    if (sourceType === "past_exam") {
+      // 真题专项不能用普通题补足，否则学生会误以为整组都是真题。
+      pool = difficultyPool.length ? difficultyPool : sourcePool;
+    } else if (difficultyPool.length >= count) {
       pool = difficultyPool;
     } else if (sourcePool.length >= count) {
       pool = sourcePool;
