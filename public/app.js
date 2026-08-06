@@ -75,6 +75,36 @@ const trainingModes = {
   }
 };
 
+const practiceTypes = {
+  new: {
+    name: "刷新题",
+    description: "只抽取从未作答过的题目。",
+    emptyMessage: "当前筛选下没有未作答的新题。"
+  },
+  wrong: {
+    name: "刷错题",
+    description: "只抽取最近一次明确判错、仍需巩固的题目。",
+    emptyMessage: "当前筛选下没有明确判错的错题。"
+  },
+  mixed: {
+    name: "混合刷题",
+    description: "默认约一半新题、一半错题，某一类不足时自动补足。",
+    emptyMessage: "当前筛选下没有可用的新题或错题。"
+  }
+};
+
+function readPracticeChapterIds() {
+  const stored = localStorage.getItem("practiceChapterIds");
+  if (stored === null) return null;
+  try {
+    const parsed = JSON.parse(stored);
+    if (parsed === null) return null;
+    return Array.isArray(parsed) ? parsed.filter(Boolean) : null;
+  } catch (error) {
+    return null;
+  }
+}
+
 const state = {
   student: JSON.parse(localStorage.getItem("student") || "null"),
   view: routeToView[currentRoutePath()] || localStorage.getItem("view") || "home",
@@ -86,6 +116,9 @@ const state = {
   questions: [],
   collectionItems: [],
   chapterId: "integral",
+  practiceChapterIds: readPracticeChapterIds(),
+  practiceType: localStorage.getItem("practiceType") || "new",
+  practiceSessionActive: false,
   questionCount: FIXED_PRACTICE_COUNT,
   difficulty: localStorage.getItem("difficulty") || "all",
   sourceType: localStorage.getItem("sourceType") || "all",
@@ -133,6 +166,52 @@ const $ = (selector) => document.querySelector(selector);
 
 function mode() {
   return trainingModes[state.trainingMode] || trainingModes.reinforce;
+}
+
+function currentPracticeType() {
+  return practiceTypes[state.practiceType] ? state.practiceType : "new";
+}
+
+function availablePracticeChapters() {
+  return state.chapters.filter((chapter) => chapter.subjects.includes(state.student?.mathType));
+}
+
+function selectedPracticeChapterIds() {
+  const availableIds = new Set(availablePracticeChapters().map((chapter) => chapter.id));
+  if (state.practiceChapterIds === null) return Array.from(availableIds);
+  return state.practiceChapterIds.filter((chapterId) => availableIds.has(chapterId));
+}
+
+function practiceChapterFilterLabel() {
+  const chapters = availablePracticeChapters();
+  const selectedIds = selectedPracticeChapterIds();
+  if (state.practiceChapterIds === null) return "全部章节";
+  if (!selectedIds.length) return "未选择章节";
+  if (selectedIds.length === chapters.length) return "全部章节";
+  return chapters.filter((chapter) => selectedIds.includes(chapter.id)).map((chapter) => chapter.name).join("、");
+}
+
+function practiceChapterKey() {
+  const selectedIds = selectedPracticeChapterIds();
+  return selectedIds.length === 1 ? selectedIds[0] : "mixed";
+}
+
+function savePracticeConfig() {
+  localStorage.setItem("practiceChapterIds", JSON.stringify(state.practiceChapterIds));
+  localStorage.setItem("practiceType", currentPracticeType());
+}
+
+function setPracticeChapterSelection(chapterIds) {
+  state.practiceChapterIds = chapterIds === null ? null : Array.from(new Set(chapterIds));
+  const selectedIds = selectedPracticeChapterIds();
+  if (selectedIds.length === 1) state.chapterId = selectedIds[0];
+  else if (!state.chapterId || state.chapterId === "mixed") state.chapterId = availablePracticeChapters()[0]?.id || "integral";
+  savePracticeConfig();
+}
+
+function setPracticeType(practiceType) {
+  state.practiceType = practiceTypes[practiceType] ? practiceType : "new";
+  savePracticeConfig();
 }
 
 function setView(view) {
@@ -217,7 +296,9 @@ async function persistMathType(mathType) {
     const res = await api("/api/login", { method: "POST", body: JSON.stringify(payload) });
     saveStudent(res.student);
     state.chapterId = "integral";
+    setPracticeChapterSelection(null);
     state.questions = [];
+    state.practiceSessionActive = false;
     state.current = 0;
     state.responses = {};
     state.view = "home";
@@ -251,7 +332,7 @@ function uiMessage(message, type = "info") {
   setTimeout(() => item.remove(), 2600);
 }
 
-window.alert = (message) => uiMessage(String(message || ""), "info");
+window.alert = (message, type = "info") => uiMessage(String(message || ""), type);
 
 function uiConfirm({ title = "确认操作", message = "", confirmText = "确定", cancelText = "取消" } = {}) {
   return new Promise((resolve) => {
@@ -280,7 +361,8 @@ function uiConfirm({ title = "确认操作", message = "", confirmText = "确定
 
 function responseKey() {
   if (!state.student) return "";
-  return `paperResponses:${state.student.id}:${state.trainingMode}:${state.chapterId}:${state.questionCount}:${state.difficulty}:${state.sourceType}`;
+  const chapterKey = state.practiceChapterIds === null ? "all" : selectedPracticeChapterIds().sort().join(",") || "none";
+  return `paperResponses:${state.student.id}:${state.trainingMode}:${chapterKey}:${currentPracticeType()}:${state.questionCount}:${state.difficulty}:${state.sourceType}`;
 }
 
 function persistResponses() {
@@ -302,7 +384,7 @@ async function init() {
 }
 
 function shell(title, body) {
-  document.body.classList.toggle("practice-mode", state.view === "practice");
+  document.body.classList.toggle("practice-mode", state.view === "practice" && state.practiceSessionActive);
   $("#title").textContent = title;
   $("#sub").textContent = state.student
     ? `${state.student.name} · ${state.student.mathType} · ${mode().name}`
@@ -475,9 +557,8 @@ async function renderHome() {
   document.querySelectorAll("[data-view]").forEach((button) => button.onclick = () => setView(button.dataset.view));
   document.querySelectorAll("[data-chapter]").forEach((button) => {
     button.onclick = async () => {
-      state.chapterId = button.dataset.chapter;
-      await loadQuestions(false);
-      setView("practice");
+      setPracticeChapterSelection([button.dataset.chapter]);
+      await startPracticeRound();
     };
   });
   $("#switchMathType").onclick = () => setView("mathTypeChooser");
@@ -555,29 +636,116 @@ async function renderChapters() {
   });
   document.querySelectorAll("[data-chapter]").forEach((button) => {
     button.onclick = async () => {
-      state.chapterId = button.dataset.chapter;
-      await loadQuestions(false);
-      setView("practice");
+      setPracticeChapterSelection([button.dataset.chapter]);
+      await startPracticeRound();
     };
   });
   $("#switchMathType").onclick = () => setView("mathTypeChooser");
 }
 
+function renderPracticeSetup() {
+  const chapters = availablePracticeChapters();
+  const selectedIds = selectedPracticeChapterIds();
+  const selectedSet = new Set(selectedIds);
+  const allIds = chapters.map((chapter) => chapter.id);
+  const currentType = currentPracticeType();
+  const groups = ["高等数学", "线性代数", "概率论与数理统计"];
+  const chapterGroups = groups.map((group) => {
+    const items = chapters.filter((chapter) => chapterGroup(chapter) === group);
+    if (!items.length) return "";
+    return `<section class="practice-chapter-group"><h3>${group}</h3><div class="practice-chapter-grid">${items.map((chapter) => {
+      const selected = selectedSet.has(chapter.id);
+      return `<button type="button" class="practice-chapter-option ${selected ? "selected" : ""}" data-practice-chapter="${escapeHtml(chapter.id)}" aria-pressed="${selected}">
+        <span><strong>${escapeHtml(chapter.name)}</strong><small>${chapterQuestionCount(chapter)} 道可用题目</small></span><b>${selected ? "已选择" : "选择"}</b>
+      </button>`;
+    }).join("")}</div></section>`;
+  }).join("");
+
+  shell("刷题", `<section class="panel practice-setup-hero">
+    <div class="section-heading"><div><span class="badge">本轮配置</span><h2>选择你想刷的题</h2><p>先选择章节和题目类型，再开始本轮刷题。每轮最多 20 题。</p></div><button class="ghost" data-view="chapters">查看章节学习</button></div>
+    <div class="practice-type-tabs" role="tablist" aria-label="刷题类型">
+      ${Object.entries(practiceTypes).map(([key, item]) => `<button type="button" class="practice-type-card ${currentType === key ? "active" : ""}" data-practice-type="${key}" role="tab" aria-selected="${currentType === key}"><strong>${item.name}</strong><small>${item.description}</small></button>`).join("")}
+    </div>
+  </section>
+  <section class="panel practice-chapter-panel">
+    <div class="section-heading"><div><h2>选择章节</h2><p>可以选择一个或多个章节；混合章节会按题目实际所属章节展示。</p></div><div class="row"><button type="button" class="ghost" id="selectAllPracticeChapters">全选章节</button><button type="button" class="ghost" id="clearPracticeChapters">清空选择</button></div></div>
+    <div class="practice-selection-summary"><strong>已选 ${selectedIds.length} 个章节</strong><span>${escapeHtml(practiceChapterFilterLabel())}</span></div>
+    ${chapters.length ? `<div class="practice-chapter-groups">${chapterGroups}</div>` : `<div class="empty-state"><h3>当前类型暂未配置章节</h3><p>请切换数学类型或联系管理员导入对应题库。</p></div>`}
+  </section>
+  <section class="panel practice-options-panel">
+    <div class="fixed-practice-count"><strong>每轮最多 20 题</strong><span>${escapeHtml(practiceTypes[currentType].description)}符合条件的题目不足时，将按实际可用数量开始。</span><label>训练模式<select id="practiceTrainingMode">${Object.entries(trainingModes).map(([key, item]) => `<option value="${key}">${item.name} · ${item.difficultyLabel}</option>`).join("")}</select></label><label>难度<select id="practiceDifficulty">${difficultyOptions.map(([value, label]) => `<option value="${value}">${label}</option>`).join("")}</select></label><label>题源<select id="practiceSourceType">${sourceOptions.map(([value, label]) => `<option value="${value}">${label}</option>`).join("")}</select></label></div>
+    <div class="practice-start-row"><div><strong>${escapeHtml(practiceTypes[currentType].name)} · ${escapeHtml(practiceChapterFilterLabel())}</strong><p>提交后统一批改，错题会根据最新作答结果自动更新。</p></div><button class="primary" id="startPractice" ${selectedIds.length ? "" : "disabled"}>开始刷题</button></div>
+  </section>`);
+
+  $("#practiceTrainingMode").value = state.trainingMode;
+  $("#practiceDifficulty").value = state.difficulty;
+  $("#practiceSourceType").value = state.sourceType;
+  $("#practiceTrainingMode").onchange = (event) => {
+    selectMode(event.target.value);
+    renderPracticeSetup();
+  };
+  $("#practiceDifficulty").onchange = (event) => {
+    state.difficulty = event.target.value;
+    localStorage.setItem("difficulty", state.difficulty);
+  };
+  $("#practiceSourceType").onchange = (event) => {
+    state.sourceType = event.target.value;
+    localStorage.setItem("sourceType", state.sourceType);
+  };
+  document.querySelectorAll("[data-practice-type]").forEach((button) => {
+    button.onclick = () => {
+      setPracticeType(button.dataset.practiceType);
+      renderPracticeSetup();
+    };
+  });
+  document.querySelectorAll("[data-practice-chapter]").forEach((button) => {
+    button.onclick = () => {
+      const chapterId = button.dataset.practiceChapter;
+      const next = selectedIds.includes(chapterId)
+        ? selectedIds.filter((item) => item !== chapterId)
+        : [...selectedIds, chapterId];
+      setPracticeChapterSelection(next.length === allIds.length ? null : next);
+      renderPracticeSetup();
+    };
+  });
+  $("#selectAllPracticeChapters").onclick = () => {
+    setPracticeChapterSelection(null);
+    renderPracticeSetup();
+  };
+  $("#clearPracticeChapters").onclick = () => {
+    setPracticeChapterSelection([]);
+    renderPracticeSetup();
+  };
+  $("#startPractice").onclick = () => startPracticeRound();
+}
+
 async function loadQuestions(refresh) {
   state.questionCount = FIXED_PRACTICE_COUNT;
+  const previousQuestions = state.questions;
+  const selectedIds = selectedPracticeChapterIds();
   const params = new URLSearchParams({
     studentId: state.student.id,
-    chapterId: state.chapterId,
+    chapterIds: state.practiceChapterIds === null ? "all" : selectedIds.join(","),
+    practiceType: currentPracticeType(),
     refresh: refresh ? "1" : "0",
     count: String(FIXED_PRACTICE_COUNT),
     difficulty: state.difficulty,
     sourceType: state.sourceType,
     mode: state.trainingMode
   });
+  if (refresh && previousQuestions.length) params.set("excludeIds", previousQuestions.map((question) => question.id).join(","));
   const res = await api(`/api/questions?${params.toString()}`);
+  if (!res.questions.length && refresh && previousQuestions.length) {
+    alert(res.message || "没有更多符合当前条件的新题，本轮暂不更换。", "warn");
+    return false;
+  }
   state.questions = res.questions;
   if (!state.questions.length) {
-    alert(res.message || "当前筛选条件下没有题目，请调整题量、难度或题源。");
+    alert(res.message || practiceTypes[currentPracticeType()].emptyMessage || "当前筛选条件下没有题目，请调整筛选条件。", "warn");
+    state.current = 0;
+    state.responses = {};
+    state.practiceSessionActive = false;
+    return false;
   }
   state.current = 0;
   state.responses = {};
@@ -588,6 +756,32 @@ async function loadQuestions(refresh) {
   }
   state.lastResults = null;
   resetScratch();
+  return true;
+}
+
+async function startPracticeRound() {
+  if (!selectedPracticeChapterIds().length) {
+    if (state.view !== "practice") setView("practice");
+    alert("请至少选择一个章节。", "warn");
+    return false;
+  }
+  state.practiceSessionActive = false;
+  if (state.view !== "practice") setView("practice");
+  let loaded = false;
+  try {
+    loaded = await loadQuestions(false);
+  } catch (error) {
+    renderPracticeSetup();
+    alert(error.message || "题目加载失败，请稍后重试。", "bad");
+    return false;
+  }
+  if (!loaded) {
+    renderPracticeSetup();
+    return false;
+  }
+  state.practiceSessionActive = true;
+  render();
+  return true;
 }
 
 function resetScratch() {
@@ -639,19 +833,19 @@ function questionAnswerControls(q) {
 }
 
 async function renderPractice() {
-  state.trainingCanvasQuestion = null;
-  if (!state.questions.length) await loadQuestions(false);
-  if (!state.questions.length) {
-    shell("刷题", `<section class="panel"><h2>当前筛选下没有题目</h2><p>如果你选择了“历年考研数学真题”，需要先导入2000-2026真实真题题库；系统不会用原创题冒充真题。</p><button class="primary" data-view="chapters">返回章节</button></section>`);
+  if (!state.practiceSessionActive || !state.questions.length) {
+    state.practiceSessionActive = false;
+    renderPracticeSetup();
     return;
   }
+  state.trainingCanvasQuestion = null;
   const q = state.questions[state.current];
   const chapter = state.chapters.find((item) => item.id === q.chapterId);
   const answeredCount = state.questions.filter((item) => Boolean(state.responses[item.id]?.selectedOption || state.responses[item.id]?.scratchImage || state.responses[item.id]?.strokeCount)).length;
   loadScratchForQuestion(q);
   shell("刷题", `<div class="practice-simple ${q.type === "choice" ? "practice-choice-mode" : ""}">
     <section class="question-only">
-      <div class="practice-context"><span>${escapeHtml(state.student.mathType)}</span><span>${escapeHtml(chapter?.name || q.chapterName || "当前章节")}</span><span>${escapeHtml(q.point || "本题知识点")}</span><strong>已完成 ${answeredCount} / ${state.questions.length}</strong><button class="ghost" id="refreshPractice">刷新本轮20题</button></div>
+      <div class="practice-context"><span>${escapeHtml(state.student.mathType)}</span><span>${escapeHtml(practiceTypes[currentPracticeType()].name)}</span><span>${escapeHtml(chapter?.name || q.chapterName || "当前章节")}</span><span>${escapeHtml(q.point || "本题知识点")}</span><strong>已完成 ${answeredCount} / ${state.questions.length}</strong><button class="ghost" id="configurePractice">重新配置</button><button class="ghost" id="refreshPractice">刷新本轮题目</button></div>
       <div class="question-count">第${state.current + 1}题 / 共${state.questions.length}题</div>
       ${questionStem(q)}
       ${questionAnswerControls(q)}
@@ -695,6 +889,7 @@ function bindPractice(q) {
   const undoPad = $("#undoPad");
   const redoPad = $("#redoPad");
   const finishRound = $("#finishRound");
+  const configurePractice = $("#configurePractice");
   const refreshPractice = $("#refreshPractice");
   document.querySelectorAll("[data-choice]").forEach((button) => {
     button.onclick = () => {
@@ -722,6 +917,21 @@ function bindPractice(q) {
     saveCurrentScratch(q);
     await submitRound();
   };
+  if (configurePractice) configurePractice.onclick = async () => {
+    const answered = Object.values(state.responses || {}).filter((item) => item?.selectedOption || item?.scratchImage || item?.strokeCount).length;
+    const confirmed = await uiConfirm({
+      title: "重新配置本轮",
+      message: answered ? `当前已有 ${answered} 题作答，重新配置后将清空本轮答案。是否继续？` : "将离开当前轮次并重新选择章节和题型，是否继续？",
+      confirmText: "重新配置",
+      cancelText: "继续作答"
+    });
+    if (!confirmed) return;
+    localStorage.removeItem(responseKey());
+    state.questions = [];
+    state.responses = {};
+    state.practiceSessionActive = false;
+    renderPracticeSetup();
+  };
   if (refreshPractice) refreshPractice.onclick = async () => {
     const answered = Object.values(state.responses || {}).filter((item) => item?.selectedOption || item?.scratchImage || item?.strokeCount).length;
     const confirmed = await uiConfirm({
@@ -731,8 +941,8 @@ function bindPractice(q) {
       cancelText: "继续作答"
     });
     if (!confirmed) return;
-    await loadQuestions(true);
-    renderPractice();
+    const refreshed = await loadQuestions(true);
+    if (refreshed) renderPractice();
   };
   if (clearPad) clearPad.onclick = () => {
     state.redoStrokes = state.strokes.slice();
@@ -841,12 +1051,16 @@ async function submitRound() {
   renderGrading();
   await new Promise((resolve) => setTimeout(resolve, 900));
   try {
+    const selectedChapterIds = selectedPracticeChapterIds();
+    const chapterKey = practiceChapterKey();
     const payload = {
       studentId: state.student.id,
-      examinationId: `${state.trainingMode}_${state.chapterId}_${Date.now()}`,
-      paperName: `${state.student.mathType} · ${mode().name} · ${new Date().toLocaleString()}`,
+      examinationId: `${state.trainingMode}_${currentPracticeType()}_${chapterKey}_${Date.now()}`,
+      paperName: `${state.student.mathType} · ${mode().name} · ${practiceTypes[currentPracticeType()].name} · ${new Date().toLocaleString()}`,
       mode: state.trainingMode,
-      chapterId: state.chapterId,
+      chapterId: chapterKey,
+      chapterIds: selectedChapterIds,
+      practiceType: currentPracticeType(),
       questionIds: state.questions.map((q) => q.id),
       responses: state.questions.map((q, index) => ({
         questionId: q.id,
@@ -870,10 +1084,13 @@ async function submitRound() {
     localStorage.setItem(`lastSubmittedAt:${state.student.id}`, new Date().toISOString());
     const key = responseKey();
     if (key) localStorage.removeItem(key);
+    state.practiceSessionActive = false;
+    state.responses = {};
     state.view = "paperReport";
     localStorage.setItem("view", "paperReport");
     renderPaperReport();
   } catch (error) {
+    state.practiceSessionActive = true;
     state.view = "practice";
     localStorage.setItem("view", "practice");
     renderPractice();
@@ -1387,9 +1604,13 @@ async function renderCollection() {
   document.querySelectorAll("[data-view]").forEach((button) => button.onclick = () => setView(button.dataset.view));
   if (redo) redo.onclick = () => {
     state.questions = state.collectionItems.map(({ question }) => question);
+    const collectionChapterIds = Array.from(new Set(state.questions.map((question) => question.chapterId).filter(Boolean)));
+    setPracticeChapterSelection(collectionChapterIds);
+    setPracticeType("wrong");
     state.responses = {};
     state.lastResults = null;
     state.current = 0;
+    state.practiceSessionActive = true;
     resetScratch();
     setView("practice");
   };

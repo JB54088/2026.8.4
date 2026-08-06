@@ -689,6 +689,57 @@ function uniqueByStem(pool) {
   });
 }
 
+function latestAttemptMap(attempts) {
+  const latest = new Map();
+  (attempts || []).forEach((attempt) => {
+    if (attempt?.questionId) latest.set(attempt.questionId, attempt);
+  });
+  return latest;
+}
+
+function chapterFilterFromUrl(url) {
+  const raw = url.searchParams.has("chapterIds")
+    ? url.searchParams.get("chapterIds")
+    : (url.searchParams.get("chapterId") || "integral");
+  if (raw === "all") return null;
+  return String(raw || "").split(",").map((item) => item.trim()).filter(Boolean);
+}
+
+function buildPracticeSelection(pool, attempts, practiceType, count, seedInput, excludeIds = new Set()) {
+  const latest = latestAttemptMap(attempts);
+  const newPool = uniqueByStem(pool.filter((question) => !latest.has(question.id)));
+  const wrongPool = uniqueByStem(pool.filter((question) => latest.get(question.id)?.correct === false));
+  const selected = [];
+  const selectedIds = new Set();
+
+  const pick = (sourcePool, size, label) => {
+    if (size <= 0) return;
+    let candidates = sourcePool.filter((question) => !selectedIds.has(question.id) && !excludeIds.has(question.id));
+    if (candidates.length < size) candidates = sourcePool.filter((question) => !selectedIds.has(question.id));
+    sampleQuestions(candidates, size, `${seedInput}:${label}`).forEach((question) => {
+      selected.push(question);
+      selectedIds.add(question.id);
+    });
+  };
+
+  if (practiceType === "wrong") {
+    pick(wrongPool, count, "wrong");
+  } else if (practiceType === "mixed") {
+    pick(newPool, Math.ceil(count / 2), "new");
+    pick(wrongPool, Math.floor(count / 2), "wrong");
+    if (selected.length < count) pick(newPool, count - selected.length, "new-fallback");
+    if (selected.length < count) pick(wrongPool, count - selected.length, "wrong-fallback");
+  } else {
+    pick(newPool, count, "new");
+  }
+
+  return {
+    questions: selected,
+    availableCount: practiceType === "wrong" ? wrongPool.length : practiceType === "mixed" ? new Set([...newPool, ...wrongPool].map((question) => question.id)).size : newPool.length,
+    poolCounts: { new: newPool.length, wrong: wrongPool.length }
+  };
+}
+
 function diagnose(question, payload, correct) {
   const steps = String(payload.stepsText || "");
   const answer = String(payload.answer || "");
@@ -906,16 +957,17 @@ async function api(req, res) {
   if (req.method === "GET" && url.pathname === "/api/questions") {
     const student = store.students.find((s) => s.id === url.searchParams.get("studentId"));
     if (!student) return send(res, 404, { error: "学生不存在" });
-    const chapterId = url.searchParams.get("chapterId") || "integral";
     const count = 20;
+    const chapterIds = chapterFilterFromUrl(url);
+    const chapterSet = chapterIds === null ? null : new Set(chapterIds);
     const difficulty = url.searchParams.get("difficulty") || "all";
     const sourceType = url.searchParams.get("sourceType") || "all";
     const mode = url.searchParams.get("mode") || "reinforce";
+    const requestedPracticeType = url.searchParams.get("practiceType") || "new";
+    const practiceType = ["new", "wrong", "mixed"].includes(requestedPracticeType) ? requestedPracticeType : "new";
     const attempts = store.attempts.filter((a) => a.studentId === student.id);
-    const attemptedIds = new Set(attempts.map((a) => a.questionId));
     const mathType = student.mathType || "数学二";
-    let pool = store.questions.filter((q) => q.subjects.includes(mathType) && (chapterId === "all" || q.chapterId === chapterId));
-    if (!pool.length && chapterId === "all") pool = store.questions.filter((q) => q.subjects.includes(mathType));
+    let pool = store.questions.filter((q) => q.subjects.includes(mathType) && (chapterSet === null || chapterSet.has(q.chapterId)));
     if (sourceType !== "past_exam") {
       const standardPool = pool.filter((q) => q.qualityTier === "exam_standard");
       if (standardPool.length >= Math.min(count, 10)) {
@@ -930,10 +982,13 @@ async function api(req, res) {
     if (sourceType === "past_exam" && !sourcePool.length) {
       return send(res, 200, {
         questions: [],
-        chapterId,
+        chapterId: chapterIds === null ? "all" : chapterIds.length === 1 ? chapterIds[0] : "mixed",
+        chapterIds: chapterIds || [],
         count,
         difficulty,
         sourceType,
+        practiceType,
+        availableCount: 0,
         message: "尚未导入真实历年考研数学真题，请先导入2000-2026真题题库。"
       });
     }
@@ -953,14 +1008,36 @@ async function api(req, res) {
       pool = basePool;
     }
     const refresh = url.searchParams.get("refresh") === "1";
-    const distinctPool = uniqueByStem(pool);
-    // A chapter can contain many approved variants with the same normalized stem.
-    // Do not shrink a fixed 20-question round below 20 just because of de-duplication.
-    if (distinctPool.length >= count) pool = distinctPool;
-    const unseen = pool.filter((q) => !attemptedIds.has(q.id));
-    const source = unseen.length >= count ? unseen : pool;
-    const selected = sampleQuestions(source, count, refresh ? Date.now() : `${student.id}-${chapterId}-${difficulty}-${sourceType}-${mode}-${count}-${attempts.length}`);
-    send(res, 200, { questions: selected, chapterId, count, difficulty, sourceType, mode });
+    const excludeIds = new Set(String(url.searchParams.get("excludeIds") || "").split(",").filter(Boolean));
+    const chapterKey = chapterIds === null ? "all" : chapterIds.join(",") || "none";
+    const selection = buildPracticeSelection(
+      pool,
+      attempts,
+      practiceType,
+      count,
+      refresh ? `${Date.now()}` : `${student.id}-${chapterKey}-${difficulty}-${sourceType}-${mode}-${practiceType}-${attempts.length}`,
+      refresh ? excludeIds : new Set()
+    );
+    const response = {
+      questions: selection.questions,
+      chapterId: chapterIds === null ? "all" : chapterIds.length === 1 ? chapterIds[0] : "mixed",
+      chapterIds: chapterIds || [],
+      count,
+      difficulty,
+      sourceType,
+      mode,
+      practiceType,
+      availableCount: selection.availableCount,
+      poolCounts: selection.poolCounts
+    };
+    if (!selection.questions.length) {
+      response.message = practiceType === "wrong"
+        ? "当前筛选下没有明确判错的错题。"
+        : practiceType === "mixed"
+          ? "当前筛选下没有可用的新题或错题。"
+          : "当前筛选下没有未作答的新题。";
+    }
+    send(res, 200, response);
     return;
   }
 
@@ -1054,6 +1131,8 @@ async function api(req, res) {
       paperName: body.paperName || `${student.mathType || "考研数学"} ${body.mode || "训练"}整卷`,
       mode: body.mode || "",
       chapterId: body.chapterId || "",
+      chapterIds: Array.isArray(body.chapterIds) ? body.chapterIds : (body.chapterId ? [body.chapterId] : []),
+      practiceType: ["new", "wrong", "mixed"].includes(body.practiceType) ? body.practiceType : "",
       status: "uploading",
       gradingStatusHistory: [
         { status: "submit_confirmed", at: nowIso() },
