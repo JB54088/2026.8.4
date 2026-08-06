@@ -11,13 +11,15 @@
   const sessionId = localStorage.getItem("demoSessionId") || crypto.randomUUID();
   localStorage.setItem("demoSessionId", sessionId);
 
+  const classifyQuestionChapter = window.ChapterClassifier?.classifyQuestionChapter || ((question) => question);
+  const syllabusChapters = window.ChapterClassifier?.chapterDefinitions || { linear: [], prob: [] };
   const chapters = [
     { id: "limit", name: "函数、极限与连续", subjects: ["数学一", "数学二", "数学三"], count: 24 },
     { id: "diff", name: "一元函数微分学", subjects: ["数学一", "数学二", "数学三"], count: 28 },
     { id: "integral", name: "一元函数积分学", subjects: ["数学一", "数学二", "数学三"], count: 30 },
     { id: "multi", name: "多元函数微分学", subjects: ["数学一", "数学二", "数学三"], count: 22 },
-    { id: "linear", name: "线性代数", subjects: ["数学一", "数学二", "数学三"], count: 26 },
-    { id: "prob", name: "概率论与数理统计", subjects: ["数学一", "数学三"], count: 20 },
+    ...syllabusChapters.linear.map((chapter) => ({ ...chapter, subjects: ["数学一", "数学二", "数学三"], count: 0 })),
+    ...syllabusChapters.prob.map((chapter) => ({ ...chapter, subjects: ["数学一", "数学三"], count: 0 })),
     { id: "past_exam_2012_math2", name: "2012 数学二真题", subjects: ["数学二"], count: 23 }
   ];
 
@@ -50,6 +52,10 @@
     q("past_2012_math2_q01", ["数学二"], "past_exam_2012_math2", "2012 数学二真题", "选择题第1题", "真题切片练习", "choice", "历年真题", 4, "2012年考研数学二第1题", ["A", "B", "C", "D"], "A", "演示版保留真题切片样式，正式答案可由教研校对后启用。", { sourceType: "past_exam", source: "2012 数学二真题", qualityTier: "past_exam_image", stemImage: "past-exam-slices/2012-math2/q01.jpg" }),
     q("past_2012_math2_q02", ["数学二"], "past_exam_2012_math2", "2012 数学二真题", "选择题第2题", "真题切片练习", "choice", "历年真题", 4, "2012年考研数学二第2题", ["A", "B", "C", "D"], "B", "演示版保留真题切片样式，正式答案可由教研校对后启用。", { sourceType: "past_exam", source: "2012 数学二真题", qualityTier: "past_exam_image", stemImage: "past-exam-slices/2012-math2/q02.jpg" })
   ];
+
+  questions.forEach((question, index) => {
+    questions[index] = classifyQuestionChapter(question);
+  });
 
   // The public demo has no server-side database. Expand each chapter from reviewed
   // seed questions so the fixed 20-question flow is still usable and refreshable.
@@ -138,6 +144,63 @@
     if (leftNum !== null && rightNum !== null) return Math.abs(leftNum - rightNum) < 1e-8;
     const compact = (value) => value.replace(/\*/g, "").replace(/\^1(?!\d)/g, "").replace(/\+c$/i, "+c").replace(/c$/i, "c");
     return compact(left) === compact(right);
+  };
+  const uniqueByStem = (pool) => {
+    const seen = new Set();
+    return pool.filter((question) => {
+      const key = normalizeAnswer(`${question.chapterId}:${question.stem}`);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  };
+  const latestAttemptMap = (attempts) => {
+    const latest = new Map();
+    (attempts || []).forEach((attempt) => {
+      if (attempt?.questionId) latest.set(attempt.questionId, attempt);
+    });
+    return latest;
+  };
+  const hashValue = (value) => {
+    let result = 2166136261;
+    for (const character of String(value)) result = Math.imul(result ^ character.charCodeAt(0), 16777619);
+    return result >>> 0;
+  };
+  const sampleStaticQuestions = (pool, size, seed) => pool
+    .map((item) => ({ item, rank: hashValue(`${seed}:${item.id}`) }))
+    .sort((left, right) => left.rank - right.rank)
+    .slice(0, Math.min(size, pool.length))
+    .map(({ item }) => item);
+  const buildStaticPracticeSelection = (pool, attempts, practiceType, count, seed, excludeIds = new Set()) => {
+    const latest = latestAttemptMap(attempts);
+    const newPool = uniqueByStem(pool.filter((question) => !latest.has(question.id)));
+    const wrongPool = uniqueByStem(pool.filter((question) => latest.get(question.id)?.correct === false));
+    const selected = [];
+    const selectedIds = new Set();
+    const pick = (sourcePool, size, label) => {
+      if (size <= 0) return;
+      let candidates = sourcePool.filter((question) => !selectedIds.has(question.id) && !excludeIds.has(question.id));
+      if (candidates.length < size) candidates = sourcePool.filter((question) => !selectedIds.has(question.id));
+      sampleStaticQuestions(candidates, size, `${seed}:${label}`).forEach((question) => {
+        selected.push(question);
+        selectedIds.add(question.id);
+      });
+    };
+    if (practiceType === "wrong") {
+      pick(wrongPool, count, "wrong");
+    } else if (practiceType === "mixed") {
+      pick(newPool, Math.ceil(count / 2), "new");
+      pick(wrongPool, Math.floor(count / 2), "wrong");
+      if (selected.length < count) pick(newPool, count - selected.length, "new-fallback");
+      if (selected.length < count) pick(wrongPool, count - selected.length, "wrong-fallback");
+    } else {
+      pick(newPool, count, "new");
+    }
+    return {
+      questions: selected,
+      availableCount: practiceType === "wrong" ? wrongPool.length : practiceType === "mixed" ? new Set([...newPool, ...wrongPool].map((question) => question.id)).size : newPool.length,
+      poolCounts: { new: newPool.length, wrong: wrongPool.length }
+    };
   };
   const extractFillAnswerFromWorkSpace = (text = "") => {
     const lines = String(text || "").split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
@@ -447,41 +510,60 @@
     }
     if (method === "GET" && path === "/api/questions") {
       const student = store.students[0] || studentFrom({});
-      const chapterId = url.searchParams.get("chapterId") || "integral";
       const count = 20;
+      const rawChapterIds = url.searchParams.has("chapterIds")
+        ? url.searchParams.get("chapterIds")
+        : (url.searchParams.get("chapterId") || "integral");
+      const chapterIds = rawChapterIds === "all" ? null : String(rawChapterIds || "").split(",").map((item) => item.trim()).filter(Boolean);
+      const chapterSet = chapterIds === null ? null : new Set(chapterIds);
       const difficulty = url.searchParams.get("difficulty") || "all";
       const sourceType = url.searchParams.get("sourceType") || "all";
       const mode = url.searchParams.get("mode") || "reinforce";
-      let pool = questions.filter((item) => item.subjects.includes(student.mathType) && (chapterId === "all" || item.chapterId === chapterId));
+      const requestedPracticeType = url.searchParams.get("practiceType") || "new";
+      const practiceType = ["new", "wrong", "mixed"].includes(requestedPracticeType) ? requestedPracticeType : "new";
+      let pool = questions.filter((item) => item.subjects.includes(student.mathType) && (chapterSet === null || chapterSet.has(item.chapterId)));
       if (sourceType !== "all") pool = pool.filter((item) => item.sourceType === sourceType);
       if (!["all", "mode"].includes(difficulty)) pool = pool.filter((item) => String(item.difficulty) === String(difficulty));
-      if (!pool.length && chapterId === "all") pool = questions.filter((item) => item.subjects.includes(student.mathType));
+      if (!pool.length && chapterIds === null) pool = questions.filter((item) => item.subjects.includes(student.mathType));
       const modeDifficulty = { foundation: ["1", "2"], reinforce: ["3", "4"], mock: ["1", "2", "3", "4", "5"] }[mode] || ["3", "4"];
       const modePool = ["all", "mode"].includes(difficulty) ? pool.filter((item) => modeDifficulty.includes(String(item.difficulty))) : pool;
       const candidates = modePool.length >= count ? modePool : pool;
-      const attemptedIds = new Set((store.attempts || []).filter((item) => item.studentId === student.id).map((item) => item.questionId));
-      const unseen = candidates.filter((item) => !attemptedIds.has(item.id));
-      const source = unseen.length >= count ? unseen : candidates;
-      if (!source.length) return json({ questions: [], chapterId, count, difficulty, sourceType, mode, message: "当前章节暂无可用题目。" });
+      const attempts = (store.attempts || []).filter((item) => item.studentId === student.id);
       const refresh = url.searchParams.get("refresh") === "1";
-      const roundKey = `demoQuestionRound:${sessionId}:${chapterId}:${mode}:${difficulty}:${sourceType}`;
+      const chapterKey = chapterIds === null ? "all" : chapterIds.join(",") || "none";
+      const roundKey = `demoQuestionRound:${sessionId}:${chapterKey}:${mode}:${difficulty}:${sourceType}:${practiceType}`;
       const previousRound = new Set(JSON.parse(localStorage.getItem(roundKey) || "[]"));
-      const refreshPool = refresh && source.filter((item) => !previousRound.has(item.id)).length >= count
-        ? source.filter((item) => !previousRound.has(item.id))
-        : source;
-      const refreshSeed = refresh ? `${Date.now()}_${Math.random()}` : `${sessionId}_${chapterId}_${mode}_${difficulty}`;
-      const hash = (value) => {
-        let result = 2166136261;
-        for (const character of String(value)) result = Math.imul(result ^ character.charCodeAt(0), 16777619);
-        return result >>> 0;
+      const requestedExcludeIds = new Set(String(url.searchParams.get("excludeIds") || "").split(",").filter(Boolean));
+      const excludeIds = refresh ? new Set([...previousRound, ...requestedExcludeIds]) : new Set();
+      const selection = buildStaticPracticeSelection(
+        candidates,
+        attempts,
+        practiceType,
+        count,
+        refresh ? `${Date.now()}_${Math.random()}` : `${sessionId}_${chapterKey}_${mode}_${difficulty}_${practiceType}`,
+        excludeIds
+      );
+      localStorage.setItem(roundKey, JSON.stringify(selection.questions.map((item) => item.id)));
+      const response = {
+        questions: selection.questions,
+        chapterId: chapterIds === null ? "all" : chapterIds.length === 1 ? chapterIds[0] : "mixed",
+        chapterIds: chapterIds || [],
+        count,
+        difficulty,
+        sourceType,
+        mode,
+        practiceType,
+        availableCount: selection.availableCount,
+        poolCounts: selection.poolCounts
       };
-      const selected = refreshPool
-        .map((item) => ({ item, rank: hash(`${refreshSeed}:${item.id}`) }))
-        .sort((left, right) => left.rank - right.rank)
-        .slice(0, Math.min(count, source.length))
-        .map(({ item }) => item);
-      localStorage.setItem(roundKey, JSON.stringify(selected.map((item) => item.id)));
-      return json({ questions: selected, chapterId, count, difficulty, sourceType, mode, availableCount: source.length });
+      if (!selection.questions.length) {
+        response.message = practiceType === "wrong"
+          ? "当前筛选下没有明确判错的错题。"
+          : practiceType === "mixed"
+            ? "当前筛选下没有可用的新题或错题。"
+            : "当前筛选下没有未作答的新题。";
+      }
+      return json(response);
     }
     if (method === "POST" && path === "/api/attempts") {
       const question = questions.find((item) => item.id === body.questionId);
@@ -527,6 +609,8 @@
         paperName: body.paperName || `${student.mathType} 静态演示整卷`,
         mode: body.mode || "",
         chapterId: body.chapterId || "",
+        chapterIds: Array.isArray(body.chapterIds) ? body.chapterIds : (body.chapterId ? [body.chapterId] : []),
+        practiceType: ["new", "wrong", "mixed"].includes(body.practiceType) ? body.practiceType : "",
         status: "diagnosis_complete",
         gradingStatusHistory: [
           { status: "submit_confirmed", at: nowIso() },
