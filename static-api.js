@@ -493,8 +493,14 @@
     const store = readStore();
 
     if (method === "GET" && path === "/api/health") return json({ status: "ok", environment: "static-demo", timestamp: nowIso() });
-    if (method === "GET" && path === "/api/bootstrap") return json({ chapters, inviteCodes: ["demo"], pastExamSources: { trustedSources: [], candidateSourcesNeedReview: [] }, aiStatus: { handwritingRecognition: false, model: "static-demo" } });
-    if (method === "GET" && path === "/api/past-exam-sources") return json({ trustedSources: [{ site: "演示真题来源", items: [{ year: "2012", mathType: "数学二", title: "2012 全国硕士研究生入学考试数学二试题", format: "image_slices", importStatus: "demo_ready", url: "https://yz.chsi.com.cn/" }] }], candidateSourcesNeedReview: [] });
+    const staticPastExamSources = {
+      trustedSources: [{ site: "演示真题来源", items: [{ year: "2012", mathType: "数学二", title: "2012 全国硕士研究生入学考试数学二试题", format: "image_slices", importStatus: "demo_ready", url: "https://yz.chsi.com.cn/" }] }],
+      candidateSourcesNeedReview: [],
+      importedQuestionCount: 0,
+      localSources: [{ sourceId: "classified-probability", site: "本地真题资料库", year: "1987-2025", mathType: "概率专题", title: "真题分类概率（原页资料）", url: "past-exam-preview.html", format: "classified_pages", importStatus: "page_preview_ready_pending_question_review", description: "100 页原页已发布；候选题待人工校对，暂未发布为正式刷题题目。" }]
+    };
+    if (method === "GET" && path === "/api/bootstrap") return json({ chapters, inviteCodes: ["demo"], pastExamSources: staticPastExamSources, aiStatus: { handwritingRecognition: false, model: "static-demo" } });
+    if (method === "GET" && path === "/api/past-exam-sources") return json(staticPastExamSources);
     if (method === "POST" && path === "/api/login") {
       if ((body.password || "demo123") !== "demo123") return json({ error: "演示账号密码错误" }, 401);
       const student = studentFrom(body);

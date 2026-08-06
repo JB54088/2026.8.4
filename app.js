@@ -828,15 +828,37 @@ function difficultyText(value) {
   return difficultyOptions.find(([key]) => key === String(value))?.[1] || "3星 易错";
 }
 
+function safeAssetHref(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  try {
+    const url = new URL(raw, document.baseURI);
+    return ["http:", "https:"].includes(url.protocol) ? url.href : "";
+  } catch (error) {
+    return "";
+  }
+}
+
 function questionStem(q) {
   if (q.sourceType === "past_exam") {
+    const sourcePageImage = safeAssetHref(q.sourcePageImage);
+    const stemImage = safeAssetHref(q.stemImage) || (q.practiceStatus === "trial" ? sourcePageImage : "");
     const body = q.stemHtml
       ? `<div class="typeset-stem">${q.stemHtml}</div>`
-      : (q.stemImage ? `<img class="stem-image exam" src="${escapeHtml(q.stemImage)}" alt="${escapeHtml(q.stem)}">` : `<p>${escapeHtml(q.stem)}</p>`);
+      : (stemImage
+        ? `<figure class="source-page-figure"><img class="stem-image exam" src="${escapeHtml(stemImage)}" alt="${escapeHtml(q.sourcePage ? `真题原页第 ${q.sourcePage} 页` : q.stem)}"><figcaption>原页图片（公式显示以此为准）</figcaption></figure>`
+        : `<p>${escapeHtml(q.stem)}</p>`);
+    const sourcePageLink = sourcePageImage
+      ? `<p class="source-page-link"><a class="ghost link-button" href="${escapeHtml(sourcePageImage)}" target="_blank" rel="noopener">查看原页${q.sourcePage ? `（第 ${escapeHtml(q.sourcePage)} 页）` : ""}</a></p>`
+      : "";
+    const textLayer = q.practiceStatus === "trial" && q.stem
+      ? `<details class="exam-text-layer"><summary>OCR 文本层（仅用于搜索和复制）</summary><pre>${escapeHtml(q.stem)}</pre></details>`
+      : "";
     return `<div class="exam-stem">
       <div class="exam-paper">
         ${body}
-      </div>
+        ${textLayer}
+      </div>${sourcePageLink}
     </div>`;
   }
   return `<div class="exam-stem text-mode">
@@ -1467,11 +1489,12 @@ async function renderPastExams() {
   const data = state.pastExamSources || await api("/api/past-exam-sources");
   const trusted = (data.trustedSources || []).flatMap((source) => (source.items || []).map((item) => ({ ...item, site: source.site })));
   const candidates = data.candidateSourcesNeedReview || [];
+  const localSources = data.localSources || [];
   shell("真题库", `<section class="panel">
     <div class="metrics">
       <div class="metric"><span>已登记来源</span><strong>${trusted.length}</strong></div>
       <div class="metric"><span>候选来源</span><strong>${candidates.length}</strong></div>
-      <div class="metric"><span>已导入真题</span><strong>0</strong></div>
+      <div class="metric"><span>已导入结构化真题</span><strong>${Number(data.importedQuestionCount || 0)}</strong></div>
       <div class="metric"><span>状态</span><strong>待OCR校对</strong></div>
     </div>
   </section>
@@ -1486,6 +1509,15 @@ async function renderPastExams() {
         <a class="ghost link-button" href="${escapeHtml(item.url)}" target="_blank">打开来源</a>
       </div>
     </article>`).join("") || "<p>暂无已登记来源。</p>"}</div>
+  </section>
+  <section class="panel">
+    <h2>本地原页资料</h2>
+    <div class="cards">${localSources.map((item) => `<article class="card">
+      <h3>${escapeHtml(item.title)}</h3>
+      <p>来源：${escapeHtml(item.site)}；范围：${escapeHtml(item.year || "")}${item.mathType ? `；${escapeHtml(item.mathType)}` : ""}</p>
+      <p>${escapeHtml(item.description || "原页资料可供浏览，结构化题目需审核后发布。")}</p>
+      <div class="row"><a class="primary link-button" href="${escapeHtml(item.url)}" target="_blank" rel="noopener">打开原页预览</a></div>
+    </article>`).join("") || "<p>暂无本地原页资料。</p>"}</div>
   </section>
   <section class="panel">
     <h2>说明</h2>
