@@ -1,6 +1,7 @@
 (function () {
   const isStaticHost = location.hostname.endsWith("github.io") || location.protocol === "file:";
   if (!isStaticHost) return;
+  const { gradeChoiceAnswer } = window.ChoiceGrading || {};
 
   window.__APP_CONFIG__ = { apiBaseUrl: "", environment: "static-demo" };
   window.__APP_BASE_PATH__ = location.hostname.endsWith("github.io")
@@ -202,30 +203,6 @@
       poolCounts: { new: newPool.length, wrong: wrongPool.length }
     };
   };
-  const choiceAnswerIndex = (value, options = []) => {
-    const normalized = normalizeAnswer(value);
-    if (!normalized) return -1;
-    const optionIndex = options.findIndex((option) => equivalentAnswer(option, value));
-    if (optionIndex >= 0) return optionIndex;
-    const letter = normalized.match(/^([a-z])(?:[.、:：)）\\]]*)?$/i);
-    if (letter) {
-      const index = letter[1].toUpperCase().charCodeAt(0) - 65;
-      if (index >= 0 && index < options.length) return index;
-    }
-    const numericIndex = Number(normalized);
-    if (Number.isInteger(numericIndex) && numericIndex >= 1 && numericIndex <= options.length) return numericIndex - 1;
-    return -1;
-  };
-  const choiceMatches = (question, attempt = {}) => {
-    const options = Array.isArray(question.options) ? question.options : [];
-    const expectedIndex = choiceAnswerIndex(question.answer, options);
-    const selectedIndex = [attempt.selectedOption, attempt.answer]
-      .filter(Boolean)
-      .map((value) => choiceAnswerIndex(value, options))
-      .find((index) => index >= 0);
-    if (expectedIndex >= 0 && selectedIndex >= 0) return expectedIndex === selectedIndex;
-    return [attempt.selectedOption, attempt.answer].filter(Boolean).some((value) => equivalentAnswer(question.answer, value));
-  };
   const extractFillAnswerFromWorkSpace = (text = "") => {
     const lines = String(text || "").split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
     if (!lines.length) return "";
@@ -244,7 +221,7 @@
   const scoreAnswer = (question, attempt) => {
     const value = attempt.answer || attempt.selectedOption || attempt.formulaText || (question.type === "fill" ? extractFillAnswerFromWorkSpace(attempt.stepsText) : "");
     if (!value && question.type !== "choice" && attempt.strokeCount > 0) return null;
-    if (question.type === "choice") return Boolean(value && choiceMatches(question, attempt));
+    if (question.type === "choice") return Boolean(value && gradeChoiceAnswer(value, question.answer, question.options, [attempt.selectedOption, attempt.answer]));
     return Boolean(value && equivalentAnswer(question.answer, value));
   };
   const diagnose = (question, correct, attempt) => {
