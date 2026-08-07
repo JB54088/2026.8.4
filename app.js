@@ -318,6 +318,150 @@ function escapeHtml(value) {
     .replace(/"/g, "&quot;");
 }
 
+function mathExpressionToLatex(value) {
+  let expression = String(value || "")
+    .trim()
+    .replace(/[−–]/g, "-")
+    .replace(/²/g, "^2")
+    .replace(/³/g, "^3")
+    .replace(/×/g, "\\cdot ")
+    .replace(/÷/g, "\\div ")
+    .replace(/∞/g, "\\infty")
+    .replace(/→/g, "\\to")
+    .replace(/√\s*\(([^()]*)\)/g, "\\sqrt{$1}")
+    .replace(/√\s*([A-Za-z0-9]+)/g, "\\sqrt{$1}")
+    .replace(/\b(ln|sin|cos|tan|cot|exp)\b/gi, "\\$1")
+    .replace(/([A-Za-z])\^\(([^()]*)\)/g, "$1^{$2}")
+    .replace(/([A-Za-z0-9])\^([A-Za-z0-9]+)/g, "$1^{$2}")
+    .replace(/([A-Za-z])_([0-9]+)/g, "$1_{$2}");
+  const groupedFraction = expression.match(/^\((.*)\)\s*\/\s*([A-Za-z0-9{}^()+-]+)$/);
+  if (groupedFraction) return `\\frac{${mathExpressionToLatex(groupedFraction[1])}}{${mathExpressionToLatex(groupedFraction[2])}}`;
+  const simpleFraction = expression.match(/^([^\s]+)\s*\/\s*([^\s]+)$/);
+  if (simpleFraction) return `\\frac{${simpleFraction[1]}}{${simpleFraction[2]}}`;
+  return expression;
+}
+
+function renderMathText(value, options = {}) {
+  const source = String(value || "");
+  if (!source.trim()) return "";
+  const placeholders = [];
+  const math = (latex, display = false) => {
+    const index = placeholders.push(display ? `\\[${latex}\\]` : `\\(${latex}\\)`) - 1;
+    return `\uE000${index}\uE001`;
+  };
+  let text = source
+    .replace(/\\\[([\s\S]*?)\\\]/g, (_, latex) => math(latex, true))
+    .replace(/\\\(([\s\S]*?)\\\)/g, (_, latex) => math(latex, false))
+    .replace(/lim\s*\(\s*([a-zA-Z])\s*(?:→|->|to)\s*([^\s)]+)\s*\)\s*\[([^\]]+)\]/gi, (_, variable, target, expression) => math(`\\lim_{${variable}\\to ${mathExpressionToLatex(target)}}${mathExpressionToLatex(expression)}`, true))
+    .replace(/lim\s*\(\s*([a-zA-Z])\s*(?:→|->|to)\s*([^\s)]+)\s*\)\s*\(([^)]+)\)/gi, (_, variable, target, expression) => math(`\\lim_{${variable}\\to ${mathExpressionToLatex(target)}}${mathExpressionToLatex(expression)}`, true))
+    .replace(/∫\s*(?:\(([^,]+),([^)]+)\)\s*)?([^。；;，,\n]+?\s*dx)/g, (_, lower, upper, expression) => math(`\\int${lower && upper ? `_{${mathExpressionToLatex(lower)}}^{${mathExpressionToLatex(upper)}}` : ""} ${mathExpressionToLatex(expression)}`, true))
+    .replace(/([A-Za-z][A-Za-z0-9]*(?:\^\([^)]*\)|\^[A-Za-z0-9]+)(?:[A-Za-z0-9^()\-+*/=.]*)?)/g, (token) => math(mathExpressionToLatex(token), false));
+  const escaped = escapeHtml(text)
+    .replace(/\uE000(\d+)\uE001/g, (_, index) => placeholders[Number(index)] || "");
+  return options.display ? `<div class="math-text math-display">${escaped}</div>` : escaped;
+}
+
+function renderMathBlock(value) {
+  const latex = mathExpressionToLatex(value);
+  return latex ? `<div class="math-text math-display">\\[${latex}\\]</div>` : "";
+}
+
+function fallbackDetailedSolution(question = {}) {
+  const stem = String(question.stem || question.title || "");
+  const point = question.point || question.subKnowledgePoint || "本题对应知识点";
+  const chapterName = question.chapterName || question.chapter || "本章节";
+  const limitExpansion = stem.match(/e\^\(?([+-]?\d*)x\)?\s*[−-]\s*1\s*[−-]\s*\1x/i);
+  if (limitExpansion && /x(?:\^2|²)/i.test(stem)) {
+    const rawCoefficient = limitExpansion[1] || "1";
+    const coefficient = rawCoefficient === "+" ? "1" : rawCoefficient;
+    return {
+      examFocus: "指数函数的二阶展开与等价无穷小",
+      preAnalysis: "分子中的一次项会与题目中的线性项相消，因此不能只保留一阶等价无穷小，必须展开到 x² 项。",
+      formulas: [`\\[e^{${coefficient}x}=1+${coefficient}x+\\frac{(${coefficient}x)^2}{2!}+o(x^2),\\quad x\\to0\\]`],
+      steps: [
+        { title: "第1步：确定展开阶数", content: "分母是 x²，且分子的一次项会被减去，所以要保留指数函数的二阶项。" },
+        { title: "第2步：展开指数函数", content: `\\[e^{${coefficient}x}=1+${coefficient}x+\\frac{${coefficient}^2}{2}x^2+o(x^2)\\]` },
+        { title: "第3步：处理分子", content: `\\[e^{${coefficient}x}-1-${coefficient}x=\\frac{${coefficient}^2}{2}x^2+o(x^2)\\]` },
+        { title: "第4步：代回原式", content: `\\[\\frac{e^{${coefficient}x}-1-${coefficient}x}{x^2}=\\frac{${coefficient}^2}{2}+o(1)\\]` }
+      ],
+      finalAnswer: question.answer || `\\[\\frac{${coefficient}^2}{2}\\]`,
+      commonPitfall: `不能直接使用 e^{${coefficient}x}-1\\sim ${coefficient}x，因为后面还要减去 ${coefficient}x；这样会把真正决定极限的二阶项一并丢掉。`
+    };
+  }
+  if (/极限|lim/i.test(stem)) {
+    return {
+      examFocus: `${chapterName}中的${point}`,
+      preAnalysis: "先判断极限类型和分子、分母的最低非零阶，再选择等价无穷小、泰勒展开、洛必达法则或恒等变形。",
+      formulas: question.formula ? [question.formula] : ["先确认等价无穷小的适用条件，再进行替换。"],
+      steps: [
+        { title: "第1步：判断未定式", content: "将趋近值代入，确认是否为 0/0、∞/∞ 或其他未定式。" },
+        { title: "第2步：选择方法", content: "优先保留分子、分母的最低非零阶，避免在相减结构中误删同阶项。" },
+        { title: "第3步：化简并求值", content: question.explanation || "逐步约去公共因子，最后再代入趋近值。" }
+      ],
+      finalAnswer: question.answer || "以最后一步化简结果为准。",
+      commonPitfall: question.reason || "相减后低阶项可能消失，不能在未检查相消关系前直接套用一阶等价无穷小。"
+    };
+  }
+  return {
+    examFocus: `${chapterName}中的${point}`,
+    preAnalysis: "先整理已知条件和所求量，明确使用的定义、公式及公式成立条件。",
+    formulas: question.formula ? [question.formula] : ["先写出适用的定义或公式，再进行代入和变形。"],
+    steps: [
+      { title: "第1步：提取条件", content: "列出题目给出的量、关系式和限制条件，避免遗漏定义域或边界条件。" },
+      { title: "第2步：建立方法", content: "根据题型选择对应的定义、公式或解题模型，并说明使用理由。" },
+      { title: "第3步：完成计算", content: question.explanation || "按等式逐步计算，保留关键中间结果并检查符号。" }
+    ],
+    finalAnswer: question.answer || "以最后一步计算结果作答。",
+    commonPitfall: question.reason || "不要跳过关键条件和中间步骤，完成后检查结果是否符合题意。"
+  };
+}
+
+function renderSolutionContent(value) {
+  return String(value ?? "")
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => /^\\\[[\s\S]*\\\]$/.test(line) ? renderMathText(line) : `<p>${renderMathText(line)}</p>`)
+    .join("");
+}
+
+function renderStemHtml(value) {
+  return String(value || "").replace(/<span\s+class=["']math["']>([\s\S]*?)<\/span>/gi, (_, formula) => `<span class="math">\\(${formula}\\)</span>`);
+}
+
+function typesetMath() {
+  const root = $("#view");
+  if (!root || !window.MathJax) return;
+  const render = () => window.MathJax.typesetPromise?.([root]).catch(() => {});
+  if (window.MathJax.startup?.promise) window.MathJax.startup.promise.then(render);
+  else setTimeout(render, 80);
+}
+
+function renderDetailedExplanation(question = {}) {
+  const existingSolution = question.detailedSolution;
+  const hasDetailedSteps = existingSolution && (
+    (Array.isArray(existingSolution.steps) && existingSolution.steps.length > 0)
+    || (Array.isArray(existingSolution.formulas) && existingSolution.formulas.length > 0)
+    || existingSolution.examFocus
+    || existingSolution.preAnalysis
+  );
+  const solution = hasDetailedSteps ? existingSolution : fallbackDetailedSolution(question);
+  const steps = Array.isArray(solution.steps) ? solution.steps : [];
+  const formulas = Array.isArray(solution.formulas)
+    ? solution.formulas
+    : (question.formula ? [question.formula] : []);
+  const sections = [
+    ["题目考查", solution.examFocus || `${question.chapterName || "本章节"}中的${question.point || "核心知识点"}。`],
+    ["题目理解", solution.preAnalysis || "先提取题干中的已知条件、限制条件和所求量，明确题目最终要求。"],
+    ["公式与适用条件", formulas.length ? formulas.join("；") : "先写出定义、公式及其适用条件，再开始变形和计算。"],
+    ["解题步骤", steps.length ? steps.map((step, index) => `${step.title || `步骤${step.order || index + 1}`}：${step.content || ""}`).join("\n") : (question.explanation || "逐行完成代入、变形和化简，不能跳过影响结论的关键等式。")],
+    ["最终结论", solution.finalAnswer || question.answer || "请根据最后一步计算结果作答。"],
+    ["易错提醒", solution.commonPitfall || question.reason || "检查公式条件、符号、定义域和最后一步是否回答了题目所问。"]
+  ];
+  return `<div class="solution-sections">${sections.map(([title, content]) => `<section class="solution-section"><h4>${title}</h4><div class="solution-content">${renderSolutionContent(content)}</div></section>`).join("")}</div>`;
+}
+
+
 function uiMessage(message, type = "info") {
   let host = document.querySelector(".toast-host");
   if (!host) {
@@ -420,6 +564,7 @@ function shell(title, body) {
     : "";
   $("#view").innerHTML = body;
   document.querySelectorAll("[data-view]").forEach((button) => button.onclick = () => setView(button.dataset.view));
+  typesetMath();
 }
 
 function render() {
@@ -844,10 +989,10 @@ function questionStem(q) {
     const sourcePageImage = safeAssetHref(q.sourcePageImage);
     const stemImage = safeAssetHref(q.stemImage) || (q.practiceStatus === "trial" ? sourcePageImage : "");
     const body = q.stemHtml
-      ? `<div class="typeset-stem">${q.stemHtml}</div>`
+      ? `<div class="typeset-stem">${renderStemHtml(q.stemHtml)}</div>`
       : (stemImage
         ? `<figure class="source-page-figure"><img class="stem-image exam" src="${escapeHtml(stemImage)}" alt="${escapeHtml(q.sourcePage ? `真题原页第 ${q.sourcePage} 页` : q.stem)}"><figcaption>原页图片（公式显示以此为准）</figcaption></figure>`
-        : `<p>${escapeHtml(q.stem)}</p>`);
+        : `${renderMathText(q.stem, { display: true })}`);
     const sourcePageLink = sourcePageImage
       ? `<p class="source-page-link"><a class="ghost link-button" href="${escapeHtml(sourcePageImage)}" target="_blank" rel="noopener">查看原页${q.sourcePage ? `（第 ${escapeHtml(q.sourcePage)} 页）` : ""}</a></p>`
       : "";
@@ -863,7 +1008,7 @@ function questionStem(q) {
   }
   return `<div class="exam-stem text-mode">
     <div class="exam-paper">
-      <p>${escapeHtml(q.stem)}</p>
+      ${renderMathText(q.stem, { display: true })}
     </div>
   </div>`;
 }
@@ -873,7 +1018,7 @@ function questionAnswerControls(q) {
     const selected = state.responses[q.id]?.selectedOption || "";
     return `<div class="practice-choice-list" aria-label="选择答案">${(q.options || []).map((option, index) => {
       const letter = String.fromCharCode(65 + index);
-      return `<button class="practice-choice ${selected === option || selected === letter ? "active" : ""}" data-choice="${escapeHtml(option)}" data-choice-letter="${letter}">${letter}. ${escapeHtml(option)}</button>`;
+      return `<button class="practice-choice ${selected === option || selected === letter ? "active" : ""}" data-choice="${renderMathText(option)}" data-choice-letter="${letter}">${letter}. ${renderMathText(option)}</button>`;
     }).join("")}</div>`;
   }
   return `<p class="practice-answer-hint">${q.type === "fill" ? "请在做题空间中写出最终答案和必要步骤。" : "请在做题空间中完整写出解题过程和最终答案。"}</p>`;
@@ -1191,7 +1336,7 @@ function renderRoundResults() {
     return `<article class="result-card">
       <h3>第 ${index + 1} 题 <span class="badge ${badge}">${label}</span></h3>
       <p class="stem">${escapeHtml(question.chapterName)} · ${escapeHtml(question.point || question.stem)}</p>
-      ${question.stemHtml ? `<div class="exam-paper result-paper"><div class="typeset-stem">${question.stemHtml}</div></div>` : (question.stemImage ? `<div class="exam-paper result-paper"><img class="stem-image exam small" src="${escapeHtml(question.stemImage)}" alt="${escapeHtml(question.stem)}"></div>` : "")}
+      ${question.stemHtml ? `<div class="exam-paper result-paper"><div class="typeset-stem">${question.stemHtml}</div></div>` : (question.stemImage ? `<div class="exam-paper result-paper"><img class="stem-image exam small" src="${escapeHtml(question.stemImage)}" alt="${renderMathText(question.stem, { display: true })}"></div>` : "")}
       <div class="result-grid">
         <p><span>你的答案</span><strong>${escapeHtml(userAnswer)}</strong></p>
         <p><span>标准答案</span><strong>${escapeHtml(standardAnswer)}</strong></p>
@@ -1281,9 +1426,10 @@ async function renderPaperReport() {
   const questions = (report.questionAnalyses || []).map((item, index) => `<article class="status-card ${item.needsDeepDiagnosis ? "needs-diagnosis" : ""}">
     <h3>第 ${index + 1} 题 · ${escapeHtml(item.typeLabel)}</h3>
     <p>${item.score}/${item.maxScore} 分 · ${item.answerCorrectButProcessIssue ? "结果正确但过程有问题" : item.needsDeepDiagnosis ? "进入深度诊断" : "正确题轻记录"} · ${escapeHtml(item.deductionReason || "")}</p>
+    <div class="report-question-stem">${renderMathText(item.title || item.stem || "", { display: true })}</div>
     <p><strong>学生答案：</strong>${escapeHtml(item.studentAnswer || "未作答/未识别")}</p>
     <p><strong>标准答案：</strong>${escapeHtml(item.standardAnswer || "待校对")}</p>
-    <p><strong>答案解析：</strong>${escapeHtml(item.standardSteps || "该题暂无解析")}</p>
+    <div class="result-explanation"><strong>答案解析</strong>${renderDetailedExplanation({ ...item, explanation: item.standardSteps, answer: item.standardAnswer, point: (item.knowledgePoints || []).join("、") })}</div>
     ${item.needsDeepDiagnosis ? `<p><strong>薄弱知识点：</strong>${escapeHtml((item.knowledgePoints || []).join("、") || "待识别")} · <strong>首个错误：</strong>${item.firstErrorStep ? `步骤 ${item.firstErrorStep}` : "待确认"}</p>` : ""}
     <button class="ghost" data-review-index="${index}">${item.needsDeepDiagnosis ? "查看错题过程诊断" : "查看记录"}</button>
     ${item.needsDeepDiagnosis && item.questionId ? `<button class="ghost" data-report-training-source="${escapeHtml(item.questionId)}">针对薄弱点训练</button>` : ""}
@@ -1383,7 +1529,7 @@ async function renderQuestionReview() {
       <h3>第 ${index + 1} 题 · ${escapeHtml(item.typeLabel)}</h3>
       <span class="badge ${item.finalAnswerCorrect ? "" : "bad"}">${item.score}/${item.maxScore} 分</span>
     </div>
-    <article class="exam-paper text-mode"><p>${escapeHtml(item.title)}</p></article>
+    <article class="exam-paper text-mode">${renderMathText(item.title, { display: true })}</article>
     <p class="mode-help">${item.needsDeepDiagnosis ? "本题进入错题过程深度诊断：系统优先定位第一处错误步骤、根本原因和后续训练目标。" : "本题答案与过程基本稳定，仅做结果、知识点和用时记录，不生成额外训练。"}</p>
     <div class="result-grid compact">
       <p><span>学生原始答案</span><strong>${escapeHtml(item.studentAnswer || "未作答/未识别")}</strong></p>
@@ -1399,7 +1545,7 @@ async function renderQuestionReview() {
     </div>
   </section>
   <section class="panel"><h2>步骤对照</h2><div class="step-list">${steps}</div></section>
-  <section class="panel"><h2>标准解题提示</h2><p class="mode-help">${escapeHtml(item.standardSteps || "该题暂无标准步骤，需教研补充。")}</p><div class="row"><button class="primary" data-view="paperReport">返回整卷报告</button><button class="ghost" id="startQuestionTraining">针对本题错误开始专项训练</button><button class="ghost" data-view="originalRetry">原题重做</button></div></section>`);
+  <section class="panel"><h2>详细解析</h2>${renderDetailedExplanation({ ...item, explanation: item.standardSteps, answer: item.standardAnswer, point: (item.knowledgePoints || []).join("、") })}<div class="row"><button class="primary" data-view="paperReport">返回整卷报告</button><button class="ghost" id="startQuestionTraining">针对本题错误开始专项训练</button><button class="ghost" data-view="originalRetry">原题重做</button></div></section>`);
   document.querySelectorAll("[data-question-index]").forEach((button) => {
     button.onclick = () => {
       state.reviewQuestionIndex = Number(button.dataset.questionIndex);
@@ -1646,7 +1792,7 @@ async function renderCollection() {
       <td>${index + 1}</td>
       <td><span class="badge ${badge}">${status}</span></td>
       <td>${escapeHtml(question.chapterName)}<br><small>${escapeHtml(question.point)}</small></td>
-      <td>${question.stemImage ? `<img class="collection-thumb" src="${escapeHtml(question.stemImage)}" alt="${escapeHtml(question.stem)}">` : escapeHtml(question.stem)}</td>
+      <td>${question.stemImage ? `<img class="collection-thumb" src="${escapeHtml(question.stemImage)}" alt="${renderMathText(question.stem, { display: true })}">` : escapeHtml(question.stem)}</td>
       <td>${times}刷</td>
       <td>${escapeHtml(attempt.reason)}</td>
     </tr>`;
@@ -1940,7 +2086,7 @@ function renderTrainingAnswerControls(question, record) {
     const picked = record.selectedOption || record.answer || "";
     return `<div class="training-choices">${(question.options || []).map((option) => {
       const value = trainingOptionValue(option);
-      return `<button class="training-choice ${picked === value ? "active" : ""}" data-training-choice="${escapeHtml(value)}">${escapeHtml(option)}</button>`;
+      return `<button class="training-choice ${picked === value ? "active" : ""}" data-training-choice="${escapeHtml(value)}">${renderMathText(option)}</button>`;
     }).join("")}</div>`;
   }
   if (question.questionType === "fill") {
@@ -1956,17 +2102,9 @@ function trainingFeedback(question, record) {
   if (!record.submitted) return "";
   const status = record.correct === true ? "本题正确" : record.correct === false ? "本题需要复盘" : "已提交，主观过程等待 OCR/AI 识别";
   const cls = record.correct === true ? "good" : record.correct === false ? "bad" : "pending";
-  const solution = question.detailedSolution || {};
-  const solutionSteps = Array.isArray(solution.steps) ? solution.steps : [];
-  const explanation = solution.preAnalysis || solution.methodSummary || question.explanation || "暂无详细解析";
   return `<section class="training-feedback ${cls}">
     <h3>${status}</h3>
-    <p><strong>标准答案：</strong>${escapeHtml(question.answer)}</p>
-    <p><strong>考查知识点：</strong>${escapeHtml(question.knowledgePoint || question.subKnowledgePoint || "")}</p>
-    <p><strong>解题思路：</strong>${escapeHtml(explanation)}</p>
-    ${solution.formula ? `<p><strong>关键公式：</strong>${escapeHtml(solution.formula)}</p>` : ""}
-    <div class="training-solution-steps">${solutionSteps.length ? solutionSteps.map((step, index) => `<p><strong>${escapeHtml(step.title || `步骤${step.order || index + 1}`)}：</strong>${escapeHtml(step.content || "")}</p>`).join("") : `<p>${escapeHtml(question.explanation || "请结合题干条件，先写出适用公式，再完成代入、化简和结论检查。")}</p>`}</div>
-    <p><strong>易错点：</strong>${escapeHtml(solution.commonPitfall || question.sourceErrorType || "")}</p>
+    ${renderDetailedExplanation(question)}
   </section>`;
 }
 
@@ -2074,8 +2212,8 @@ async function renderSimilarTrainingV2() {
     </div>
     <article class="training-question">
       <div class="training-question-number">题目 ${index + 1}</div>
-      <div class="training-stem">${escapeHtml(question.stem)}</div>
-      ${question.formula ? `<div class="training-formula">${escapeHtml(question.formula)}</div>` : ""}
+      <div class="training-stem">${renderMathText(question.stem, { display: true })}</div>
+      ${question.formula ? renderMathBlock(question.formula) : ""}
       ${renderTrainingAnswerControls(question, record)}
     </article>
     ${trainingFeedback(question, record)}
