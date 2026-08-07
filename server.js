@@ -1707,7 +1707,19 @@ async function buildAttemptFromResponse(store, student, question, payload, submi
     advice: diagnosis.advice,
     recommendedPractice: recognition.recommendedPractice || "",
     evidence: diagnosis.evidence,
-    steps: buildStepAnalysis(question, { ...payload, answer: finalAnswer, correct, gradingStatus, reason: diagnosis.mainReason, recognizedAnswer: recognition.recognizedAnswer, recognizedSteps: recognition.stepsSummary }),
+    steps: buildStepAnalysis(question, {
+      ...payload,
+      answer: finalAnswer,
+      correct,
+      gradingStatus,
+      reason: diagnosis.mainReason,
+      recognizedAnswer: recognition.recognizedAnswer,
+      recognizedSteps: recognition.stepsSummary,
+      structuredSteps: recognition.structuredSteps || [],
+      ocrResult: { structuredSteps: recognition.structuredSteps || [] },
+      rootCause: recognition.rootCause || "",
+      processIssueReason: recognition.processIssueReason || ""
+    }),
     createdAt: nowIso()
   };
 }
@@ -2084,10 +2096,63 @@ function reasonForAttempt(question, attempt) {
   return raw && !["已掌握", "待识别"].includes(raw) ? raw : (question?.reason || "解题方法选择错误");
 }
 
+function buildStructuredStepAnalysis(question, attempt, weakPoint, maxScore) {
+  const rawSteps = Array.isArray(attempt?.structuredSteps)
+    ? attempt.structuredSteps
+    : (Array.isArray(attempt?.ocrResult?.structuredSteps) ? attempt.ocrResult.structuredSteps : []);
+  if (!rawSteps.length) return [];
+
+  const fallbackReason = reasonForAttempt(question, attempt);
+  const baseScore = Math.floor(maxScore / rawSteps.length);
+  const remainder = maxScore % rawSteps.length;
+  return rawSteps.map((rawStep, index) => {
+    const step = rawStep && typeof rawStep === "object" ? rawStep : {};
+    const statusValue = String(step.status || "uncertain").toLowerCase();
+    const status = ["correct", "wrong", "partial", "uncertain", "blank"].includes(statusValue)
+      ? statusValue
+      : "uncertain";
+    const stepMaxScore = Number.isFinite(Number(step.maxScore))
+      ? Math.max(0, Number(step.maxScore))
+      : baseScore + (index < remainder ? 1 : 0);
+    const defaultScore = status === "correct"
+      ? stepMaxScore
+      : status === "partial" ? Math.round(stepMaxScore * 0.5) : 0;
+    const score = Number.isFinite(Number(step.score))
+      ? Math.max(0, Math.min(stepMaxScore, Number(step.score)))
+      : defaultScore;
+    const studentContent = String(step.studentRaw || step.studentContent || "").trim();
+    const normalizedExpression = String(step.normalized || step.normalizedExpression || "").trim();
+    const conditionCheck = String(step.conditionCheck || "").trim();
+    const linkWithPrevious = String(step.linkWithPrevious || "").trim();
+    const errorDescription = String(step.errorDescription || "").trim()
+      || (status === "correct" ? "该步骤与标准解法一致。" : (attempt?.rootCause || fallbackReason));
+    const correction = String(step.correction || step.correctedExpression || "").trim()
+      || (status === "correct" ? "继续保持当前方法。" : `回到“${weakPoint}”的定义、公式和适用条件后重新推导。`);
+    const judgment = String(step.judgment || "").trim()
+      || (status === "correct" ? "步骤正确" : status === "partial" ? "步骤部分正确" : status === "uncertain" ? "步骤待确认" : "步骤存在错误");
+    return {
+      stepNumber: Number(step.stepNumber || index + 1),
+      status,
+      judgment,
+      score,
+      maxScore: stepMaxScore,
+      studentContent: studentContent || "未识别到该步骤的有效内容",
+      normalizedExpression: normalizedExpression || "未形成可比对的数学表达",
+      errorDescription,
+      correction,
+      relatedKnowledgePoint: String(step.knowledgePoint || weakPoint),
+      conditionCheck,
+      linkWithPrevious
+    };
+  });
+}
+
 function buildStepAnalysis(question, attempt) {
   const weakPoint = normalizeWeakPoint(question, attempt);
   const reason = reasonForAttempt(question, attempt);
   const { maxScore } = scoreForAttempt(question, attempt);
+  const structuredSteps = buildStructuredStepAnalysis(question, attempt, weakPoint, maxScore);
+  if (structuredSteps.length) return structuredSteps;
   if (!attempt || attempt.correct === null || attempt.gradingStatus === "pending_recognition") {
     return [{
       stepNumber: 1,
@@ -2144,7 +2209,6 @@ function buildStepAnalysis(question, attempt) {
     }
   ];
 }
-
 function buildDemoLoop() {
   return {
     diagnosis: {
