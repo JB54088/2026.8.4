@@ -33,7 +33,7 @@ const PORT = Number(process.env.PORT || 5188);
 const NODE_ENV = process.env.NODE_ENV || "development";
 const ADMIN_KEY = process.env.ADMIN_KEY || (NODE_ENV === "production" ? "" : "admin2026");
 const PUBLIC_API_BASE_URL = process.env.PUBLIC_API_BASE_URL || "";
-const QUESTION_SCHEMA_VERSION = 17;
+const QUESTION_SCHEMA_VERSION = 18;
 const ALLOWED_ORIGINS = String(process.env.ALLOWED_ORIGINS || "")
   .split(",")
   .map((item) => item.trim())
@@ -58,10 +58,14 @@ function db() {
   if (!fs.existsSync(DB_FILE)) writeJson(DB_FILE, seedDb());
   const store = readJson(DB_FILE);
   if (!Array.isArray(store.questions) || store.questions.length < 10000 || store.meta.questionSchemaVersion !== QUESTION_SCHEMA_VERSION) {
-    store.questions = buildQuestions();
+    store.questions = buildQuestions().map(enrichQuestionWithSolution);
     migrateChapterReferences(store);
     store.meta = store.meta || {};
     store.meta.questionSchemaVersion = QUESTION_SCHEMA_VERSION;
+    saveDb(store);
+  } else if ((store.questions || []).some((question) => question.solutionVersion !== 1)) {
+    store.questions = store.questions.map(enrichQuestionWithSolution);
+    migrateChapterReferences(store);
     saveDb(store);
   }
   if (!Array.isArray(store.submissions)) {
@@ -235,6 +239,135 @@ function buildQuestions() {
   return [...readPastExamQuestions(), ...buildSubjectiveQuestions(), ...buildExamStyleQuestions(), ...handPicked, ...buildGeneratedQuestions()]
     .map(classifyQuestionChapter);
 }
+
+function solutionStep(order, title, content) {
+  return { order, title, content };
+}
+
+function buildDetailedSolution(question) {
+  const stem = String(question.stem || "");
+  const chapter = question.chapterName || "考研数学";
+  const point = question.point || chapter;
+  const answer = question.answer || "待教研校对";
+  const formula = question.formula || "先写出定义、公式和适用条件";
+  const explanation = question.explanation || "按等式逐步完成代入、变形和化简，并保留能够复核的中间结果。";
+  const common = `本题考查${chapter}中的${point}。先把题干条件翻译成数学关系，再选择公式并逐步计算。`;
+  let examFocus = common;
+  let preAnalysis = "读题时先标出已知量、所求量、定义域和限制条件，确认每一步变形都在题目允许的范围内。";
+  let formulas = [formula, "每一步保留等号或等价号的依据", "最后检查定义域、符号、范围和题目问法"];
+  let steps = [
+    solutionStep(1, "第1步：提取条件", "明确题目给出的量、关系式和最终所求，不能只看最后一个空。"),
+    solutionStep(2, "第2步：选择方法", `根据${point}选择对应定义或公式，并先确认公式的适用条件。`),
+    solutionStep(3, "第3步：逐步推导", explanation),
+    solutionStep(4, "第4步：检查结论", `得到${answer}。回代原条件，检查符号、定义域、单位和结论是否真正回答了题目。`)
+  ];
+  let commonPitfall = `本题容易在${question.reason || "方法选择或计算过程"}处出错。不要跳过关键中间步骤，做完后再次核对最后一步。`;
+
+  if (/极限|lim|sin|cos|tan|ln|e\^/i.test(stem)) {
+    examFocus = `本题考查${point}，核心是判断分子、分母的最低非零阶并选择正确的极限工具。`;
+    preAnalysis = "先代入判断是否为未定式，再观察是否存在相减相消；如果低阶项会相消，展开阶数必须至少达到分母的最低非零阶。";
+    formulas = [formula, "sin u∼u，tan u∼u，1−cos u∼u²/2，ln(1+u)=u−u²/2+o(u²)", "等价无穷小只能在乘除结构中稳定替换，相减结构要先展开到保留下来的阶数"];
+    steps = [
+      solutionStep(1, "第1步：判断未定式与相消关系", "将趋近值代入，确定是 0/0 还是需要比较无穷小阶数；特别检查分子中是否有同阶项相减。"),
+      solutionStep(2, "第2步：选取展开阶数", "分母是几阶，就至少保留分子中相应的最低非零阶；若一次项被消掉，就必须继续保留二次项。"),
+      solutionStep(3, "第3步：代入等价无穷小或泰勒展开", explanation),
+      solutionStep(4, "第4步：约去公共阶并求极限", `化去分子、分母的公共最低阶，得到最终结果 ${answer}，再检查是否遗漏高阶无穷小。`)
+    ];
+    commonPitfall = "不能在相减结构中直接把一阶等价无穷小代入；一次项相消后，真正决定极限的可能是二阶或更高阶项。";
+  } else if (/积分|∫|面积|利润|应用建模/.test(stem + point)) {
+    examFocus = `本题考查${point}，重点是识别积分模型、积分方法和上下限或常数条件。`;
+    preAnalysis = "先判断是不定积分、定积分、反常积分还是应用建模题；写清被积函数、积分区间、换元关系或分部积分中的 u、dv。";
+    formulas = [formula, "∫u dv=uv−∫v du", "定积分先求原函数再代入上下限；不定积分最后必须补常数 C"];
+    steps = [
+      solutionStep(1, "第1步：确定积分类型", "区分不定积分与定积分，检查上下限、被积函数和是否需要常数 C。"),
+      solutionStep(2, "第2步：选择积分方法", "看到内层函数及其导数因子优先换元；乘积中多项式与指数、对数或三角函数组合时检查分部积分。"),
+      solutionStep(3, "第3步：逐步计算", explanation),
+      solutionStep(4, "第4步：回代与检查", `得到 ${answer}。检查上下限代入、常数项、符号以及应用题中的取值范围。`)
+    ];
+    commonPitfall = question.type === "fill" ? "不定积分漏写 C、定积分误保留 C、换元后忘记替换 dx，都是本类题的高频错误。" : "先写方法依据再计算，不能只凭形式套公式。";
+  } else if (/导数|偏导|全微分|极值|单调/.test(stem + point)) {
+    examFocus = `本题考查${point}，重点是变量依赖关系、求导规则和结论成立条件。`;
+    preAnalysis = "先确定对哪个变量求导，以及其他变量是否视为常数；若判断极值或单调性，还要检查驻点附近符号或二阶条件。";
+    formulas = [formula, "链式法则：对外层求导后乘以内层导数", "二元函数：dz=z_x dx+z_y dy；极值判断要结合驻点和判别条件"];
+    steps = [
+      solutionStep(1, "第1步：确定求导对象", "标明自变量和因变量；偏导时把其他自变量视为常数。"),
+      solutionStep(2, "第2步：写出求导规则", `根据${point}选择链式法则、隐函数求导、偏导或极值判别公式。`),
+      solutionStep(3, "第3步：逐步计算", explanation),
+      solutionStep(4, "第4步：验证结论", `得到 ${answer}。检查内层导数、符号变化、驻点条件和定义域。`)
+    ];
+    commonPitfall = "复合函数漏乘内层导数、偏导时没有固定其他变量、极值题只求驻点不做判别，是本类题最常见的过程错误。";
+  } else if (/矩阵|行列式|秩|线性|特征值/.test(stem + point)) {
+    examFocus = `本题考查${point}，重点是矩阵运算规则、秩与维数关系或行列式性质。`;
+    preAnalysis = "先确认矩阵阶数、行列式结构、秩和未知量个数，再选择按定义计算、初等变换或维数定理。";
+    formulas = [formula, "二阶行列式 ad−bc", "齐次方程组解空间维数 = 未知量个数 − 矩阵秩"];
+    steps = [
+      solutionStep(1, "第1步：读出矩阵信息", "确认矩阵的阶数、元素位置、秩或相似关系，避免把矩阵乘法和数乘混淆。"),
+      solutionStep(2, "第2步：选择运算依据", "按行列式展开、初等变换、秩-维数定理或特征值性质建立计算路径。"),
+      solutionStep(3, "第3步：完成计算", explanation),
+      solutionStep(4, "第4步：检查维数与符号", `得到 ${answer}。检查矩阵阶数、行列式符号和解空间维数是否与题意一致。`)
+    ];
+    commonPitfall = "矩阵乘法通常不满足交换律；行列式变换会影响符号或倍数；秩与未知量个数不能混为一谈。";
+  } else if (/概率|期望|方差|独立|分布/.test(stem + point)) {
+    examFocus = `本题考查${point}，重点是识别事件关系和期望、方差的线性性质。`;
+    preAnalysis = "先确认题目给出的是独立、互斥还是一般事件，再根据随机变量的线性变换写出概率、期望或方差公式。";
+    formulas = [formula, "独立事件：P(AB)=P(A)P(B)", "E(aX+b)=aE(X)+b；D(aX+b)=a²D(X)"];
+    steps = [
+      solutionStep(1, "第1步：识别关系", "区分独立与互斥；独立可以相乘，互斥只能说明交集为空，不能直接替代。"),
+      solutionStep(2, "第2步：写出性质", `根据${point}写出对应概率、期望或方差公式。`),
+      solutionStep(3, "第3步：代入计算", explanation),
+      solutionStep(4, "第4步：检查范围", `得到 ${answer}。概率应位于 [0,1]，方差非负，线性变换的系数平方不能漏掉。`)
+    ];
+    commonPitfall = "把独立误认为互斥、把方差的系数写成一次方、忽略概率范围，是本类题的主要错误。";
+  } else if (/微分方程|方程 y|通解/.test(stem + point)) {
+    examFocus = `本题考查${point}，重点是识别方程类型并保留通解中的任意常数。`;
+    preAnalysis = "先判断是可分离变量、一阶线性还是其他标准形式，再写出积分因子或分离后的积分关系；有初值时最后代入确定常数。";
+    formulas = [formula, "可分离变量：dy/y=f(x)dx", "一阶线性方程先乘积分因子，再对左侧整体求导"];
+    steps = [
+      solutionStep(1, "第1步：识别方程类型", "观察方程是否能分离变量，或是否符合 y'+P(x)y=Q(x) 的一阶线性形式。"),
+      solutionStep(2, "第2步：建立积分关系", "分离变量或写出积分因子，保证每一步都记录任意常数。"),
+      solutionStep(3, "第3步：整理通解或特解", explanation),
+      solutionStep(4, "第4步：代回检验", `得到 ${answer}。将结果代回原方程或初值条件，确认符号和常数正确。`)
+    ];
+    commonPitfall = "漏掉任意常数、初值代入过早、积分因子写错，是微分方程题最常见的过程错误。";
+  } else if (/级数|幂级数|收敛/.test(stem + point)) {
+    examFocus = `本题考查${point}，重点是选择正确的收敛性判别并区分绝对收敛与条件收敛。`;
+    preAnalysis = "先识别正项、交错、幂级数或等比结构，再写判别条件；幂级数求出收敛半径后还要单独检查端点。";
+    formulas = [formula, "等比级数 |q|<1 时收敛", "幂级数先求收敛半径，再分别判断端点"];
+    steps = [
+      solutionStep(1, "第1步：判断级数类型", "区分等比级数、p 级数、交错级数和幂级数，不能只看通项趋于零。"),
+      solutionStep(2, "第2步：选择判别法", "根据项的结构选择比较、比值、根值或莱布尼茨判别法，并写明条件。"),
+      solutionStep(3, "第3步：逐步判断", explanation),
+      solutionStep(4, "第4步：补充端点或绝对收敛检查", `得到 ${answer}。如果是幂级数，必须单独检查收敛区间端点。`)
+    ];
+    commonPitfall = "通项趋于零只是收敛的必要条件；幂级数端点不能沿用开区间结论；条件收敛不能写成绝对收敛。";
+  }
+
+  return {
+    version: 1,
+    status: question.answer && question.answerStatus !== "pending_review" ? "ready" : "pending_teacher_review",
+    generatedBy: "math-solution-engine-v1",
+    examFocus,
+    preAnalysis,
+    formulas,
+    conditions: "使用公式前必须满足题目给出的定义域、连续性、可导性、独立性、矩阵维数或收敛判别条件。",
+    steps,
+    finalAnswer: answer,
+    commonPitfall,
+    methodSummary: explanation,
+    sourceExplanation: question.explanation || ""
+  };
+}
+
+function enrichQuestionWithSolution(question) {
+  if (!question || question.solutionVersion === 1) return question;
+  return {
+    ...question,
+    detailedSolution: question.detailedSolution || buildDetailedSolution(question),
+    solutionVersion: 1,
+    solutionStatus: question.answer && question.answerStatus !== "pending_review" ? "ready" : "pending_teacher_review"
+  };
+}
+
 
 function buildSubjectiveQuestions() {
   const common = ["数学一", "数学二", "数学三"];
@@ -592,13 +725,15 @@ function extractJson(text) {
 }
 
 function questionPromptText(question) {
+  const solution = question.detailedSolution || {};
   return [
     `题目：${question.stem || ""}`,
     `题型：${question.type || ""}`,
     `章节：${question.chapterName || ""}`,
     `知识点：${question.point || ""}`,
     `标准答案：${question.answer || "未校对"}`,
-    `解析：${question.explanation || "暂无"}`
+    `简要解析：${question.explanation || "暂无"}`,
+    `标准分步解析：${JSON.stringify({ formulas: solution.formulas || [], conditions: solution.conditions || "", steps: solution.steps || [], finalAnswer: solution.finalAnswer || question.answer || "" })}`
   ].join("\n");
 }
 
@@ -606,7 +741,7 @@ async function callAiScratchRecognition(question, payload) {
   const apiKey = configuredOpenAIKey();
   if (!apiKey || !payload.scratchImage) return null;
   const model = process.env.OPENAI_VISION_MODEL || "gpt-5";
-  const prompt = `你是考研数学阅卷老师。请识别学生草稿图中的解题步骤和最终答案，并判断解法是否正确。
+  const prompt = `你是考研数学阅卷老师。请识别学生“做题空间”中的全部手写内容，包括填空题和主观题；不能因为题型是填空题就只看一个最终数字。请按学生实际写出的步骤逐步批改，并与标准分步解析对照。
 
 请重点分析：
 1. 学生最终答案是什么。
@@ -614,6 +749,8 @@ async function callAiScratchRecognition(question, payload) {
 3. 如果错误，第一处错误在哪里。
 4. 错误属于哪个薄弱点，例如：知识问题、方法问题、计算问题、表达问题、能力问题、易错问题、过程缺失。
 5. 应追加什么练习来补强。
+6. 如果最终答案正确但步骤错误，必须把 processHasIssue 设为 true，并指出第一处有问题的步骤。
+7. 如果图片清晰度不足，返回 uncertain，不要猜测学生没有写出的内容。
 
 ${questionPromptText(question)}
 
@@ -715,6 +852,7 @@ async function recognizeScratch(question, payload) {
     modelJudgment: false
   };
 }
+
 
 function sampleQuestions(pool, size, seedInput) {
   const seed = crypto.createHash("sha256").update(String(seedInput)).digest();
@@ -1124,6 +1262,11 @@ async function api(req, res) {
     if (recognition.modelJudgment && recognition.weakPoint) diagnosis.mainReason = recognition.weakPoint;
     if (recognition.modelJudgment && recognition.advice) diagnosis.advice = recognition.advice;
     if (recognition.modelJudgment && recognition.firstError) diagnosis.evidence.push(`第一处错误：${recognition.firstError}`);
+    if (recognition.modelJudgment && recognition.processHasIssue) {
+      diagnosis.mainReason = recognition.errorType || recognition.processIssueReason || "解题过程存在错误";
+      diagnosis.advice = recognition.advice || "最终答案不能掩盖过程错误，请从第一处偏差开始重做，并完成对应知识点的变式训练。";
+      diagnosis.evidence.push(`过程诊断：${recognition.processIssueReason || "标准答案正确但步骤不完整或不成立"}`);
+    }
     const attempt = {
       id: id("att"),
       studentId: student.id,
@@ -1366,13 +1509,14 @@ async function api(req, res) {
     if (!batch) return send(res, 404, { error: "训练批次不存在" });
     const question = batch.questions.find((item) => item.id === body.trainingQuestionId);
     if (!question) return send(res, 404, { error: "训练题不存在" });
-    const judged = gradeTrainingQuestion(question, body);
+    const judged = await gradeTrainingQuestion(question, body);
     const record = {
       id: id("tr"),
       studentId: batch.studentId,
       trainingBatchId: batch.id,
       trainingQuestionId: question.id,
       answer: body.answer || body.selectedOption || body.formulaText || "",
+      recognizedAnswer: judged.recognizedAnswer || "",
       selectedOption: body.selectedOption || "",
       stepsText: body.stepsText || "",
       scratchImageStored: Boolean(body.scratchImage),
@@ -1382,6 +1526,17 @@ async function api(req, res) {
       durationMs: Number(body.durationMs || 0),
       correct: judged.correct,
       gradingStatus: judged.gradingStatus,
+      recognitionConfidence: Number(judged.recognitionConfidence || 0),
+      recognitionEngine: judged.recognitionEngine || "",
+      recognizedSteps: judged.recognizedSteps || "",
+      structuredSteps: judged.structuredSteps || [],
+      firstWrongStep: Number(judged.firstWrongStep || 0),
+      processHasIssue: Boolean(judged.processHasIssue),
+      processIssueReason: judged.processIssueReason || "",
+      errorType: judged.errorType || "",
+      weakPoint: judged.weakPoint || "",
+      advice: judged.advice || "",
+      recognitionError: judged.recognitionError || "",
       repeatedOriginalError: judged.repeatedOriginalError,
       score: judged.score,
       createdAt: nowIso()
@@ -1660,6 +1815,11 @@ async function buildAttemptFromResponse(store, student, question, payload, submi
   if (recognition.modelJudgment && recognition.weakPoint) diagnosis.mainReason = recognition.weakPoint;
   if (recognition.modelJudgment && recognition.advice) diagnosis.advice = recognition.advice;
   if (recognition.modelJudgment && recognition.firstError) diagnosis.evidence.push(`第一处错误：${recognition.firstError}`);
+  if (recognition.modelJudgment && recognition.processHasIssue) {
+    diagnosis.mainReason = recognition.errorType || recognition.processIssueReason || "解题过程存在错误";
+    diagnosis.advice = recognition.advice || "最终答案不能掩盖过程错误，请从第一处偏差开始重做，并完成对应知识点的变式训练。";
+    diagnosis.evidence.push(`过程诊断：${recognition.processIssueReason || "标准答案正确但步骤不完整或不成立"}`);
+  }
   return {
     id: id("att"),
     studentId: student.id,
@@ -1791,7 +1951,9 @@ function buildSubmissionDiagnosis(store, submission) {
       confidenceScore: Number(attempt?.recognitionConfidence || 0),
       uncertainRegions: attempt?.ocrResult?.uncertainRegions || [],
       standardAnswer: question.answer || "待校对",
-      standardSteps: question.explanation || "",
+      standardSteps: question.detailedSolution || question.explanation || "",
+      solutionStatus: question.solutionStatus || "pending_teacher_review",
+      detailedSolution: question.detailedSolution || null,
       score: scored.score,
       maxScore: scored.maxScore,
       finalAnswerCorrect: attempt?.correct === true,
@@ -2020,19 +2182,54 @@ function isTrainingBatchReady(batch) {
   return total > 0 && batch.questions.length === total && batch.questions.every((question) => validateTrainingQuestion(question).valid);
 }
 
-function gradeTrainingQuestion(question, body = {}) {
+async function gradeTrainingQuestion(question, body = {}) {
   const answer = body.answer || body.selectedOption || body.formulaText || "";
-  const correct = question.questionType === "subjective"
-    ? null
-    : equivalentAnswer(question.answer, answer);
+  if (question.questionType !== "choice") {
+    const sourceQuestion = {
+      ...question,
+      id: question.sourceWrongQuestionId || question.id,
+      type: question.questionType,
+      point: question.knowledgePoint || question.subKnowledgePoint,
+      chapterName: question.chapterName || "考研数学",
+      detailedSolution: question.detailedSolution || null,
+      explanation: question.detailedSolution?.methodSummary || question.explanation || ""
+    };
+    const recognition = await recognizeScratch(sourceQuestion, body);
+    const recognizedAnswer = recognition.recognizedAnswer || answer;
+    const correct = recognition.modelJudgment && typeof recognition.isCorrect === "boolean"
+      ? recognition.isCorrect
+      : (recognizedAnswer ? equivalentAnswer(question.answer, recognizedAnswer) : null);
+    const usedHints = Number(body.hintLevelUsed || 0);
+    return {
+      correct,
+      repeatedOriginalError: correct === false && `${body.stepsText || recognizedAnswer} `.includes(question.sourceErrorType || ""),
+      score: correct === true ? (usedHints >= 3 ? 70 : usedHints ? 85 : 100) : 0,
+      gradingStatus: recognition.recognitionError ? "recognition_error" : recognition.modelJudgment ? "ai_reviewed" : "pending_recognition",
+      recognizedAnswer,
+      recognizedSteps: recognition.stepsSummary || "",
+      structuredSteps: recognition.structuredSteps || [],
+      firstWrongStep: Number(recognition.firstWrongStep || 0),
+      processHasIssue: Boolean(recognition.processHasIssue),
+      processIssueReason: recognition.processIssueReason || "",
+      errorType: recognition.errorType || "",
+      weakPoint: recognition.weakPoint || question.knowledgePoint || "",
+      advice: recognition.advice || "",
+      recognitionConfidence: Number(recognition.confidence || 0),
+      recognitionEngine: recognition.engine || "scratch-recognition-not-connected",
+      recognitionError: recognition.recognitionError || ""
+    };
+  }
+  const selectedAnswer = body.selectedOption || answer;
+  const correct = selectedAnswer ? equivalentAnswer(question.answer, selectedAnswer) : null;
   const usedHints = Number(body.hintLevelUsed || 0);
   return {
     correct,
-    repeatedOriginalError: correct === false && String(body.stepsText || answer).includes(question.sourceErrorType),
+    repeatedOriginalError: correct === false && String(body.stepsText || selectedAnswer).includes(question.sourceErrorType),
     score: correct === true ? (usedHints >= 3 ? 70 : usedHints ? 85 : 100) : 0,
     gradingStatus: correct === null ? "pending_recognition" : "graded"
   };
 }
+
 
 function detectProcessIssue(question, attempt, steps = []) {
   if (!attempt) {
