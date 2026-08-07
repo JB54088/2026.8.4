@@ -181,7 +181,210 @@
     Object.values(byKnowledge).forEach((item) => { item.mastery = item.maxScore ? Math.round(item.score / item.maxScore * 100) : 0; item.status = item.mastery >= 85 ? "已掌握" : item.mastery >= 70 ? "基本掌握" : item.mastery >= 50 ? "掌握不稳定" : item.mastery > 0 ? "薄弱知识点" : "完全未掌握"; });
     Object.values(errorStats).forEach((item) => { item.severity = item.scoreLoss >= 20 || item.count >= 4 ? "高" : item.scoreLoss >= 10 || item.count >= 2 ? "中" : "低"; item.repeated = item.count >= 2; });
     const weak = Object.entries(byKnowledge).filter(([, item]) => item.mastery < 70).map(([name]) => name);
-    return { summary: { examinationId: submission.examinationId, paperName: submission.paperName, submittedAt: submission.submittedAt, totalScore, totalMax, scoreRate: Math.round(totalScore / totalMax * 100), correctCount, wrongCount: questionAnalyses.filter((item) => ["INCORRECT", "PARTIAL"].includes(item.gradingCanonicalStatus)).length, recognitionFailedCount, unansweredCount, objectiveScore: questionAnalyses.filter((item) => item.type !== "subjective").reduce((sum, item) => sum + item.score, 0), subjectiveScore: questionAnalyses.filter((item) => item.type === "subjective").reduce((sum, item) => sum + item.score, 0), durationMs: submission.durationMs, timeout: false, level: "静态演示诊断", estimatedExamLevel: "演示环境不冒充真实考试预测", comment: weak.length ? `静态演示显示薄弱点集中在 ${weak.slice(0, 3).join("、")}。` : "本卷表现稳定。" }, byType, byChapter, byKnowledge, errorStats, abilityDiagnosis: ["基础计算能力", "公式应用能力", "审题能力", "建模能力", "推理能力", "综合分析能力"].map((name, index) => ({ name, score: Math.max(35, 82 - index * 7), level: "演示评估", evidence: "来自本卷客观题判分与主观题保存状态", questionIds: [], advice: "接入服务端后可基于真实步骤识别更新。" })), questionAnalyses, historyCompare: [], topProblems: Object.entries(errorStats).slice(0, 3).map(([type, item]) => ({ type, ...item })), priorityKnowledge: weak.slice(0, 5), recommendedTasks: weak.slice(0, 4).map((point, index) => ({ id: `task_${index}`, stage: ["复习", "基础巩固题", "同类变式题", "综合应用题"][index] || "复测", knowledgePoint: point, errorType: Object.keys(errorStats)[0] || "待识别", title: `${point}专项补强…3280 tokens truncated…
+    return { summary: { examinationId: submission.examinationId, paperName: submission.paperName, submittedAt: submission.submittedAt, totalScore, totalMax, scoreRate: Math.round(totalScore / totalMax * 100), correctCount, wrongCount: questionAnalyses.filter((item) => ["INCORRECT", "PARTIAL"].includes(item.gradingCanonicalStatus)).length, recognitionFailedCount, unansweredCount, objectiveScore: questionAnalyses.filter((item) => item.type !== "subjective").reduce((sum, item) => sum + item.score, 0), subjectiveScore: questionAnalyses.filter((item) => item.type === "subjective").reduce((sum, item) => sum + item.score, 0), durationMs: submission.durationMs, timeout: false, level: "静态演示诊断", estimatedExamLevel: "演示环境不冒充真实考试预测", comment: weak.length ? `静态演示显示薄弱点集中在 ${weak.slice(0, 3).join("、")}。` : "本卷表现稳定。" }, byType, byChapter, byKnowledge, errorStats, abilityDiagnosis: ["基础计算能力", "公式应用能力", "审题能力", "建模能力", "推理能力", "综合分析能力"].map((name, index) => ({ name, score: Math.max(35, 82 - index * 7), level: "演示评估", evidence: "来自本卷客观题判分与主观题保存状态", questionIds: [], advice: "接入服务端后可基于真实步骤识别更新。" })), questionAnalyses, historyCompare: [], topProblems: Object.entries(errorStats).slice(0, 3).map(([type, item]) => ({ type, ...item })), priorityKnowledge: weak.slice(0, 5), recommendedTasks: weak.slice(0, 4).map((point, index) => ({ id: `task_${index}`, stage: ["复习", "基础巩固题", "同类变式题", "综合应用题"][index] || "复测", knowledgePoint: point, errorType: Object.keys(errorStats)[0] || "待识别", title: `${point}专项补强`, target: "完成复习、训练和复测", status: "pending" })), loop: { current: "诊断完成", stages: ["检测", "诊断", "复习", "训练", "复测", "提升"], nextAction: weak[0] ? `${weak[0]}专项补强` : "综合提升训练" } };
+  };
+
+  const createStaticTrainingBatch = (store, studentId, body = {}) => {
+    const latest = (store.submissions || []).filter((item) => item.studentId === studentId).sort((a, b) => String(b.submittedAt).localeCompare(String(a.submittedAt)))[0];
+    if (!latest) throw new Error("没有整卷报告，无法生成训练");
+    const analyses = latest.report?.questionAnalyses || [];
+    const eligible = analyses.filter((item) => item.needsDeepDiagnosis || item.finalAnswerCorrect === false || item.answerCorrectButProcessIssue);
+    const usedSourceIds = new Set((store.trainingBatches || [])
+      .filter((item) => item.studentId === studentId && item.trainingType === "targeted")
+      .map((item) => item.sourceWrongQuestionId)
+      .filter(Boolean));
+    const wrong = analyses.find((item) => item.questionId === body.sourceWrongQuestionId)
+      || eligible.find((item) => !usedSourceIds.has(item.questionId))
+      || eligible[0]
+      || analyses[0]
+      || {};
+    const trainingType = body.trainingType === "comprehensive" ? "comprehensive" : "targeted";
+    const total = trainingType === "comprehensive" ? 20 : 10;
+    const purpose = trainingType === "targeted"
+      ? ["基础概念题", "基础概念题", "关键步骤题", "关键步骤题", "同类题", "同类题", "变式题", "变式题", "易错题", "综合检验题"]
+      : ["当前最严重错误专项", "当前最严重错误专项", "当前最严重错误专项", "当前最严重错误专项", "当前最严重错误专项", "当前最严重错误专项", "当前最严重错误专项", "当前最严重错误专项", "当前最严重错误专项", "当前最严重错误专项", "其他薄弱知识点", "其他薄弱知识点", "其他薄弱知识点", "其他薄弱知识点", "历史重复错误", "历史重复错误", "历史重复错误", "防遗忘巩固题", "防遗忘巩固题", "提升题"];
+    const sourceBase = questions.find((item) => item.id === wrong.questionId) || {};
+    const sourceQuestion = {
+      id: wrong.questionId || "",
+      stem: wrong.title || "",
+      answer: wrong.standardAnswer || "",
+      stepsText: wrong.studentSteps || "",
+      chapterId: wrong.chapterId || sourceBase.chapterId || "integral",
+      point: wrong.knowledgePoints?.[0] || sourceBase.point || "",
+      type: wrong.type || sourceBase.type || ""
+    };
+    const sourceTag = {
+      questionId: wrong.questionId || "",
+      errorType: wrong.errorTypes?.[0] || "方法选择错误",
+      sourceWrongStep: wrong.firstErrorStep || 1,
+      errorCategory: wrong.errorTag?.errorCategory || "方法与计算错误",
+      subKnowledgePoint: wrong.knowledgePoints?.[0] || ""
+    };
+    const questionsForTraining = Array.from({ length: total }, (_, index) => ({
+      id: `trainq_${Date.now()}_${index}_${Math.random().toString(16).slice(2)}`,
+      index: index + 1,
+      ...window.TrainingFactory.createTrainingQuestion({ sourceQuestion, sourceTag, index: trainingType === "targeted" ? index % 10 : index, variant: index + 1, trainingType, purpose: purpose[index] })
+    }));
+    questionsForTraining.forEach((question) => { question.questionId = question.id; });
+    questionsForTraining.forEach((question) => {
+      const validation = window.TrainingFactory.validateTrainingQuestion(question);
+      if (!validation.valid) throw new Error(`第${question.index}题校验失败：${validation.reasons.join("、")}`);
+    });
+    const batch = {
+      id: `batch_${Date.now()}_${Math.random().toString(16).slice(2)}`,
+      trainingBatchId: "",
+      studentId,
+      submissionId: latest.id,
+      trainingType,
+      sourceWrongQuestionId: sourceTag.questionId,
+      sourceQuestionTitle: sourceQuestion.stem,
+      sourceKnowledgePoint: sourceTag.subKnowledgePoint || sourceQuestion.point,
+      sourceErrorEvidence: wrong.firstErrorStep ? `第${wrong.firstErrorStep}步：${wrong.deductionReason || sourceTag.errorType}` : sourceTag.errorType,
+      sourceErrorType: questionsForTraining[0].sourceErrorType || sourceTag.errorType,
+      sourceWrongStep: sourceTag.sourceWrongStep,
+      knowledgePoint: wrong.chapterName || "考研数学",
+      subKnowledgePoint: sourceTag.subKnowledgePoint,
+      errorCategory: sourceTag.errorCategory,
+      trainingTheme: trainingType === "targeted" ? `${sourceTag.subKnowledgePoint} · ${questionsForTraining[0].sourceErrorType}` : "20题综合训练",
+      composition: trainingType === "comprehensive" ? { mainErrorType: 10, otherWeakKnowledge: 4, repeatedHistory: 3, antiForgetting: 2, stretch: 1 } : { conceptDiscrimination: 2, basicSteps: 2, sameType: 2, variants: 2, trap: 1, synthesis: 1 },
+      questionCount: total,
+      total,
+      estimatedMinutes: Math.ceil(questionsForTraining.reduce((sum, item) => sum + item.estimatedSeconds, 0) / 60),
+      questions: questionsForTraining,
+      progress: { answered: 0, correct: 0, accuracy: 0, hintsUsed: 0, repeatedOriginalError: false, masteryBefore: 35, masteryAfter: null },
+      status: "waiting_answer",
+      createdAt: nowIso(),
+      updatedAt: nowIso()
+    };
+    batch.trainingBatchId = batch.id;
+    store.trainingBatches = store.trainingBatches || [];
+    store.trainingBatches.push(batch);
+    return batch;
+  };
+
+  function studentFrom(body) {
+    const store = readStore();
+    let student = store.students[0];
+    if (!student) {
+      student = {
+        id: `demo_${sessionId}`,
+        inviteCode: "demo",
+        name: body.name || "王同学",
+        mathType: body.mathType || "数学一",
+        targetScore: Number(body.targetScore || 120),
+        stage: body.stage || "强化阶段",
+        dailyMinutes: Number(body.dailyMinutes || 60),
+        isDemo: true,
+        createdAt: nowIso(),
+        lastLoginAt: nowIso()
+      };
+      store.students = [student];
+      writeStore(store);
+    }
+    return student;
+  }
+
+  function buildReport(studentId) {
+    const store = readStore();
+    const attempts = store.attempts.filter((a) => a.studentId === studentId);
+    const graded = attempts.map((attempt) => ({ attempt, grading: scoreForAttempt(questions.find((q) => q.id === attempt.questionId) || {}, attempt).grading }));
+    const gradable = graded.filter(({ grading }) => !["EMPTY", "RECOGNITION_FAILED", "NEEDS_MANUAL_REVIEW"].includes(grading.status));
+    const correct = gradable.filter(({ grading }) => grading.status === "CORRECT").length;
+    const weakMap = {};
+    graded.filter(({ grading }) => grading.diagnosisTriggered).forEach(({ attempt: a, grading }) => {
+      const reason = a.reason || grading.reason;
+      weakMap[reason] = (weakMap[reason] || 0) + 1;
+    });
+    return {
+      total: attempts.length,
+      gradableTotal: gradable.length,
+      accuracy: gradable.length ? Math.round(correct / gradable.length * 100) : 0,
+      pending: attempts.length - gradable.length,
+      weakReasons: Object.entries(weakMap).map(([reason, count]) => ({
+        reason, count, advice: `围绕「${reason}」补 3-5 道同类变式题，再回到原题重做。`
+      }))
+    };
+  }
+
+  function buildLoop(studentId) {
+    const store = readStore();
+    const attempts = store.attempts.filter((a) => a.studentId === studentId);
+    const lastWrong = attempts.findLast((a) => scoreForAttempt(questions.find((q) => q.id === a.questionId) || {}, a).grading.diagnosisTriggered) || attempts[attempts.length - 1];
+    const baseQuestion = questions.find((item) => item.id === lastWrong?.questionId) || questions[5];
+    const lastGrading = scoreForAttempt(baseQuestion, lastWrong).grading;
+    const weakPoint = baseQuestion.point;
+    const errorType = lastWrong?.reason || baseQuestion.reason;
+    const report = buildReport(studentId);
+    return {
+      homeCounters: { reviewPending: 1, trainingPending: 3, retryPending: 1, conquered: 0, needsReinforcement: 1 },
+      diagnosis: {
+        score: `${Math.round(report.accuracy || 62)}%`,
+        accuracy: report.accuracy || 62,
+        weakKnowledgePoints: [weakPoint, errorType],
+        summary: `系统定位到主要问题是「${weakPoint}」相关的${errorType}，建议先复习知识点，再做相似题，最后回到原题重做验证。`,
+        questionAnalyses: [{
+          typeLabel: typeLabelFor(lastGrading.questionType),
+          score: lastGrading.score,
+          maxScore: 5,
+          title: baseQuestion.stem,
+          studentAnswer: lastWrong?.answer || lastWrong?.selectedOption || "草稿已保存",
+          standardAnswer: baseQuestion.answer,
+          finalAnswerCorrect: lastGrading.isCorrect === true,
+          gradingCanonicalStatus: lastGrading.status,
+          gradingResult: lastGrading,
+          errorTypes: lastGrading.diagnosisTriggered ? [errorType] : [],
+          knowledgePoints: [weakPoint],
+          steps: [
+            { stepNumber: 1, status: "partial", judgment: "思路部分正确", score: 1, maxScore: 2, studentContent: "能识别题型，但关键条件使用不完整", normalizedExpression: "题型识别完成", errorDescription: errorType, correction: `回到 ${weakPoint} 的适用条件`, relatedKnowledgePoint: weakPoint },
+            { stepNumber: 2, status: lastGrading.status === "CORRECT" ? "correct" : "wrong", judgment: lastGrading.status === "CORRECT" ? "结果正确" : "关键步骤偏差", score: lastGrading.status === "CORRECT" ? 3 : 1, maxScore: 3, studentContent: lastWrong?.answer || "草稿步骤", normalizedExpression: baseQuestion.answer, errorDescription: lastGrading.status === "CORRECT" ? "无" : "计算或方法选择出现偏差", correction: "先完成知识点复习后再进入变式训练", relatedKnowledgePoint: weakPoint }
+          ]
+        }]
+      },
+      recoveryPath: { currentStage: "DIAGNOSED", nextAction: "先完成知识点复习，通过理解检查后再进入相似题训练。" },
+      reviewModule: {
+        title: `${weakPoint} 知识点复习`,
+        relationToMistake: `本题错误直接关联到「${weakPoint}」的使用条件和步骤完整性。`,
+        formulas: ["先判断题型与条件", "再选择方法", "最后检查常数、符号和定义域"],
+        coreConcept: "不是只看最后答案，而是定位第一次发生偏差的位置。",
+        conditions: "当题目出现同类结构时，先写出可用条件，再进行计算。",
+        commonMistakes: ["跳过条件判断", "公式套用方向错误", "计算后未回代检查"],
+        correctExample: `先标出 ${weakPoint}，再列出对应公式或方法。`,
+        wrongExample: "直接凭印象套公式，导致中间步骤偏差。",
+        strategy: "复习 3 分钟，完成理解检查，再进入 3 层相似题。"
+      },
+      understandingCheck: {
+        purpose: "确认学生理解错因后，再进入训练，避免随机刷题。",
+        question: `这类题首先应该检查什么？`,
+        options: [
+          { key: "A", text: "直接看答案" },
+          { key: "B", text: `判断 ${weakPoint} 的适用条件` },
+          { key: "C", text: "随便换一个公式" }
+        ],
+        answer: "B",
+        passFeedback: "通过。可以进入相似题训练。",
+        failFeedback: "还没有抓住关键，应回到知识点复习。"
+      },
+      trainingPlan: { goal: `围绕 ${weakPoint} 做分层训练`, totalQuestions: 3, estimatedMinutes: 15, completionStandard: "至少完成 2 道且不重复原错误", items: [] },
+      similarTraining: {
+        goal: `围绕 ${weakPoint} 的相似题训练`,
+        levels: [
+          { level: "基础", title: "同知识点低负荷题", stem: "先写出适用条件，再计算。", target: weakPoint, hint: "不要直接跳步骤", feedback: "如果错，先回看概念卡片。" },
+          { level: "强化", title: "变式条件题", stem: "条件稍作变化，判断方法是否仍适用。", target: weakPoint, hint: "比较原题差异", feedback: "错因多来自方法迁移不稳。" },
+          { level: "综合", title: "跨步骤综合题", stem: "加入计算和表达检查。", target: weakPoint, hint: "最后回代验证", feedback: "用于确认能否独立完成。" }
+        ]
+      },
+      originalRetry: {
+        stem: baseQuestion.stem,
+        firstMistakeSummary: `${errorType}，第一次偏差通常出现在「${weakPoint}」的条件判断或关键计算。`,
+        acceptedSignals: [baseQuestion.answer, weakPoint],
+        durationSecond: 180
+      },
+      masteryVerification: {
+        status: "WAITING",
+        firstError: errorType,
+        masteredFeedback: "重做时已经避开原错误，说明该知识点进入基本掌握状态。",
+        reinforceFeedback: "仍重复原错误，需要降低训练难度并重新复习。"
+      },
       retest: { score: 80, independent: true, hintsUsed: 0, passed: true, questions: [{ typeLabel: "变式题", difficulty: "强化", stem: "同知识点变式复测题", target: weakPoint, result: "用于判断迁移能力" }] },
       improvement: { beforeMastery: 45, afterMastery: 78, improvementValue: 33, status: "明显提升", originalError: errorType, trainingResult: "完成知识点复习、理解检查和相似题训练。", nextRisk: "间隔 2 天后需要复刷，防止遗忘。" },
       comparisonReport: { firstScore: "2/5", retryScore: "4/5", firstDuration: "4 分钟", retryDuration: "3 分钟", firstErrorStep: errorType, firstSteps: "第一次跳过关键判断", retryStepPerformance: "第二次补全关键条件", sameErrorRepeated: false },
