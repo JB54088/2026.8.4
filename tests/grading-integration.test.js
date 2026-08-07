@@ -68,6 +68,9 @@ async function run() {
 
   const correctSession = `grading-integration-correct-${Date.now()}`;
   const correctLogin = await request("/api/login", { method: "POST", body: JSON.stringify({ demo: true, password: "demo123", sessionId: correctSession, mathType: "数学一" }) });
+  const practiceRound = await request(`/api/questions?studentId=${encodeURIComponent(correctLogin.student.id)}&chapterId=limit&difficulty=all&sourceType=all&mode=reinforce&refresh=1`);
+  assert.equal(new Set(practiceRound.questions.map((question) => question.id)).size, practiceRound.questions.length);
+  assert.equal(new Set(practiceRound.questions.map((question) => String(question.stem).replace(/\s+/g, "").toLowerCase())).size, practiceRound.questions.length);
   const correctSubmission = await request("/api/submissions", {
     method: "POST",
     body: JSON.stringify({
@@ -95,4 +98,5 @@ run()
   })
   .finally(() => {
     if (child) child.kill();
+
   });
