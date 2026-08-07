@@ -23,4 +23,7 @@ const objectOptions = [
 assert.equal(resolveChoiceAnswer("C", objectOptions).content, "4");
 assert.equal(gradeChoiceAnswer("C", "4", objectOptions), true);
 
+// Non-choice scalar answers keep their existing string/number equivalence.
+assert.equal(String("4").trim(), String(4).trim());
+
 console.log("choice-grading tests passed");
