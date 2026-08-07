@@ -2237,7 +2237,7 @@ async function renderSimilarTrainingV2() {
   const saveCurrent = () => {
     const fields = {};
     if (question.questionType === "choice") fields.selectedOption = document.querySelector(".training-choice.active")?.dataset.trainingChoice || "";
-    if (question.questionType === "fill") fields.answer = $("#trainingAnswer")?.value.trim() || "";
+
     saveTrainingDraft(question, { fields, keepEmpty: true });
   };
   document.querySelectorAll("[data-training-choice]").forEach((button) => {
