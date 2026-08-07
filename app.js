@@ -1438,7 +1438,6 @@ async function renderPaperReport() {
   <section class="panel product-dashboard">
     <div class="dashboard-head">
       <div>
-        <span class="badge ${submission.status === "diagnosis_complete" ? "" : "warn"}">${escapeHtml(submission.status)}</span>
         <h2>${escapeHtml(summary.paperName || submission.paperName || "本次整卷")}</h2>
         <p>${escapeHtml(summary.comment || "系统已完成整卷统一保存、识别、批改和诊断。")}</p>
       </div>
@@ -1455,7 +1454,6 @@ async function renderPaperReport() {
       <div class="metric"><span>能力等级</span><strong>${escapeHtml(summary.level)}</strong></div>
     </div>
   </section>
-  <section class="panel"><h2>批改状态</h2><div class="grading-steps">${(submission.gradingStatusHistory || []).map((item, index) => `<div class="grading-step active"><span>${index + 1}</span><strong>${escapeHtml(item.status)}</strong></div>`).join("")}</div></section>
   <section class="panel"><h2>各题型得分</h2><div class="cards">${typeRows}</div></section>
   <section class="panel"><h2>各章节掌握度</h2><div class="cards">${chapterRows}</div></section>
   <section class="panel"><h2>知识点掌握度</h2><div class="cards">${knowledgeRows}</div></section>
@@ -1539,7 +1537,6 @@ async function renderQuestionReview() {
       <p><span>第一处错误</span><strong>${item.firstErrorStep ? `步骤 ${item.firstErrorStep}` : "未发现/待识别"}</strong></p>
       <p><span>知识点</span><strong>${escapeHtml((item.knowledgePoints || []).join("、"))}</strong></p>
       <p><span>相似易错点</span><strong>${escapeHtml((item.errorTypes || []).join("、") || "暂无")}</strong></p>
-      <p><span>批改状态</span><strong>${escapeHtml(item.gradingStatus)}</strong></p>
       <p><span>OCR置信度</span><strong>${item.confidenceScore || 0}%</strong></p>
       <p><span>错误层级</span><strong>${escapeHtml(item.errorTag ? `${item.errorTag.knowledgePoint} / ${item.errorTag.subKnowledgePoint} / ${item.errorTag.errorType} / ${item.errorTag.errorPosition}` : "暂无")}</strong></p>
     </div>
