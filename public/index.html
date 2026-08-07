@@ -7,7 +7,7 @@
   <link rel="stylesheet" href="style.css">
   <script>
     window.MathJax = {
-      tex: { inlineMath: [["\\(", "\\)"], ["$", "$"]], displayMath: [["\\[", "\\]"], ["$", "$"]] },
+      tex: { inlineMath: [["\\(", "\\)"], ["$", "$"]], displayMath: [["\\[", "\\]"], ["$$", "$$"]] },
       svg: { fontCache: "global" },
       options: { skipHtmlTags: ["script", "noscript", "style", "textarea", "pre", "code"] }
     };
@@ -38,9 +38,9 @@
       <section id="view"></section>
     </section>
   </main>
-  <script src="chapter-classifier.js"></script>
   <script src="training-factory.js"></script>
   <script src="choice-grading.js"></script>
+  <script src="grading-engine.js"></script>
   <script src="static-api.js"></script>
   <script src="env.js"></script>
   <script src="app.js?v=20260807-no-grading-status"></script>
