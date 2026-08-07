@@ -1957,50 +1957,74 @@ function trainingFeedback(question, record) {
   const status = record.correct === true ? "本题正确" : record.correct === false ? "本题需要复盘" : "已提交，主观过程等待 OCR/AI 识别";
   const cls = record.correct === true ? "good" : record.correct === false ? "bad" : "pending";
   const solution = question.detailedSolution || {};
+  const solutionSteps = Array.isArray(solution.steps) ? solution.steps : [];
+  const explanation = solution.preAnalysis || solution.methodSummary || question.explanation || "暂无详细解析";
   return `<section class="training-feedback ${cls}">
     <h3>${status}</h3>
     <p><strong>标准答案：</strong>${escapeHtml(question.answer)}</p>
     <p><strong>考查知识点：</strong>${escapeHtml(question.knowledgePoint || question.subKnowledgePoint || "")}</p>
-    <p><strong>解题思路：</strong>${escapeHtml(solution.preAnalysis || solution.methodSummary || question.explanation || "")}</p>
-    <div class="training-solution-steps">${(solution.steps || []).map((step) => `<p><strong>${escapeHtml(step.title || `步骤${step.order}`)}：</strong>${escapeHtml(step.content || "")}</p>`).join("")}</div>
+    <p><strong>解题思路：</strong>${escapeHtml(explanation)}</p>
+    ${solution.formula ? `<p><strong>关键公式：</strong>${escapeHtml(solution.formula)}</p>` : ""}
+    <div class="training-solution-steps">${solutionSteps.length ? solutionSteps.map((step, index) => `<p><strong>${escapeHtml(step.title || `步骤${step.order || index + 1}`)}：</strong>${escapeHtml(step.content || "")}</p>`).join("") : `<p>${escapeHtml(question.explanation || "请结合题干条件，先写出适用公式，再完成代入、化简和结论检查。")}</p>`}</div>
     <p><strong>易错点：</strong>${escapeHtml(solution.commonPitfall || question.sourceErrorType || "")}</p>
   </section>`;
 }
 
 async function submitTrainingQuestion(batch, question) {
-  saveTrainingDraft(question, { fields: {}, keepEmpty: true });
+  const submitButton = $("#trainingSubmitQuestion");
+  if (submitButton?.disabled) return;
+  const fields = {};
+  if (question.questionType === "choice") {
+    const selected = document.querySelector(".training-choice.active")?.dataset.trainingChoice || "";
+    fields.selectedOption = selected;
+    fields.answer = selected;
+  }
+  if (question.questionType === "fill") fields.answer = $("#trainingAnswer")?.value.trim() || "";
+  saveTrainingDraft(question, { fields, keepEmpty: true });
   const draft = trainingRecordFor(question);
   const hasAnswer = Boolean(draft.answer || draft.selectedOption || draft.formulaText || draft.stepsText || draft.strokeCount || draft.scratchImage);
   if (!hasAnswer) {
     alert("请先完成本题，再提交本题记录。");
     return;
   }
-  const res = await api("/api/training-records", {
-    method: "POST",
-    body: JSON.stringify({
+  if (submitButton) {
+    submitButton.disabled = true;
+    submitButton.textContent = "提交中...";
+  }
+  try {
+    const res = await api("/api/training-records", {
+      method: "POST",
+      body: JSON.stringify({
+        trainingBatchId: batch.id,
+        trainingQuestionId: question.id,
+        answer: draft.answer || draft.selectedOption || draft.formulaText || "",
+        selectedOption: draft.selectedOption || "",
+        formulaText: draft.formulaText || "",
+        stepsText: draft.stepsText || "",
+        scratchImage: draft.scratchImage || "",
+        strokeCount: draft.strokeCount || 0,
+        durationMs: draft.durationMs || 0,
+        hintLevelUsed: Number(draft.hintLevelUsed || 0)
+      })
+    });
+    if (!res?.record || !res?.batch) throw new Error("提交结果不完整，请重试。");
+    const flow = readFlowState();
+    writeFlowState({
+      trainingRecords: { ...(flow.trainingRecords || {}), [question.id]: { ...draft, submitted: true, correct: res.record.correct, score: res.record.score } },
       trainingBatchId: batch.id,
-      trainingQuestionId: question.id,
-      answer: draft.answer || draft.selectedOption || draft.formulaText || "",
-      selectedOption: draft.selectedOption || "",
-      formulaText: draft.formulaText || "",
-      stepsText: draft.stepsText || "",
-      scratchImage: draft.scratchImage || "",
-      strokeCount: draft.strokeCount || 0,
-      durationMs: draft.durationMs || 0,
-      hintLevelUsed: Number(draft.hintLevelUsed || 0)
-    })
-  });
-  const flow = readFlowState();
-  writeFlowState({
-    trainingRecords: { ...(flow.trainingRecords || {}), [question.id]: { ...draft, submitted: true, correct: res.record.correct, score: res.record.score } },
-    trainingBatchId: batch.id,
-    stage: "TARGETED_TRAINING"
-  });
-  state.trainingBatch = res.batch;
-  if (res.warning) alert(res.warning);
-  renderSimilarTrainingV2();
+      stage: "TARGETED_TRAINING"
+    });
+    state.trainingBatch = res.batch;
+    if (res.warning) alert(res.warning);
+    await renderSimilarTrainingV2();
+  } catch (error) {
+    if (submitButton) {
+      submitButton.disabled = false;
+      submitButton.textContent = "提交本题";
+    }
+    alert(error.message || "本题提交失败，请稍后重试。");
+  }
 }
-
 async function renderSimilarTrainingV2() {
   const requestedSourceQuestionId = state.trainingSourceQuestionId || localStorage.getItem("trainingSourceQuestionId") || "";
   let batch = hasCompleteTrainingBatch(state.trainingBatch)
