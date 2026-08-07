@@ -1238,10 +1238,6 @@ async function submitRound() {
     cancelText: "继续检查"
   });
   if (!ok) return;
-  state.view = "grading";
-  localStorage.setItem("view", "grading");
-  renderGrading();
-  await new Promise((resolve) => setTimeout(resolve, 900));
   try {
     const selectedChapterIds = selectedPracticeChapterIds();
     const chapterKey = practiceChapterKey();
@@ -1291,21 +1287,7 @@ async function submitRound() {
 }
 
 function renderGrading() {
-  const steps = [
-    "正在读取学生答案",
-    "正在识别做题空间中的手写内容与公式",
-    "正在拆分解题步骤",
-    "正在与标准解法比对",
-    "正在检查步骤之间的逻辑关系",
-    "正在定位错误步骤",
-    "正在诊断知识薄弱点",
-    "正在生成训练计划"
-  ];
-  shell("AI批改中", `<section class="panel ai-grading">
-    <h2>AI 正在批改本轮试卷</h2>
-    <p>系统会先分析答案和做题空间，再生成诊断、针对训练、复测和能力画像。AI分析结果仅作学习辅助，复杂主观题可由教师复核。</p>
-    <div class="grading-steps">${steps.map((step, index) => `<div class="grading-step ${index < 5 ? "active" : ""}"><span>${index + 1}</span><strong>${step}</strong></div>`).join("")}</div>
-  </section>`);
+  return renderPaperReport();
 }
 
 function renderRoundResults() {
