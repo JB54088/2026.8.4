@@ -3,6 +3,7 @@ const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
 const { createTrainingQuestion: createGeneratedTrainingQuestion, validateTrainingQuestion } = require("./public/training-factory.js");
+const { gradeChoiceAnswer } = require("./public/choice-grading.js");
 const { classifyQuestionChapter } = require("./public/chapter-classifier.js");
 
 const ROOT = __dirname;
@@ -711,34 +712,8 @@ function equivalentAnswer(expected, actual) {
   return compact(left) === compact(right);
 }
 
-function choiceAnswerIndex(value, options = []) {
-  const normalized = normalizeAnswer(value);
-  if (!normalized) return -1;
-  const optionIndex = options.findIndex((option) => equivalentAnswer(option, value));
-  if (optionIndex >= 0) return optionIndex;
-  const letter = normalized.match(/^([a-z])(?:[.、:：)）\\]]*)?$/i);
-  if (letter) {
-    const index = letter[1].toUpperCase().charCodeAt(0) - 65;
-    if (index >= 0 && index < options.length) return index;
-  }
-  const numericIndex = Number(normalized);
-  if (Number.isInteger(numericIndex) && numericIndex >= 1 && numericIndex <= options.length) return numericIndex - 1;
-  return -1;
-}
-
-function gradeChoice(question, answer, payload = {}) {
-  const options = Array.isArray(question.options) ? question.options : [];
-  const expectedIndex = choiceAnswerIndex(question.answer, options);
-  const candidates = [payload.selectedOption, payload.answer, answer].filter(Boolean);
-  const selectedIndex = candidates
-    .map((value) => choiceAnswerIndex(value, options))
-    .find((index) => index >= 0);
-  if (expectedIndex >= 0 && selectedIndex >= 0) return expectedIndex === selectedIndex;
-  return candidates.some((value) => equivalentAnswer(question.answer, value));
-}
-
 function grade(question, answer, payload = {}) {
-  if (question.type === "choice") return gradeChoice(question, answer, payload);
+  if (question.type === "choice") return gradeChoiceAnswer(answer, question.answer, question.options, [payload.selectedOption, payload.answer]);
   const accepted = [question.answer, ...(question.aliases || [])];
   return accepted.some((item) => equivalentAnswer(item, answer));
 }
@@ -2247,7 +2222,7 @@ async function gradeTrainingQuestion(question, body = {}) {
     };
   }
   const selectedAnswer = body.selectedOption || answer;
-  const correct = selectedAnswer ? gradeChoice({ ...question, type: "choice" }, selectedAnswer, body) : null;
+  const correct = selectedAnswer ? gradeChoiceAnswer(selectedAnswer, question.answer, question.options, [body.answer]) : null;
   const usedHints = Number(body.hintLevelUsed || 0);
   return {
     correct,
