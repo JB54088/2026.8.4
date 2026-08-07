@@ -1172,6 +1172,13 @@ function renderRoundResults() {
   const graded = results.filter(({ attempt }) => !["pending_recognition", "pending_answer_review", "recognition_error"].includes(attempt.gradingStatus));
   const correct = graded.filter(({ attempt }) => attempt.correct).length;
   const pending = results.length - graded.length;
+  const renderStepPreview = (steps = []) => (Array.isArray(steps) ? steps : []).map((step) => `<details class="result-step ${stepStatusClass(step.status)}" ${step.status !== "correct" ? "open" : ""}>
+    <summary>步骤 ${step.stepNumber} · ${escapeHtml(step.judgment || "步骤识别")}</summary>
+    <p><strong>识别内容：</strong>${escapeHtml(step.studentContent || "未识别")}</p>
+    <p><strong>判断：</strong>${escapeHtml(step.errorDescription || "")}</p>
+    ${step.relatedKnowledgePoint ? `<p><strong>知识点：</strong>${escapeHtml(step.relatedKnowledgePoint)}</p>` : ""}
+    ${step.correction ? `<p><strong>修正：</strong>${escapeHtml(step.correction)}</p>` : ""}
+  </details>`).join("");
   const cards = results.map(({ question, attempt }, index) => {
     const judgment = attempt.gradingStatus === "pending_recognition" ? "待识别" : (attempt.correct ? "正确" : "错误");
     const answerPending = attempt.gradingStatus === "pending_answer_review";
@@ -1192,7 +1199,14 @@ function renderRoundResults() {
         <p><span>建议</span><strong>${escapeHtml(attempt.advice)}</strong></p>
       </div>
       ${attempt.recommendedPractice ? `<p class="explain">追加练习：${escapeHtml(attempt.recommendedPractice)}</p>` : ""}
-      <p class="explain">解析：${escapeHtml(question.explanation || "暂无解析")}</p>
+      ${question.type === "choice" ? "" : `<div class="handwriting-diagnosis">
+        <p><strong>手写识别结果：</strong>${escapeHtml(attempt.studentAnswer || attempt.recognizedAnswer || "未识别")}</p>
+        <p><strong>第一处错误：</strong>${attempt.firstErrorStep ? `步骤 ${attempt.firstErrorStep}` : "未发现或待确认"}</p>
+        <p><strong>薄弱知识点：</strong>${escapeHtml((attempt.knowledgePoints || []).join("、") || "待识别")}</p>
+        ${renderStepPreview(attempt.steps)}
+        ${attempt.needsDeepDiagnosis && question.id ? `<button class="ghost" data-result-training-source="${escapeHtml(question.id)}">针对该知识点开始训练</button>` : ""}
+      </div>`}
+      <p class="explain"><strong>答案解析：</strong>${escapeHtml(question.explanation || "暂无解析")}</p>
     </article>`;
   }).join("");
   shell("本轮结果", `<section class="panel">
@@ -1211,6 +1225,14 @@ function renderRoundResults() {
     </div>
   </section>
   <section class="panel"><div class="cards">${cards}</div></section>`);
+  document.querySelectorAll("[data-result-training-source]").forEach((button) => {
+    button.onclick = () => {
+      state.trainingSourceQuestionId = button.dataset.resultTrainingSource;
+      localStorage.setItem("trainingSourceQuestionId", state.trainingSourceQuestionId);
+      state.trainingBatch = null;
+      setView("similarTraining");
+    };
+  });
 }
 
 async function ensureLatestSubmission() {
@@ -1259,7 +1281,12 @@ async function renderPaperReport() {
   const questions = (report.questionAnalyses || []).map((item, index) => `<article class="status-card ${item.needsDeepDiagnosis ? "needs-diagnosis" : ""}">
     <h3>第 ${index + 1} 题 · ${escapeHtml(item.typeLabel)}</h3>
     <p>${item.score}/${item.maxScore} 分 · ${item.answerCorrectButProcessIssue ? "结果正确但过程有问题" : item.needsDeepDiagnosis ? "进入深度诊断" : "正确题轻记录"} · ${escapeHtml(item.deductionReason || "")}</p>
+    <p><strong>学生答案：</strong>${escapeHtml(item.studentAnswer || "未作答/未识别")}</p>
+    <p><strong>标准答案：</strong>${escapeHtml(item.standardAnswer || "待校对")}</p>
+    <p><strong>答案解析：</strong>${escapeHtml(item.standardSteps || "该题暂无解析")}</p>
+    ${item.needsDeepDiagnosis ? `<p><strong>薄弱知识点：</strong>${escapeHtml((item.knowledgePoints || []).join("、") || "待识别")} · <strong>首个错误：</strong>${item.firstErrorStep ? `步骤 ${item.firstErrorStep}` : "待确认"}</p>` : ""}
     <button class="ghost" data-review-index="${index}">${item.needsDeepDiagnosis ? "查看错题过程诊断" : "查看记录"}</button>
+    ${item.needsDeepDiagnosis && item.questionId ? `<button class="ghost" data-report-training-source="${escapeHtml(item.questionId)}">针对薄弱点训练</button>` : ""}
   </article>`).join("");
   shell("整卷诊断报告", `${loopProgress("diagnosis")}
   <section class="panel product-dashboard">
@@ -1306,6 +1333,14 @@ async function renderPaperReport() {
       setView("similarTraining");
     };
   });
+  document.querySelectorAll("[data-report-training-source]").forEach((button) => {
+    button.onclick = () => {
+      state.trainingSourceQuestionId = button.dataset.reportTrainingSource;
+      localStorage.setItem("trainingSourceQuestionId", state.trainingSourceQuestionId);
+      state.trainingBatch = null;
+      setView("similarTraining");
+    };
+  });
   const startTargetedTraining = $("#startTargetedTraining");
   if (startTargetedTraining) startTargetedTraining.onclick = async () => {
     const sourceQuestionId = (report.questionAnalyses || []).find((item) => item.needsDeepDiagnosis)?.questionId || "";
@@ -1336,6 +1371,8 @@ async function renderQuestionReview() {
     <summary><span>步骤 ${step.stepNumber}</span><strong>${escapeHtml(step.judgment)}</strong><em>${step.score}/${step.maxScore} 分</em></summary>
     <p>学生步骤：${escapeHtml(step.studentContent || "未识别到有效步骤")}</p>
     <p>标准/归一表达：${escapeHtml(step.normalizedExpression || "")}</p>
+    ${step.conditionCheck ? `<p>公式条件：${escapeHtml(step.conditionCheck)}</p>` : ""}
+    ${step.linkWithPrevious ? `<p>与上一步关系：${escapeHtml(step.linkWithPrevious)}</p>` : ""}
     <p>判断说明：${escapeHtml(step.errorDescription || "")}</p>
     <p>正确修正：${escapeHtml(step.correction || "")}</p>
     <p>涉及知识点：${escapeHtml(step.relatedKnowledgePoint || "")}</p>
