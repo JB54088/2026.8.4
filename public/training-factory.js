@@ -32,7 +32,7 @@
   };
 
   const typeLabel = (type) => type === "choice" ? "选择题" : type === "fill" ? "填空题" : "解答题";
-  const answerMode = (type) => type === "choice" ? "choice" : type === "fill" ? "input" : "handwriting";
+  const answerMode = (type) => type === "choice" ? "choice" : "handwriting";
   const difficultyFor = (index, total) => {
     if (total === 10) return index < 2 ? 1 : index < 4 ? 2 : index < 8 ? 3 : index === 8 ? 4 : 5;
     return index < 2 ? 2 : index < 4 ? 3 : index < 10 ? 4 : index < 18 ? 3 + (index % 2) : 5;

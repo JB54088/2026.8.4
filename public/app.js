@@ -2089,9 +2089,6 @@ function renderTrainingAnswerControls(question, record) {
       return `<button class="training-choice ${picked === value ? "active" : ""}" data-training-choice="${escapeHtml(value)}">${renderMathText(option)}</button>`;
     }).join("")}</div>`;
   }
-  if (question.questionType === "fill") {
-    return `<label class="training-fill">答案<input id="trainingAnswer" value="${escapeHtml(record.answer || "")}" placeholder="填写最终结果"></label>`;
-  }
   return `<div class="training-writing">
     <div class="paper-stage"><canvas id="pad" width="1800" height="1120"></canvas></div>
     <div class="training-pad-actions"><button class="ghost" id="trainingClear">清空</button><button class="ghost" id="trainingUndo">撤销</button><button class="ghost" id="trainingRedo">重做</button></div>
@@ -2102,12 +2099,20 @@ function trainingFeedback(question, record) {
   if (!record.submitted) return "";
   const status = record.correct === true ? "本题正确" : record.correct === false ? "本题需要复盘" : "已提交，主观过程等待 OCR/AI 识别";
   const cls = record.correct === true ? "good" : record.correct === false ? "bad" : "pending";
+  const diagnosis = question.questionType === "choice" ? "" : `<div class="handwriting-diagnosis">
+    <p><strong>手写识别结果：</strong>${escapeHtml(record.recognizedAnswer || "暂未识别出最终答案")}</p>
+    <p><strong>过程判断：</strong>${escapeHtml(record.processIssueReason || (record.processHasIssue ? "步骤存在需要修正的地方" : record.correct === true ? "未发现明显过程错误" : "等待识别完整步骤"))}</p>
+    ${record.firstWrongStep ? `<p><strong>第一处错误：</strong>第${record.firstWrongStep}步</p>` : ""}
+    ${record.weakPoint ? `<p><strong>需要巩固：</strong>${escapeHtml(record.weakPoint)}</p>` : ""}
+    ${record.advice ? `<p><strong>改进建议：</strong>${escapeHtml(record.advice)}</p>` : ""}
+  </div>`;
   return `<section class="training-feedback ${cls}">
     <h3>${status}</h3>
+    ${diagnosis}
+    <p><strong>标准答案：</strong>${renderMathText(question.answer || "待校对", { display: true })}</p>
     ${renderDetailedExplanation(question)}
   </section>`;
 }
-
 async function submitTrainingQuestion(batch, question) {
   const submitButton = $("#trainingSubmitQuestion");
   if (submitButton?.disabled) return;
@@ -2117,7 +2122,6 @@ async function submitTrainingQuestion(batch, question) {
     fields.selectedOption = selected;
     fields.answer = selected;
   }
-  if (question.questionType === "fill") fields.answer = $("#trainingAnswer")?.value.trim() || "";
   saveTrainingDraft(question, { fields, keepEmpty: true });
   const draft = trainingRecordFor(question);
   const hasAnswer = Boolean(draft.answer || draft.selectedOption || draft.formulaText || draft.stepsText || draft.strokeCount || draft.scratchImage);
@@ -2148,7 +2152,7 @@ async function submitTrainingQuestion(batch, question) {
     if (!res?.record || !res?.batch) throw new Error("提交结果不完整，请重试。");
     const flow = readFlowState();
     writeFlowState({
-      trainingRecords: { ...(flow.trainingRecords || {}), [question.id]: { ...draft, submitted: true, correct: res.record.correct, score: res.record.score } },
+      trainingRecords: { ...(flow.trainingRecords || {}), [question.id]: { ...draft, submitted: true, correct: res.record.correct, score: res.record.score, recognizedAnswer: res.record.recognizedAnswer || "", recognizedSteps: res.record.recognizedSteps || "", structuredSteps: res.record.structuredSteps || [], firstWrongStep: res.record.firstWrongStep || 0, processHasIssue: Boolean(res.record.processHasIssue), processIssueReason: res.record.processIssueReason || "", weakPoint: res.record.weakPoint || "", advice: res.record.advice || "" } },
       trainingBatchId: batch.id,
       stage: "TARGETED_TRAINING"
     });
@@ -2243,8 +2247,6 @@ async function renderSimilarTrainingV2() {
       saveTrainingDraft(question, { fields: { selectedOption: button.dataset.trainingChoice, answer: button.dataset.trainingChoice }, keepEmpty: true });
     };
   });
-  const input = $("#trainingAnswer");
-  if (input) input.oninput = () => saveTrainingDraft(question, { fields: { answer: input.value }, keepEmpty: true });
   const nextIndex = (next) => { saveCurrent(); writeFlowState({ trainingIndex: next, trainingBatchId: batch.id }); renderSimilarTrainingV2(); };
   const prev = $("#trainingPrev");
   if (prev) prev.onclick = () => nextIndex(index - 1);
