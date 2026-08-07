@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node server.js",
     "build": "node --check server.js && node --check public/app.js",
-    "health": "node -e \"fetch('http://localhost:' + (process.env.PORT || 5188) + '/api/health').then(r=>r.json()).then(console.log)\""
+    "health": "node -e \"fetch('http://localhost:' + (process.env.PORT || 5188) + '/api/health').then(r=>r.json()).then(console.log)\"",
+    "test": "node tests/choice-grading.test.js"
   },
   "engines": {
     "node": ">=20"
