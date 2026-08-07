@@ -711,7 +711,34 @@ function equivalentAnswer(expected, actual) {
   return compact(left) === compact(right);
 }
 
-function grade(question, answer) {
+function choiceAnswerIndex(value, options = []) {
+  const normalized = normalizeAnswer(value);
+  if (!normalized) return -1;
+  const optionIndex = options.findIndex((option) => equivalentAnswer(option, value));
+  if (optionIndex >= 0) return optionIndex;
+  const letter = normalized.match(/^([a-z])(?:[.、:：)）\\]]*)?$/i);
+  if (letter) {
+    const index = letter[1].toUpperCase().charCodeAt(0) - 65;
+    if (index >= 0 && index < options.length) return index;
+  }
+  const numericIndex = Number(normalized);
+  if (Number.isInteger(numericIndex) && numericIndex >= 1 && numericIndex <= options.length) return numericIndex - 1;
+  return -1;
+}
+
+function gradeChoice(question, answer, payload = {}) {
+  const options = Array.isArray(question.options) ? question.options : [];
+  const expectedIndex = choiceAnswerIndex(question.answer, options);
+  const candidates = [payload.selectedOption, payload.answer, answer].filter(Boolean);
+  const selectedIndex = candidates
+    .map((value) => choiceAnswerIndex(value, options))
+    .find((index) => index >= 0);
+  if (expectedIndex >= 0 && selectedIndex >= 0) return expectedIndex === selectedIndex;
+  return candidates.some((value) => equivalentAnswer(question.answer, value));
+}
+
+function grade(question, answer, payload = {}) {
+  if (question.type === "choice") return gradeChoice(question, answer, payload);
   const accepted = [question.answer, ...(question.aliases || [])];
   return accepted.some((item) => equivalentAnswer(item, answer));
 }
@@ -1245,7 +1272,7 @@ async function api(req, res) {
     const hasReviewedAnswer = Boolean(question.answer) && question.answerStatus !== "pending_review";
     const correct = recognition.modelJudgment && typeof recognition.isCorrect === "boolean"
       ? recognition.isCorrect
-      : (finalAnswer && hasReviewedAnswer ? grade(question, finalAnswer) : null);
+      : (finalAnswer && hasReviewedAnswer ? grade(question, finalAnswer, body) : null);
     const gradingStatus = recognition.recognitionError
       ? "recognition_error"
       : recognition.modelJudgment
@@ -1794,7 +1821,7 @@ async function buildAttemptFromResponse(store, student, question, payload, submi
   const hasReviewedAnswer = Boolean(question.answer) && question.answerStatus !== "pending_review";
   const correct = recognition.modelJudgment && typeof recognition.isCorrect === "boolean"
     ? recognition.isCorrect
-    : (finalAnswer && hasReviewedAnswer ? grade(question, finalAnswer) : null);
+    : (finalAnswer && hasReviewedAnswer ? grade(question, finalAnswer, payload) : null);
   const gradingStatus = recognition.recognitionError
     ? "recognition_error"
     : recognition.modelJudgment
@@ -2220,7 +2247,7 @@ async function gradeTrainingQuestion(question, body = {}) {
     };
   }
   const selectedAnswer = body.selectedOption || answer;
-  const correct = selectedAnswer ? equivalentAnswer(question.answer, selectedAnswer) : null;
+  const correct = selectedAnswer ? gradeChoice({ ...question, type: "choice" }, selectedAnswer, body) : null;
   const usedHints = Number(body.hintLevelUsed || 0);
   return {
     correct,
