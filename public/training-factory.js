@@ -68,7 +68,7 @@
     let stem = "", formula = "", answer = "", aliases = [], options = [], explanation = "", steps = [];
 
     if (chapterId === "limit") {
-      const a = (v % 5) + 2;
+      const a = (v % 17) + 2;
       if (type === "choice") {
         if (v % 2) {
           stem = `当 x→0 时，lim [sin(${a}x)/x] 的值为（ ）。`;
@@ -96,8 +96,9 @@
         explanation = `令 u=${a}x，由 e^u=1+u+u²/2+o(u²)，分子=${a * a}x²/2+o(x²)，故极限为 ${a * a}/2。`;
       }
     } else if (chapterId === "diff") {
-      const a = (v % 4) + 2;
+      const a = (v % 13) + 2;
       if (type === "choice") {
+
         stem = `设 y=ln(1+${a}x)，则 y' 等于（ ）。`;
         formula = `(\ln u)'=u'/u`;
         answer = `${a}/(1+${a}x)`;
@@ -115,7 +116,7 @@
         explanation = `配方得 f(x)=(x−${a})²≥0，所以 x=${a} 时取得最小值0。`;
       }
     } else if (chapterId === "integral") {
-      const a = (v % 4) + 2;
+      const a = (v % 17) + 2;
       const modeling = /建模|利润|面积|应用/.test(clean(source?.point) + clean(source?.stem));
       if (modeling && type === "choice") {
         stem = `某商品进价40元，原售价60元，原销量100件。每降价2元销量增加5件。若降价 x 元，总利润函数应为（ ）。`;
@@ -155,7 +156,7 @@
         explanation = "取u=x，dv=e^x dx，则I=[xe^x]0^1−∫0^1e^x dx=e−(e−1)=1。";
       }
     } else if (chapterId === "multi") {
-      const a = (v % 5) + 2;
+      const a = (v % 19) + 2;
       if (type === "choice") {
         stem = `设 z=${a}x²y+y²，则 ∂z/∂y 等于（ ）。`;
         formula = "偏导时把另一自变量视为常数";
@@ -175,7 +176,7 @@
         explanation = "配方得z=(x−2)²+(y−3)²≥0，故(2,3)处取得极小值0。";
       }
     } else if (chapterId === "linear") {
-      const a = (v % 4) + 1;
+      const a = (v % 17) + 1;
       if (type === "choice") {
         stem = `三阶矩阵 A 的秩为2，则齐次方程组 Ax=0 的解空间维数为（ ）。`;
         formula = "解空间维数=n−r";
@@ -195,13 +196,15 @@
         explanation = "相似矩阵行列式相同，|A|=1×2×4=8。";
       }
     } else if (chapterId === "prob") {
-      const p = ((v % 5) + 2) / 10;
+      const p = ((v % 8) + 2) / 10;
+      const b = 0.5 + (Math.floor(v / 8) % 4) * 0.1;
       if (type === "choice") {
-        stem = `事件 A、B 相互独立，P(A)=${p.toFixed(1)}，P(B)=0.6，则 P(AB) 等于（ ）。`;
+
+        stem = `事件 A、B 相互独立，P(A)=${p.toFixed(1)}，P(B)=${b.toFixed(1)}，则 P(AB) 等于（ ）。`;
         formula = "P(AB)=P(A)P(B)";
-        answer = (p * 0.6).toFixed(2);
-        options = [`A. ${(p + 0.6).toFixed(1)}`, `B. ${(p * 0.6).toFixed(2)}`, `C. ${p.toFixed(1)}`, "D. 无法确定"];
-        explanation = `独立事件交集概率相乘，P(AB)=${p.toFixed(1)}×0.6=${answer}。`;
+        answer = (p * b).toFixed(2);
+        options = [`A. ${(p + b).toFixed(1)}`, `B. ${(p * b).toFixed(2)}`, `C. ${p.toFixed(1)}`, "D. 无法确定"];
+        explanation = `独立事件交集概率相乘，P(AB)=${p.toFixed(1)}×${b.toFixed(1)}=${answer}。`;
       } else if (type === "fill") {
         stem = `若 E(X)=${v + 1}，D(X)=${v + 2}，则 D(2X−1)= ______。`;
         formula = "D(aX+b)=a²D(X)";
@@ -214,7 +217,7 @@
         explanation = "E(Y)=3×2−1=5，D(Y)=3²×3=27。";
       }
     } else if (chapterId === "ode") {
-      const a = (v % 4) + 1;
+      const a = (v % 11) + 1;
       if (type === "choice") {
         stem = `微分方程 y'+${a}y=0 的通解为（ ）。`;
         formula = "y'+ay=0⇒dy/y=−a dx";
@@ -235,7 +238,7 @@
         explanation = "乘以积分因子e^x，得(ye^x)'=e^{2x}，积分后ye^x=(1/2)e^{2x}+C，故y=(1/2)e^x+Ce^{-x}。";
       }
     } else if (chapterId === "series") {
-      const a = (v % 4) + 2;
+      const a = (v % 11) + 2;
       if (type === "choice") {
         stem = `级数 Σ(1/${a})^n（n从1到∞）的敛散性为（ ）。`;
         formula = "等比级数|q|<1时收敛";
@@ -254,7 +257,7 @@
         explanation = "交错调和级数满足莱布尼茨条件而收敛；取绝对值后为调和级数，发散。";
       }
     } else if (chapterId === "space") {
-      const a = (v % 5) + 1;
+      const a = (v % 17) + 1;
       if (type === "choice") {
         stem = `向量 a=(${a},2,2) 的模长为（ ）。`;
         formula = "|a|=√(a1²+a2²+a3²)";
@@ -297,6 +300,7 @@
     const detailedSolution = solutionFor({ chapterName, point, errorType, stem, formula, answer, explanation, steps });
     const result = {
       stem,
+
       formula,
       options,
       answer,
