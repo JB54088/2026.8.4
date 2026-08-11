@@ -1,2 +1,2 @@
-id,subjects,chapterId,chapterName,point,reason,type,level,stem,options,answer,aliases,explanation,source,book,bookSection,problemNo
-zy1000_m2_gs_001,数学二,integral,一元函数积分学,换元积分,方法问题,choice,基础篇,"示例：题干放这里","A选项|B选项|C选项|D选项","A选项","","解析放这里","授权导入-张宇1000题","张宇1000题","基础篇-高数","1"
+id,subjects,chapterId,chapterName,point,reason,type,level,difficulty,stem,stemFormat,formula,formulaFormat,options,answer,aliases,explanation,practiceStatus,knowledgePointId,knowledgePointName,errorTypes,trainingLevel,similarGroupId,reviewer,reviewedAt,sourceType,source,sourceYear,sourceQuestionNo,book,bookSection,problemNo
+zy1000_m2_gs_001,数学二,integral,一元函数积分学,换元积分,方法问题,choice,基础篇,2,"示例：题干放这里",text,"",text,"A选项|B选项|C选项|D选项","A选项","","解析放这里",needs_review,integral:换元积分,换元积分,method,foundation,,张老师,2026-08-11T00:00:00.000Z,teacher_original,"授权导入-张宇1000题",,"","张宇1000题","基础篇-高数","1"
