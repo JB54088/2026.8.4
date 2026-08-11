@@ -10,6 +10,10 @@
 
 const fs = require("fs");
 const path = require("path");
+const {
+  normalizeQuestion: normalizeQuestionModel,
+  isPracticeQuestionReady
+} = require("../public/question-model.js");
 
 const ROOT = path.join(__dirname, "..");
 const DEFAULT_INPUT = path.join(ROOT, "data", "past-exam-staging", "probability-pilot.json");
@@ -114,7 +118,14 @@ function normalizedQuestion(candidate, index, source, { trial = false } = {}) {
     reviewStatus: trial ? "trial_imported" : "teacher_reviewed",
     publishStatus: "published",
     qualityTier: trial ? "past_exam_trial" : "exam_standard",
-    ...(trial ? { practiceStatus: "trial" } : {})
+    practiceStatus: trial ? "needs_review" : "published",
+    knowledgePointId: String(candidate.knowledgePointId || "").trim(),
+    knowledgePointName: String(candidate.knowledgePointName || candidate.point || (trial ? candidate.sourceLabel : "")).trim(),
+    errorTypes: asArray(candidate.errorTypes || candidate.errorType || candidate.reason || (trial ? "transfer" : "")),
+    trainingLevel: String(candidate.trainingLevel || "").trim(),
+    similarGroupId: String(candidate.similarGroupId || "").trim(),
+    reviewer: String(candidate.reviewer || "").trim(),
+    reviewedAt: String(candidate.reviewedAt || "").trim()
   };
 
   const required = trial
@@ -131,7 +142,11 @@ function normalizedQuestion(candidate, index, source, { trial = false } = {}) {
   if (missing.length) {
     throw new Error(`第 ${index + 1} 条 ${question.id || "未命名题"} 不可发布：${missing.join(", ")}`);
   }
-  return question;
+  const normalized = normalizeQuestionModel(question);
+  if (!trial && !isPracticeQuestionReady(normalized)) {
+    throw new Error(`第 ${index + 1} 条 ${question.id || "未命名题"} 未通过已发布题库校验`);
+  }
+  return normalized;
 }
 
 function main() {

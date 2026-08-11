@@ -120,6 +120,10 @@ AI 降级方案：
 - `reports`
 - `learningLoop`
 
+题目对象统一使用 `schemaVersion: 19`。题库导入、服务端刷题接口和静态演示都会归一化为 `sectionId/section`、`type`、`content`、`choiceOptions`、`answerSpec`、`sourceSpec`、`practiceMeta` 等规范字段，同时保留 `chapterId/options/answer` 等旧字段作为兼容别名。刷题接口按 `sectionId` 直接从 `questions` 题库分区筛选，不再维护另一套刷题题目结构；相似题训练只使用已标注且审核发布的题目，题库不足时明确显示短缺，不使用未审核或规则生成题补足。公式字段支持普通文本、Unicode 数学符号和常用轻量 LaTeX。字段说明见 [统一题目结构](docs/question-schema.md)。
+
+题库导入使用根目录的 `question-import-template.csv`；校验已发布题目可运行 `node tools/validate-question-bank.js`。训练题在提交前不会返回答案，单题提交后记录锁定，并通过 `record.reveal` 返回标准答案和解析。
+
 正式商业化建议迁移到 PostgreSQL，拆分为：
 
 - `users`
@@ -157,7 +161,7 @@ AI 降级方案：
 - 正式题库文件：`data/past-exam-questions.json`
 - 导入工具：`tools/pdf_to_markdown.py`、`tools/build_past_exam_staging.js`、`tools/publish_past_exam_questions.js`
 
-试运行题使用 `practiceStatus: "trial"`，可以在刷题页选择“历年考研数学真题”进行测试，但 `answerStatus` 保持 `pending_review`。完成题干、选项、答案和解析校对后，再使用普通审核发布流程替换试运行记录。
+试运行题使用 `practiceStatus: "needs_review"`，可以保留在真题来源预览中，但不会进入已审核相似题训练，且 `answerStatus` 保持 `pending_review`。完成题干、选项、答案和解析校对后，再使用普通审核发布流程标记 `practiceStatus: "published"`。
 
 ## 部署
 

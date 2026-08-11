@@ -2,8 +2,23 @@ const http = require("http");
 const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
-const { createTrainingQuestion: createGeneratedTrainingQuestion, validateTrainingQuestion } = require("./public/training-factory.js");
 const { classifyQuestionChapter } = require("./public/chapter-classifier.js");
+const {
+  QUESTION_SCHEMA_VERSION,
+  choiceAnswerKey,
+  choiceSelection,
+  choiceSpec,
+  canonicalAnswer,
+  normalizeQuestion,
+  normalizeQuestionList,
+  queryQuestions,
+  isPracticeQuestionReady,
+  selectSimilarQuestions,
+  trainingLevelSlots,
+  trainingReveal,
+  publicTrainingBatch,
+  publicTrainingQuestion
+} = require("./public/question-model.js");
 
 const ROOT = __dirname;
 const PUBLIC = path.join(ROOT, "public");
@@ -33,7 +48,6 @@ const PORT = Number(process.env.PORT || 5188);
 const NODE_ENV = process.env.NODE_ENV || "development";
 const ADMIN_KEY = process.env.ADMIN_KEY || (NODE_ENV === "production" ? "" : "admin2026");
 const PUBLIC_API_BASE_URL = process.env.PUBLIC_API_BASE_URL || "";
-const QUESTION_SCHEMA_VERSION = 17;
 const ALLOWED_ORIGINS = String(process.env.ALLOWED_ORIGINS || "")
   .split(",")
   .map((item) => item.trim())
@@ -54,14 +68,37 @@ function writeJson(file, value) {
   fs.writeFileSync(file, JSON.stringify(value, null, 2), "utf8");
 }
 
+function normalizeQuestionRecord(question) {
+  return normalizeQuestion(classifyQuestionChapter(question));
+}
+
 function db() {
   if (!fs.existsSync(DB_FILE)) writeJson(DB_FILE, seedDb());
   const store = readJson(DB_FILE);
-  if (!Array.isArray(store.questions) || store.questions.length < 10000 || store.meta.questionSchemaVersion !== QUESTION_SCHEMA_VERSION) {
+  const rawQuestions = Array.isArray(store.questions) ? store.questions : [];
+  const needsQuestionNormalization = rawQuestions.some((question) => (
+    !question
+    || question.schemaVersion !== QUESTION_SCHEMA_VERSION
+    || !question.sectionId
+    || !question.answerSpec
+    || !question.content
+    || !question.sourceSpec
+  ));
+  let changed = false;
+  if (!rawQuestions.length) {
     store.questions = buildQuestions();
-    migrateChapterReferences(store);
-    store.meta = store.meta || {};
+    changed = true;
+  } else if (needsQuestionNormalization) {
+    store.questions = normalizeQuestionList(rawQuestions.map(normalizeQuestionRecord));
+    changed = true;
+  }
+  store.meta = store.meta || {};
+  if (store.meta.questionSchemaVersion !== QUESTION_SCHEMA_VERSION) {
     store.meta.questionSchemaVersion = QUESTION_SCHEMA_VERSION;
+    changed = true;
+  }
+  if (changed) {
+    migrateChapterReferences(store);
     saveDb(store);
   }
   if (!Array.isArray(store.submissions)) {
@@ -82,7 +119,7 @@ function migrateChapterReferences(store) {
   const questionById = new Map((store.questions || []).map((question) => [question.id, question]));
   const chapterIdsForQuestionIds = (questionIds) => Array.from(new Set(
     (Array.isArray(questionIds) ? questionIds : [])
-      .map((questionId) => questionById.get(questionId)?.chapterId)
+      .map((questionId) => questionById.get(questionId)?.sectionId || questionById.get(questionId)?.chapterId)
       .filter(Boolean)
   ));
 
@@ -90,7 +127,11 @@ function migrateChapterReferences(store) {
     store.attempts = store.attempts.map((attempt) => {
       const question = questionById.get(attempt.questionId);
       return question
-        ? { ...attempt, chapterId: question.chapterId, chapterName: question.chapterName }
+        ? {
+          ...attempt,
+          chapterId: question.sectionId || question.chapterId,
+          chapterName: question.sectionName || question.chapterName
+        }
         : attempt;
     });
   }
@@ -130,10 +171,7 @@ function readPastExamQuestions() {
 
 function isQuestionReadyForPractice(question) {
   if (!question || question.sourceType !== "past_exam") return true;
-  if (question.publishStatus && question.publishStatus !== "published") return false;
-  if (question.answerStatus === "pending_review" && question.practiceStatus !== "trial") return false;
-  if (/(待校对|待审核|草稿|draft)/i.test(String(question.reviewStatus || ""))) return false;
-  return Boolean(question.stem || question.stemImage || question.stemHtml);
+  return isPracticeQuestionReady(question);
 }
 
 function id(prefix) {
@@ -233,7 +271,8 @@ function buildQuestions() {
     id: qid, subjects, chapterId, chapterName, point, reason, type, level, difficulty: difficultyFor(level), stem, options, answer, aliases, explanation, ...sourceMeta(index)
   }));
   return [...readPastExamQuestions(), ...buildSubjectiveQuestions(), ...buildExamStyleQuestions(), ...handPicked, ...buildGeneratedQuestions()]
-    .map(classifyQuestionChapter);
+    .map(classifyQuestionChapter)
+    .map(normalizeQuestion);
 }
 
 function buildSubjectiveQuestions() {
@@ -579,6 +618,13 @@ function equivalentAnswer(expected, actual) {
 }
 
 function grade(question, answer) {
+  if (question?.type === "choice") {
+    const expectedKeys = [question.answer, ...(question.aliases || [])]
+      .map((item) => choiceAnswerKey(question, item))
+      .filter(Boolean);
+    const actualKey = choiceAnswerKey(question, answer);
+    return Boolean(actualKey && expectedKeys.includes(actualKey));
+  }
   const accepted = [question.answer, ...(question.aliases || [])];
   return accepted.some((item) => equivalentAnswer(item, answer));
 }
@@ -733,7 +779,7 @@ function sampleQuestions(pool, size, seedInput) {
 function uniqueByStem(pool) {
   const seen = new Set();
   return pool.filter((question) => {
-    const key = normalizeAnswer(`${question.chapterId}:${question.stem}`);
+    const key = normalizeAnswer(`${question.sectionId || question.chapterId}:${question.stem}`);
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
@@ -921,6 +967,7 @@ async function api(req, res) {
 
   if (req.method === "GET" && url.pathname === "/api/bootstrap") {
     send(res, 200, {
+      questionSchemaVersion: QUESTION_SCHEMA_VERSION,
       chapters: chapterSummary(store.questions),
       inviteCodes: store.students.map((s) => s.inviteCode),
       pastExamSources: pastExamSourcesFor(store),
@@ -996,8 +1043,14 @@ async function api(req, res) {
     const studentId = cleanId(body.studentId);
     const student = store.students.find((s) => s.id === studentId && s.isDemo);
     if (!student) return send(res, 404, { error: "演示会话不存在" });
-    store.attempts = store.attempts.filter((a) => a.studentId !== student.id);
-    store.submissions = Array.isArray(store.submissions) ? store.submissions.filter((s) => s.studentId !== student.id) : [];
+    const trainingOnly = body.trainingOnly === true;
+    if (!trainingOnly) {
+      store.attempts = store.attempts.filter((a) => a.studentId !== student.id);
+      store.submissions = Array.isArray(store.submissions) ? store.submissions.filter((s) => s.studentId !== student.id) : [];
+    }
+    store.trainingBatches = Array.isArray(store.trainingBatches) ? store.trainingBatches.filter((batch) => batch.studentId !== student.id) : [];
+    store.trainingRecords = Array.isArray(store.trainingRecords) ? store.trainingRecords.filter((record) => record.studentId !== student.id) : [];
+    store.retestRecords = Array.isArray(store.retestRecords) ? store.retestRecords.filter((record) => record.studentId !== student.id) : [];
     store.notes = Array.isArray(store.notes) ? store.notes.filter((n) => n.studentId !== student.id) : [];
     student.lastLoginAt = nowIso();
     saveDb(store);
@@ -1010,7 +1063,6 @@ async function api(req, res) {
     if (!student) return send(res, 404, { error: "学生不存在" });
     const count = 20;
     const chapterIds = chapterFilterFromUrl(url);
-    const chapterSet = chapterIds === null ? null : new Set(chapterIds);
     const difficulty = url.searchParams.get("difficulty") || "all";
     const sourceType = url.searchParams.get("sourceType") || "all";
     const mode = url.searchParams.get("mode") || "reinforce";
@@ -1018,9 +1070,10 @@ async function api(req, res) {
     const practiceType = ["new", "wrong", "mixed"].includes(requestedPracticeType) ? requestedPracticeType : "new";
     const attempts = store.attempts.filter((a) => a.studentId === student.id);
     const mathType = student.mathType || "数学二";
-    let pool = store.questions.filter((q) => isQuestionReadyForPractice(q)
-      && q.subjects.includes(mathType)
-      && (chapterSet === null || chapterSet.has(q.chapterId)));
+    let pool = queryQuestions(store.questions, {
+      sectionIds: chapterIds,
+      subjects: [mathType]
+    }).filter((q) => isQuestionReadyForPractice(q));
     if (sourceType !== "past_exam") {
       const standardPool = pool.filter((q) => q.qualityTier === "exam_standard");
       if (standardPool.length >= Math.min(count, 10)) {
@@ -1031,10 +1084,14 @@ async function api(req, res) {
       }
     }
     const basePool = pool;
-    const sourcePool = sourceType !== "all" ? basePool.filter((q) => q.sourceType === sourceType) : basePool;
+    const sourcePool = sourceType !== "all"
+      ? basePool.filter((q) => (q.sourceSpec?.type || q.sourceType) === sourceType)
+      : basePool;
     if (sourceType === "past_exam" && !sourcePool.length) {
       return send(res, 200, {
         questions: [],
+        questionSchemaVersion: QUESTION_SCHEMA_VERSION,
+        bank: { name: "question-bank", sectionIds: chapterIds || [], sourceType },
         chapterId: chapterIds === null ? "all" : chapterIds.length === 1 ? chapterIds[0] : "mixed",
         chapterIds: chapterIds || [],
         count,
@@ -1076,6 +1133,8 @@ async function api(req, res) {
     );
     const response = {
       questions: selection.questions,
+      questionSchemaVersion: QUESTION_SCHEMA_VERSION,
+      bank: { name: "question-bank", sectionIds: chapterIds || [], sourceType },
       chapterId: chapterIds === null ? "all" : chapterIds.length === 1 ? chapterIds[0] : "mixed",
       chapterIds: chapterIds || [],
       count,
@@ -1104,6 +1163,7 @@ async function api(req, res) {
     if (!student || !question) return send(res, 404, { error: "学生或题目不存在" });
     const recognition = await recognizeScratch(question, body);
     const finalAnswer = answerValueForQuestion(question, body, recognition);
+    const choice = choiceSelectionForPayload(question, body, finalAnswer);
     const hasReviewedAnswer = Boolean(question.answer) && question.answerStatus !== "pending_review";
     const correct = recognition.modelJudgment && typeof recognition.isCorrect === "boolean"
       ? recognition.isCorrect
@@ -1143,7 +1203,9 @@ async function api(req, res) {
       affectedSteps: recognition.affectedSteps || [],
       uncertainRegions: recognition.uncertainRegions || [],
       recognitionEngine: recognition.engine,
-      selectedOption: body.selectedOption || "",
+      selectedOption: choice?.key || body.selectedOption || "",
+      selectedOptionText: choice?.text || "",
+      choice,
       stepsText: body.stepsText || "",
       formulaText: body.formulaText || "",
       flagged: Boolean(body.flagged),
@@ -1196,21 +1258,28 @@ async function api(req, res) {
       ],
       questionIds: questions.map((q) => q.id),
       attemptIds: [],
-      responsesLocked: responses.map((item, index) => ({
-        questionId: item.questionId,
-        answer: item.answer || "",
-        selectedOption: item.selectedOption || "",
-        formulaText: item.formulaText || "",
-        stepsText: item.stepsText || "",
-        hasScratchImage: Boolean(item.scratchImage),
-        hasAnswerImage: Boolean(item.answerImage),
-        strokeCount: Number(item.strokeCount || 0),
-        durationMs: Number(item.durationMs || 0),
-        flagged: Boolean(item.flagged),
-        favorite: Boolean(item.favorite),
-        answerOrder: index,
-        abandoned: !responseHasContent(item)
-      })),
+      responsesLocked: responses.map((item, index) => {
+        const question = questions.find((candidate) => candidate.id === item.questionId);
+        const finalAnswer = question ? answerValueForQuestion(question, item) : (item.answer || item.selectedOption || "");
+        const choice = question ? choiceSelectionForPayload(question, item, finalAnswer) : null;
+        return {
+          questionId: item.questionId,
+          answer: finalAnswer,
+          selectedOption: choice?.key || item.selectedOption || "",
+          selectedOptionText: choice?.text || "",
+          choice,
+          formulaText: item.formulaText || "",
+          stepsText: item.stepsText || "",
+          hasScratchImage: Boolean(item.scratchImage),
+          hasAnswerImage: Boolean(item.answerImage),
+          strokeCount: Number(item.strokeCount || 0),
+          durationMs: Number(item.durationMs || 0),
+          flagged: Boolean(item.flagged),
+          favorite: Boolean(item.favorite),
+          answerOrder: index,
+          abandoned: !responseHasContent(item)
+        };
+      }),
       completenessIssues,
       durationMs: Number(body.durationMs || 0),
       answerOrder: Array.isArray(body.answerOrder) ? body.answerOrder : responses.map((item) => item.questionId),
@@ -1343,7 +1412,7 @@ async function api(req, res) {
         trainingType: body.trainingType === "comprehensive" ? "comprehensive" : "targeted"
       });
       saveDb(store);
-      send(res, 200, { batch });
+      send(res, 200, { batch: publicTrainingBatch(batch) });
     } catch (error) {
       send(res, 400, { error: error.message || "训练批次生成失败" });
     }
@@ -1356,7 +1425,21 @@ async function api(req, res) {
     const list = (store.trainingBatches || [])
       .filter((item) => isTrainingBatchReady(item) && (!studentId || item.studentId === studentId) && (!type || item.trainingType === type))
       .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
-    send(res, 200, { batches: list, latest: list[0] || null });
+    send(res, 200, {
+      batches: list.map(publicTrainingBatch),
+      latest: list[0] ? publicTrainingBatch(list[0]) : null
+    });
+    return;
+  }
+
+  if (req.method === "GET" && url.pathname === "/api/training-records") {
+    const studentId = url.searchParams.get("studentId");
+    const trainingBatchId = url.searchParams.get("trainingBatchId");
+    const records = (store.trainingRecords || [])
+      .filter((record) => (!studentId || record.studentId === studentId)
+        && (!trainingBatchId || record.trainingBatchId === trainingBatchId))
+      .map((record) => ({ ...record, locked: true }));
+    send(res, 200, { records });
     return;
   }
 
@@ -1366,14 +1449,27 @@ async function api(req, res) {
     if (!batch) return send(res, 404, { error: "训练批次不存在" });
     const question = batch.questions.find((item) => item.id === body.trainingQuestionId);
     if (!question) return send(res, 404, { error: "训练题不存在" });
+    if (!isTrainingBatchReady(batch)) return send(res, 400, { error: "训练批次中存在未通过题库校验的题目" });
+    const existingRecord = (store.trainingRecords || []).find((item) => item.trainingBatchId === batch.id && item.trainingQuestionId === question.id);
+    if (existingRecord) {
+      return send(res, 409, {
+        error: "本题已经提交，不能重复作答",
+        record: { ...existingRecord, locked: true },
+        batch: publicTrainingBatch(batch)
+      });
+    }
     const judged = gradeTrainingQuestion(question, body);
+    const suppliedAnswer = body.choice?.key || body.answer || body.selectedOption || body.formulaText || "";
+    const choice = question.type === "choice" ? choiceSelection(question, suppliedAnswer) : null;
     const record = {
       id: id("tr"),
       studentId: batch.studentId,
       trainingBatchId: batch.id,
       trainingQuestionId: question.id,
-      answer: body.answer || body.selectedOption || body.formulaText || "",
-      selectedOption: body.selectedOption || "",
+      answer: question.type === "choice" ? (choice.key || canonicalAnswer(question, suppliedAnswer)) : suppliedAnswer,
+      selectedOption: choice?.key || body.selectedOption || "",
+      selectedOptionText: choice?.text || body.selectedOptionText || "",
+      choice,
       stepsText: body.stepsText || "",
       scratchImageStored: Boolean(body.scratchImage),
       strokeCount: Number(body.strokeCount || 0),
@@ -1384,11 +1480,13 @@ async function api(req, res) {
       gradingStatus: judged.gradingStatus,
       repeatedOriginalError: judged.repeatedOriginalError,
       score: judged.score,
+      submitted: true,
+      locked: true,
+      reveal: trainingReveal(question),
       createdAt: nowIso()
     };
-    const existingRecordIndex = store.trainingRecords.findIndex((item) => item.trainingBatchId === batch.id && item.trainingQuestionId === question.id);
-    if (existingRecordIndex >= 0) store.trainingRecords[existingRecordIndex] = { ...store.trainingRecords[existingRecordIndex], ...record };
-    else store.trainingRecords.push(record);
+    store.trainingRecords.push(record);
+    batch.progress = batch.progress || { answered: 0, correct: 0, accuracy: 0, hintsUsed: 0, repeatedOriginalError: false, masteryBefore: 35, masteryAfter: null };
     const records = store.trainingRecords.filter((item) => item.trainingBatchId === batch.id);
     batch.progress.answered = records.length;
     batch.progress.correct = records.filter((item) => item.correct).length;
@@ -1399,7 +1497,11 @@ async function api(req, res) {
     batch.status = batch.progress.answered >= batch.questionCount ? "completed" : "in_progress";
     batch.updatedAt = nowIso();
     saveDb(store);
-    send(res, 200, { record, batch, warning: record.repeatedOriginalError ? `你在本题中再次出现了与原错题相同的错误：${batch.sourceErrorType}。建议暂停继续刷题，重新复习对应知识点。` : "" });
+    send(res, 200, {
+      record,
+      batch: publicTrainingBatch(batch),
+      warning: record.repeatedOriginalError ? `你在本题中再次出现了与原错题相同的错误：${batch.sourceErrorType}。建议暂停继续刷题，重新复习对应知识点。` : ""
+    });
     return;
   }
 
@@ -1488,18 +1590,22 @@ async function api(req, res) {
 function chapterSummary(questions) {
   const map = new Map();
   questions.forEach((q) => {
-    if (!map.has(q.chapterId)) {
-      map.set(q.chapterId, {
-        id: q.chapterId,
-        name: q.chapterName,
+    const sectionId = q.sectionId || q.chapterId;
+    const sectionName = q.sectionName || q.chapterName;
+    const section = q.section || {};
+    if (!map.has(sectionId)) {
+      map.set(sectionId, {
+        id: sectionId,
+        name: sectionName,
         subjects: q.subjects,
         count: 0,
         countsByMathType: {},
-        groupId: q.chapterGroupId || "",
-        syllabusOrder: q.syllabusOrder || 0
+        groupId: section.groupId || q.chapterGroupId || "",
+        groupName: section.groupName || q.chapterGroupName || "",
+        syllabusOrder: section.order || q.syllabusOrder || 0
       });
     }
-    const item = map.get(q.chapterId);
+    const item = map.get(sectionId);
     item.count += 1;
     item.subjects = Array.from(new Set([...item.subjects, ...q.subjects]));
     q.subjects.forEach((mathType) => {
@@ -1557,6 +1663,9 @@ function scoreForAttempt(question, attempt) {
 }
 
 function answerValueFrom(payload = {}, recognition = {}) {
+  if (payload.choice && typeof payload.choice === "object") {
+    return payload.choice.key || payload.choice.text || payload.choice.value || "";
+  }
   return payload.answer
     || payload.selectedOption
     || payload.formulaText
@@ -1590,14 +1699,26 @@ function extractFillAnswerFromWorkSpace(text = "") {
 
 function answerValueForQuestion(question, payload = {}, recognition = {}) {
   const direct = answerValueFrom(payload, recognition);
+  if (question?.type === "choice" && direct) return canonicalAnswer(question, direct);
   if (direct) return direct;
   if (question?.type === "fill") return extractFillAnswerFromWorkSpace(payload.stepsText);
   return "";
 }
 
+function choiceSelectionForPayload(question, payload = {}, finalAnswer = "") {
+  if (question?.type !== "choice") return null;
+  const supplied = payload.choice || payload.selectedOption || payload.answer || finalAnswer;
+  const selection = choiceSelection(question, supplied);
+  return {
+    key: selection.key || canonicalAnswer(question, finalAnswer),
+    text: selection.text || String(payload.selectedOptionText || "").trim(),
+    raw: selection.raw || String(supplied || "").trim()
+  };
+}
+
 function responseHasContent(payload = {}) {
   return Boolean(
-    String(payload.answer || payload.selectedOption || payload.formulaText || payload.stepsText || "").trim()
+    String(payload.choice?.key || payload.answer || payload.selectedOption || payload.formulaText || payload.stepsText || "").trim()
     || payload.scratchImage
     || payload.answerImage
     || Number(payload.strokeCount || 0) > 0
@@ -1636,6 +1757,7 @@ function inspectPaperCompleteness(questions, responses) {
 async function buildAttemptFromResponse(store, student, question, payload, submissionId, orderIndex) {
   const recognition = await recognizeScratch(question, payload);
   const finalAnswer = answerValueForQuestion(question, payload, recognition);
+  const choice = choiceSelectionForPayload(question, payload, finalAnswer);
   const hasReviewedAnswer = Boolean(question.answer) && question.answerStatus !== "pending_review";
   const correct = recognition.modelJudgment && typeof recognition.isCorrect === "boolean"
     ? recognition.isCorrect
@@ -1690,7 +1812,9 @@ async function buildAttemptFromResponse(store, student, question, payload, submi
     affectedSteps: recognition.affectedSteps || [],
     uncertainRegions: recognition.uncertainRegions || [],
     recognitionEngine: recognition.engine,
-    selectedOption: payload.selectedOption || "",
+    selectedOption: choice?.key || payload.selectedOption || "",
+    selectedOptionText: choice?.text || "",
+    choice,
     stepsText: payload.stepsText || "",
     formulaText: payload.formulaText || "",
     flagged: Boolean(payload.flagged),
@@ -1752,6 +1876,10 @@ function buildSubmissionDiagnosis(store, submission) {
   const attemptByQuestion = new Map(attempts.map((attempt) => [attempt.questionId, attempt]));
   const questionAnalyses = questions.map((question, index) => {
     const attempt = attemptByQuestion.get(question.id);
+    const choice = choiceSpec(question);
+    const studentChoice = attempt?.choice?.key
+      ? `${attempt.choice.key}${attempt.choice.text ? `. ${attempt.choice.text}` : ""}`
+      : "";
     const scored = scoreForAttempt(question, attempt);
     const reason = reasonForAttempt(question, attempt);
     const steps = buildStepAnalysis(question, attempt);
@@ -1771,14 +1899,16 @@ function buildSubmissionDiagnosis(store, submission) {
       title: question.stem || question.point || question.chapterName,
       stemHtml: question.stemHtml || "",
       stemImage: question.stemImage || "",
-      studentAnswer: attempt?.recognizedAnswer || attempt?.answer || attempt?.selectedOption || "",
+      studentAnswer: attempt?.recognizedAnswer || studentChoice || attempt?.answer || attempt?.selectedOption || "",
       studentSteps: attempt?.stepsText || attempt?.recognizedSteps || "",
       handwritingImage: attempt?.scratchImageStored ? "stored_in_submission_payload" : "",
       ocrResult: attempt?.ocrResult || { recognizedAnswer: attempt?.recognizedAnswer || "", structuredSteps: attempt?.recognizedSteps || "", confidenceScore: Number(attempt?.recognitionConfidence || 0), uncertainRegions: [] },
       structuredSteps: steps,
       confidenceScore: Number(attempt?.recognitionConfidence || 0),
       uncertainRegions: attempt?.ocrResult?.uncertainRegions || [],
-      standardAnswer: question.answer || "待校对",
+      standardAnswer: question.type === "choice"
+        ? (choice.answerKey ? `${choice.answerKey}${choice.answerText ? `. ${choice.answerText}` : ""}` : "待校对")
+        : (question.answer || "待校对"),
       standardSteps: question.explanation || "",
       score: scored.score,
       maxScore: scored.maxScore,
@@ -1938,39 +2068,154 @@ function selectSourceError(store, submission, sourceQuestionId = "") {
       .filter(Boolean));
     item = candidates.find((q) => !usedSourceIds.has(q.questionId));
   }
-  if (!item) item = candidates[0] || (report.questionAnalyses || [])[0];
-  const question = store.questions.find((q) => q.id === item?.questionId) || {};
+  if (!item) return { item: null, question: {}, attempt: {}, tag: classifyErrorTag({}, {}, {}) };
+  const question = store.questions.find((q) => q.id === item.questionId) || {};
   const attempt = store.attempts.find((a) => a.submissionId === submission.id && a.questionId === question.id) || {};
   const firstStep = (item?.steps || []).find((step) => step.status !== "correct") || (item?.steps || [])[0] || {};
   return { item, question, attempt, tag: classifyErrorTag(question, attempt, firstStep) };
+}
+
+function trainingPurposeFor(level, trainingType) {
+  if (trainingType === "comprehensive") {
+    return {
+      foundation: "薄弱知识点基础补漏",
+      same_type: "同类方法稳定训练",
+      variation: "同知识点变式迁移",
+      comprehensive: "综合应用检验"
+    }[level] || "综合巩固";
+  }
+  return {
+    foundation: "基础概念与解题入口",
+    same_type: "同类方法训练",
+    variation: "同知识点变式训练",
+    comprehensive: "综合迁移检验"
+  }[level] || "相似题训练";
+}
+
+function trainingSecondsFor(question) {
+  if (question.type === "choice") return 90;
+  if (question.type === "fill") return 120;
+  return 240;
+}
+
+function sourceQuestionWithAnalysis(question, analysis) {
+  if (!question || !analysis) return question;
+  const analysisErrorTypes = Array.isArray(analysis.errorTypes) ? analysis.errorTypes : [];
+  if (!analysisErrorTypes.length) return question;
+  return normalizeQuestion({
+    ...question,
+    practiceMeta: {
+      ...(question.practiceMeta || {}),
+      errorTypes: analysisErrorTypes
+    }
+  });
+}
+
+function comprehensiveTrainingFocuses(store, submission, source) {
+  const analyses = (submission.report?.questionAnalyses || [])
+    .slice()
+    .sort((left, right) => {
+      const leftLoss = Number(left.maxScore || 0) - Number(left.score || 0);
+      const rightLoss = Number(right.maxScore || 0) - Number(right.score || 0);
+      return rightLoss - leftLoss;
+    });
+  const focuses = [];
+  const seen = new Set();
+  const add = (question, analysis) => {
+    if (!question?.id || seen.has(question.id)) return;
+    seen.add(question.id);
+    focuses.push(sourceQuestionWithAnalysis(question, analysis));
+  };
+  add(source.question, source.item);
+  analyses.forEach((analysis) => add(store.questions.find((question) => question.id === analysis.questionId), analysis));
+  return focuses.length ? focuses : [source.question];
+}
+
+function trainingQuestionSnapshot(entry, index, source, trainingType) {
+  const question = normalizeQuestion(entry.question);
+  return {
+    ...question,
+    id: id("trainq"),
+    questionId: "",
+    bankQuestionId: question.id,
+    index: index + 1,
+    trainingPurpose: trainingPurposeFor(entry.targetLevel, trainingType),
+    trainingLevel: entry.targetLevel,
+    difficultyLevel: question.difficulty,
+    knowledgePoint: question.practiceMeta.knowledgePointName || question.point,
+    subKnowledgePoint: question.practiceMeta.knowledgePointName || question.point,
+    sourceErrorType: source.tag.errorType,
+    sourceWrongStep: source.tag.sourceWrongStep,
+    matchRank: entry.matchRank,
+    matchTier: entry.matchTier,
+    estimatedSeconds: trainingSecondsFor(question)
+  };
 }
 
 function buildTrainingBatch(store, studentId, { submissionId = "", sourceQuestionId = "", trainingType = "targeted" } = {}) {
   const submission = latestSubmissionFor(store, studentId, submissionId);
   if (!submission) throw new Error("没有可用于生成训练的整卷诊断");
   const source = selectSourceError(store, submission, sourceQuestionId);
-  const total = trainingType === "comprehensive" ? 20 : 10;
-  const questions = Array.from({ length: total }, (_, index) => ({
-    id: id("trainq"),
-    index: index + 1,
-    ...createGeneratedTrainingQuestion({
-      sourceQuestion: source.question,
-      sourceTag: source.tag,
-      index,
-      trainingType,
-      purpose: trainingType === "targeted"
-        ? ["基础概念题", "基础概念题", "关键步骤题", "关键步骤题", "同类题", "同类题", "变式题", "变式题", "易错题", "综合检验题"][index]
-        : ["当前最严重错误专项", "当前最严重错误专项", "当前最严重错误专项", "当前最严重错误专项", "当前最严重错误专项", "当前最严重错误专项", "当前最严重错误专项", "当前最严重错误专项", "当前最严重错误专项", "当前最严重错误专项", "其他薄弱知识点", "其他薄弱知识点", "其他薄弱知识点", "其他薄弱知识点", "历史重复错误", "历史重复错误", "历史重复错误", "防遗忘巩固题", "防遗忘巩固题", "提升题"][index]
-    })
-  }));
+  if (!source.question?.id) throw new Error("诊断中没有可关联的原题");
+  const requestedCount = trainingType === "comprehensive" ? 20 : 10;
+  const student = store.students.find((item) => item.id === studentId) || {};
+  const attemptedQuestionIds = new Set((store.attempts || [])
+    .filter((attempt) => attempt.studentId === studentId)
+    .map((attempt) => attempt.questionId)
+    .filter(Boolean));
+  const seed = `${submission.id}:${source.question.id}:${trainingType}`;
+  const targetLevels = trainingType === "comprehensive"
+    ? Array.from({ length: requestedCount }, (_, index) => trainingLevelSlots(10)[index % 10])
+    : trainingLevelSlots(requestedCount);
+  const selectedEntries = [];
+  const selectedBankIds = new Set(attemptedQuestionIds);
+  selectedBankIds.add(source.question.id);
+  const matchTiers = {};
+  const addSelection = (selection) => {
+    selection.selected.forEach((entry) => {
+      if (selectedBankIds.has(entry.question.id)) return;
+      selectedBankIds.add(entry.question.id);
+      selectedEntries.push(entry);
+      matchTiers[entry.matchTier] = (matchTiers[entry.matchTier] || 0) + 1;
+    });
+  };
+
+  if (trainingType === "targeted") {
+    addSelection(selectSimilarQuestions(store.questions, source.question, {
+      count: requestedCount,
+      targetLevels,
+      seed,
+      subject: student.mathType,
+      excludeIds: Array.from(selectedBankIds)
+    }));
+  } else {
+    const focuses = comprehensiveTrainingFocuses(store, submission, source);
+    targetLevels.forEach((targetLevel, index) => {
+      const orderedFocuses = [focuses[index % focuses.length], ...focuses.filter((_, focusIndex) => focusIndex !== index % focuses.length)];
+      for (const focus of orderedFocuses) {
+        const selection = selectSimilarQuestions(store.questions, focus, {
+          count: 1,
+          targetLevels: [targetLevel],
+          seed: `${seed}:${index}:${focus.id}`,
+          subject: student.mathType,
+          excludeIds: Array.from(selectedBankIds)
+        });
+        if (selection.selected.length) {
+          addSelection(selection);
+          break;
+        }
+      }
+    });
+  }
+
+  const questions = selectedEntries.map((entry, index) => trainingQuestionSnapshot(entry, index, source, trainingType));
   questions.forEach((question) => { question.questionId = question.id; });
-  questions.forEach((question) => {
-    const validation = validateTrainingQuestion(question);
-    if (!validation.valid) throw new Error(`第${question.index}题校验失败：${validation.reasons.join("、")}`);
-  });
+  if (!questions.length) {
+    throw new Error("当前知识点没有足够的已标注相似题，请先通过导入模板补齐已审核题目。");
+  }
   const composition = trainingType === "comprehensive"
-    ? { mainErrorType: 10, otherWeakKnowledge: 4, repeatedHistory: 3, antiForgetting: 2, stretch: 1 }
-    : { conceptDiscrimination: 2, basicSteps: 2, sameType: 2, variants: 2, trap: 1, synthesis: 1 };
+    ? { requested: requestedCount, selected: questions.length, mainErrorType: 10, otherWeakKnowledge: 4, repeatedHistory: 3, antiForgetting: 2, stretch: 1 }
+    : { requested: requestedCount, selected: questions.length, conceptDiscrimination: 2, basicSteps: 2, sameType: 2, variants: 2, trap: 1, synthesis: 1 };
   const batch = {
     id: id("batch"),
     trainingBatchId: "",
@@ -1981,19 +2226,28 @@ function buildTrainingBatch(store, studentId, { submissionId = "", sourceQuestio
     sourceQuestionTitle: source.question.stem || source.item?.title || "",
     sourceKnowledgePoint: source.tag.subKnowledgePoint || source.question.point || "",
     sourceErrorEvidence: source.item?.firstErrorStep ? `第${source.item.firstErrorStep}步：${source.item.deductionReason || source.tag.errorType}` : source.tag.errorType,
-    sourceErrorType: questions[0].sourceErrorType || source.tag.errorType,
+    sourceErrorType: source.tag.errorType,
     sourceWrongStep: source.tag.sourceWrongStep,
     knowledgePoint: source.tag.knowledgePoint,
     subKnowledgePoint: source.tag.subKnowledgePoint,
     errorCategory: source.tag.errorCategory,
-    trainingTheme: trainingType === "targeted" ? `${source.tag.subKnowledgePoint} · ${questions[0].sourceErrorType}` : "20题综合训练",
+    trainingTheme: trainingType === "targeted" ? `${source.tag.subKnowledgePoint} · ${source.tag.errorType}` : "20题综合训练",
     composition,
-    questionCount: total,
-    total,
+    requestedCount,
+    questionCount: questions.length,
+    total: questions.length,
     estimatedMinutes: Math.ceil(questions.reduce((sum, q) => sum + q.estimatedSeconds, 0) / 60),
     questions,
+    selection: {
+      source: "annotated_question_bank",
+      requestedCount,
+      availableCount: questions.length,
+      shortage: Math.max(0, requestedCount - questions.length),
+      matchTiers
+    },
+    shortage: Math.max(0, requestedCount - questions.length),
     progress: { answered: 0, correct: 0, accuracy: 0, hintsUsed: 0, repeatedOriginalError: false, masteryBefore: source.item?.score && source.item?.maxScore ? Math.round(source.item.score / source.item.maxScore * 100) : 35, masteryAfter: null },
-    status: "waiting_review_first",
+    status: "waiting_answer",
     createdAt: nowIso(),
     updatedAt: nowIso()
   };
@@ -2005,14 +2259,19 @@ function buildTrainingBatch(store, studentId, { submissionId = "", sourceQuestio
 function isTrainingBatchReady(batch) {
   if (!batch || !Array.isArray(batch.questions)) return false;
   const total = Number(batch.total || batch.questionCount || 0);
-  return total > 0 && batch.questions.length === total && batch.questions.every((question) => validateTrainingQuestion(question).valid);
+  return total > 0 && batch.questions.length === total && batch.questions.every((question) => (
+    Boolean(question.bankQuestionId) && isPracticeQuestionReady(question)
+  ));
 }
 
 function gradeTrainingQuestion(question, body = {}) {
-  const answer = body.answer || body.selectedOption || body.formulaText || "";
-  const correct = question.questionType === "subjective"
+  const answer = body.choice?.key || body.answer || body.selectedOption || body.formulaText || "";
+  const questionType = question.type || question.questionType;
+  const correct = questionType === "subjective" || questionType === "solution"
     ? null
-    : equivalentAnswer(question.answer, answer);
+    : questionType === "choice"
+      ? grade({ ...question, type: "choice" }, answer)
+      : equivalentAnswer(question.answer, answer);
   const usedHints = Number(body.hintLevelUsed || 0);
   return {
     correct,

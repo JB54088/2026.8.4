@@ -12,6 +12,8 @@
   localStorage.setItem("demoSessionId", sessionId);
 
   const classifyQuestionChapter = window.ChapterClassifier?.classifyQuestionChapter || ((question) => question);
+  const questionModel = window.QuestionModel;
+  const questionSchemaVersion = questionModel?.QUESTION_SCHEMA_VERSION || 19;
   const syllabusChapters = window.ChapterClassifier?.chapterDefinitions || { linear: [], prob: [] };
   const chapters = [
     { id: "limit", name: "函数、极限与连续", subjects: ["数学一", "数学二", "数学三"], count: 24 },
@@ -54,7 +56,10 @@
   ];
 
   questions.forEach((question, index) => {
-    questions[index] = classifyQuestionChapter(question);
+    const classified = classifyQuestionChapter(question);
+    questions[index] = questionModel?.normalizeQuestion
+      ? questionModel.normalizeQuestion(classified)
+      : classified;
   });
 
   // The public demo has no server-side database. Expand each chapter from reviewed
@@ -105,6 +110,24 @@
     }
   });
 
+  // Normalize the expanded demo bank too, so generated variants and seed rows
+  // expose exactly the same structure to the practice API.
+  questions.forEach((question, index) => {
+    const normalized = questionModel?.normalizeQuestion
+      ? questionModel.normalizeQuestion(classifyQuestionChapter(question))
+      : classifyQuestionChapter(question);
+    // 静态演示题库是随仓库发布的示例数据，明确标记为可练习；真实服务端
+    // 仍然只允许通过导入审核流程发布的题目进入相似题训练。
+    questions[index] = {
+      ...normalized,
+      practiceMeta: {
+        ...(normalized.practiceMeta || {}),
+        status: "published"
+      },
+      practiceStatus: "published"
+    };
+  });
+
   chapters.forEach((chapter) => {
     chapter.countsByMathType = {};
     questions.filter((item) => item.chapterId === chapter.id).forEach((item) => {
@@ -144,6 +167,16 @@
     if (leftNum !== null && rightNum !== null) return Math.abs(leftNum - rightNum) < 1e-8;
     const compact = (value) => value.replace(/\*/g, "").replace(/\^1(?!\d)/g, "").replace(/\+c$/i, "+c").replace(/c$/i, "c");
     return compact(left) === compact(right);
+  };
+  const choiceAnswerKey = (question, value) => questionModel?.choiceAnswerKey(question, value) || "";
+  const choiceSelection = (question, value) => questionModel?.choiceSelection(question, value) || { key: "", text: "", raw: String(value || "") };
+  const canonicalQuestionAnswer = (question, value) => questionModel?.canonicalAnswer(question, value) || String(value || "").trim();
+  const choiceAnswerMatches = (question, actual) => {
+    const actualKey = choiceAnswerKey(question, actual);
+    const expectedKeys = [question.answer, ...(question.aliases || [])]
+      .map((item) => choiceAnswerKey(question, item))
+      .filter(Boolean);
+    return Boolean(actualKey && expectedKeys.includes(actualKey));
   };
   const uniqueByStem = (pool) => {
     const seen = new Set();
@@ -218,9 +251,14 @@
     return last.length <= 40 ? last.replace(/[。；;，,]$/g, "").trim() : "";
   };
   const scoreAnswer = (question, attempt) => {
-    const value = attempt.answer || attempt.selectedOption || attempt.formulaText || (question.type === "fill" ? extractFillAnswerFromWorkSpace(attempt.stepsText) : "");
+    const value = attempt.choice?.key || attempt.answer || attempt.selectedOption || attempt.formulaText || (question.type === "fill" ? extractFillAnswerFromWorkSpace(attempt.stepsText) : "");
     if (!value && question.type !== "choice" && attempt.strokeCount > 0) return null;
+    if (question.type === "choice") return Boolean(value && choiceAnswerMatches(question, value));
     return Boolean(value && equivalentAnswer(question.answer, value));
+  };
+  const responseAnswerFor = (question, payload = {}) => {
+    const raw = payload.choice?.key || payload.answer || payload.selectedOption || payload.formulaText || (question.type === "fill" ? extractFillAnswerFromWorkSpace(payload.stepsText) : "");
+    return question.type === "choice" ? canonicalQuestionAnswer(question, raw) : raw;
   };
   const diagnose = (question, correct, attempt) => {
     if (correct === true) return { reason: "已掌握", advice: "本题表现稳定，可在做题集中安排间隔复刷。" };
@@ -229,7 +267,7 @@
   };
 
   const typeLabelFor = (type) => type === "choice" ? "选择题" : type === "fill" ? "填空题" : "主观题";
-  const hasResponseContent = (payload = {}) => Boolean(payload.answer || payload.selectedOption || payload.formulaText || payload.stepsText || payload.scratchImage || payload.answerImage || payload.strokeCount);
+  const hasResponseContent = (payload = {}) => Boolean(payload.choice?.key || payload.answer || payload.selectedOption || payload.formulaText || payload.stepsText || payload.scratchImage || payload.answerImage || payload.strokeCount);
   const scoreForAttempt = (question, attempt) => {
     const maxScore = question.type === "choice" ? 5 : question.type === "fill" ? 5 : 10;
     if (!attempt || attempt.correct === null) return { score: 0, maxScore };
@@ -249,8 +287,15 @@
     const questionAnalyses = qs.map((question, index) => {
       const attempt = byId.get(question.id);
       const scored = scoreForAttempt(question, attempt);
+      const studentChoice = attempt?.choice?.key
+        ? `${attempt.choice.key}${attempt.choice.text ? `. ${attempt.choice.text}` : ""}`
+        : "";
+      const standardChoice = question.type === "choice" ? choiceSelection(question, question.answer) : null;
+      const standardAnswer = question.type === "choice"
+        ? (standardChoice?.key ? `${standardChoice.key}${standardChoice.text ? `. ${standardChoice.text}` : ""}` : "待校对")
+        : question.answer;
       const processIssue = attempt?.correct === true && question.type === "subjective" && !String(attempt?.stepsText || "").trim();
-      return { questionId: question.id, orderIndex: index, type: question.type, typeLabel: typeLabelFor(question.type), chapterName: question.chapterName, knowledgePoints: [question.point], title: question.stem, studentAnswer: attempt?.answer || attempt?.selectedOption || "", studentSteps: attempt?.stepsText || "", standardAnswer: question.answer, standardSteps: question.explanation, score: scored.score, maxScore: scored.maxScore, finalAnswerCorrect: attempt?.correct === true, processCorrect: attempt?.correct === true && !processIssue, answerCorrectButProcessIssue: processIssue, needsDeepDiagnosis: attempt?.correct !== true || processIssue, analysisDepth: attempt?.correct !== true || processIssue ? "deep" : "light", processIssue: { hasIssue: Boolean(processIssue), reason: processIssue ? "结果正确但主观题缺少可复核过程" : "", severity: processIssue ? "medium" : "none" }, gradingStatus: attempt?.gradingStatus || "missing", errorTypes: attempt?.correct && !processIssue ? [] : [processIssue ? "结果正确但过程有问题" : attempt?.reason || question.reason || "待识别"], deductionReason: attempt?.correct && !processIssue ? "正确题仅记录结果" : (processIssue ? "结果正确但过程有问题" : attempt?.reason || question.reason || "待识别"), firstErrorStep: attempt?.correct && !processIssue ? null : 1, lastCorrectStep: null, errorTag: { knowledgePoint: question.chapterName, subKnowledgePoint: question.point, errorType: processIssue ? "结果正确但过程有问题" : attempt?.reason || question.reason || "待识别", errorPosition: "第1步" }, steps: stepAnalysisFor(question, attempt), advice: attempt?.advice || "" };
+      return { questionId: question.id, orderIndex: index, type: question.type, typeLabel: typeLabelFor(question.type), chapterName: question.chapterName, knowledgePoints: [question.point], title: question.stem, studentAnswer: attempt?.recognizedAnswer || studentChoice || attempt?.answer || attempt?.selectedOption || "", studentSteps: attempt?.stepsText || "", standardAnswer, standardSteps: question.explanation, score: scored.score, maxScore: scored.maxScore, finalAnswerCorrect: attempt?.correct === true, processCorrect: attempt?.correct === true && !processIssue, answerCorrectButProcessIssue: processIssue, needsDeepDiagnosis: attempt?.correct !== true || processIssue, analysisDepth: attempt?.correct !== true || processIssue ? "deep" : "light", processIssue: { hasIssue: Boolean(processIssue), reason: processIssue ? "结果正确但主观题缺少可复核过程" : "", severity: processIssue ? "medium" : "none" }, gradingStatus: attempt?.gradingStatus || "missing", errorTypes: attempt?.correct && !processIssue ? [] : [processIssue ? "结果正确但过程有问题" : attempt?.reason || question.reason || "待识别"], deductionReason: attempt?.correct && !processIssue ? "正确题仅记录结果" : (processIssue ? "结果正确但过程有问题" : attempt?.reason || question.reason || "待识别"), firstErrorStep: attempt?.correct && !processIssue ? null : 1, lastCorrectStep: null, errorTag: { knowledgePoint: question.chapterName, subKnowledgePoint: question.point, errorType: processIssue ? "结果正确但过程有问题" : attempt?.reason || question.reason || "待识别", errorPosition: "第1步" }, steps: stepAnalysisFor(question, attempt), advice: attempt?.advice || "" };
     });
     const totalScore = questionAnalyses.reduce((sum, item) => sum + item.score, 0);
     const totalMax = Math.max(1, questionAnalyses.reduce((sum, item) => sum + item.maxScore, 0));
@@ -274,52 +319,108 @@
     return { summary: { examinationId: submission.examinationId, paperName: submission.paperName, submittedAt: submission.submittedAt, totalScore, totalMax, scoreRate: Math.round(totalScore / totalMax * 100), correctCount, wrongCount: questionAnalyses.length - correctCount - unansweredCount, unansweredCount, objectiveScore: questionAnalyses.filter((item) => item.type !== "subjective").reduce((sum, item) => sum + item.score, 0), subjectiveScore: questionAnalyses.filter((item) => item.type === "subjective").reduce((sum, item) => sum + item.score, 0), durationMs: submission.durationMs, timeout: false, level: "静态演示诊断", estimatedExamLevel: "演示环境不冒充真实考试预测", comment: weak.length ? `静态演示显示薄弱点集中在 ${weak.slice(0, 3).join("、")}。` : "本卷表现稳定。" }, byType, byChapter, byKnowledge, errorStats, abilityDiagnosis: ["基础计算能力", "公式应用能力", "审题能力", "建模能力", "推理能力", "综合分析能力"].map((name, index) => ({ name, score: Math.max(35, 82 - index * 7), level: "演示评估", evidence: "来自本卷客观题判分与主观题保存状态", questionIds: [], advice: "接入服务端后可基于真实步骤识别更新。" })), questionAnalyses, historyCompare: [], topProblems: Object.entries(errorStats).slice(0, 3).map(([type, item]) => ({ type, ...item })), priorityKnowledge: weak.slice(0, 5), recommendedTasks: weak.slice(0, 4).map((point, index) => ({ id: `task_${index}`, stage: ["复习", "基础巩固题", "同类变式题", "综合应用题"][index] || "复测", knowledgePoint: point, errorType: Object.keys(errorStats)[0] || "待识别", title: `${point}专项补强`, target: "完成复习、训练和复测", status: "pending" })), loop: { current: "诊断完成", stages: ["检测", "诊断", "复习", "训练", "复测", "提升"], nextAction: weak[0] ? `${weak[0]}专项补强` : "综合提升训练" } };
   };
 
+  const staticTrainingPurpose = (level, trainingType) => (trainingType === "targeted"
+    ? { foundation: "基础概念与解题入口", same_type: "同类方法训练", variation: "同知识点变式训练", comprehensive: "综合迁移检验" }
+    : { foundation: "薄弱知识点基础补漏", same_type: "同类方法稳定训练", variation: "同知识点变式迁移", comprehensive: "综合应用检验" })[level] || "相似题训练";
+
+  const staticTrainingSeconds = (question) => question.type === "choice" ? 90 : question.type === "fill" ? 120 : 240;
+
   const createStaticTrainingBatch = (store, studentId, body = {}) => {
     const latest = (store.submissions || []).filter((item) => item.studentId === studentId).sort((a, b) => String(b.submittedAt).localeCompare(String(a.submittedAt)))[0];
     if (!latest) throw new Error("没有整卷报告，无法生成训练");
     const analyses = latest.report?.questionAnalyses || [];
     const eligible = analyses.filter((item) => item.needsDeepDiagnosis || item.finalAnswerCorrect === false || item.answerCorrectButProcessIssue);
-    const usedSourceIds = new Set((store.trainingBatches || [])
-      .filter((item) => item.studentId === studentId && item.trainingType === "targeted")
-      .map((item) => item.sourceWrongQuestionId)
-      .filter(Boolean));
     const wrong = analyses.find((item) => item.questionId === body.sourceWrongQuestionId)
-      || eligible.find((item) => !usedSourceIds.has(item.questionId))
       || eligible[0]
-      || analyses[0]
       || {};
-    const trainingType = body.trainingType === "comprehensive" ? "comprehensive" : "targeted";
-    const total = trainingType === "comprehensive" ? 20 : 10;
-    const purpose = trainingType === "targeted"
-      ? ["基础概念题", "基础概念题", "关键步骤题", "关键步骤题", "同类题", "同类题", "变式题", "变式题", "易错题", "综合检验题"]
-      : ["当前最严重错误专项", "当前最严重错误专项", "当前最严重错误专项", "当前最严重错误专项", "当前最严重错误专项", "当前最严重错误专项", "当前最严重错误专项", "当前最严重错误专项", "当前最严重错误专项", "当前最严重错误专项", "其他薄弱知识点", "其他薄弱知识点", "其他薄弱知识点", "其他薄弱知识点", "历史重复错误", "历史重复错误", "历史重复错误", "防遗忘巩固题", "防遗忘巩固题", "提升题"];
+    if (!wrong.questionId) throw new Error("报告中没有明确的错题或过程问题，无法生成相似题训练");
     const sourceBase = questions.find((item) => item.id === wrong.questionId) || {};
-    const sourceQuestion = {
-      id: wrong.questionId || "",
-      stem: wrong.title || "",
-      answer: wrong.standardAnswer || "",
-      stepsText: wrong.studentSteps || "",
-      chapterId: wrong.chapterId || sourceBase.chapterId || "integral",
-      point: wrong.knowledgePoints?.[0] || sourceBase.point || "",
-      type: wrong.type || sourceBase.type || ""
-    };
+    const sourceQuestion = sourceBase.id
+      ? sourceBase
+      : questionModel.normalizeQuestion({
+        id: wrong.questionId || "static_source",
+        subjects: [store.students.find((item) => item.id === studentId)?.mathType || "数学一"],
+        chapterId: wrong.chapterId || "integral",
+        chapterName: wrong.chapterName || "考研数学",
+        point: wrong.knowledgePoints?.[0] || "当前知识点",
+        reason: wrong.errorTypes?.[0] || "方法选择错误",
+        type: wrong.type || "subjective",
+        stem: wrong.title || "当前错题",
+        answer: wrong.standardAnswer || "",
+        explanation: wrong.standardSteps || wrong.deductionReason || ""
+      });
     const sourceTag = {
-      questionId: wrong.questionId || "",
-      errorType: wrong.errorTypes?.[0] || "方法选择错误",
+      questionId: wrong.questionId || sourceQuestion.id,
+      errorType: wrong.errorTypes?.[0] || sourceQuestion.reason || "方法选择错误",
       sourceWrongStep: wrong.firstErrorStep || 1,
       errorCategory: wrong.errorTag?.errorCategory || "方法与计算错误",
-      subKnowledgePoint: wrong.knowledgePoints?.[0] || ""
+      subKnowledgePoint: wrong.knowledgePoints?.[0] || sourceQuestion.point || ""
     };
-    const questionsForTraining = Array.from({ length: total }, (_, index) => ({
+    const trainingType = body.trainingType === "comprehensive" ? "comprehensive" : "targeted";
+    const requestedCount = trainingType === "comprehensive" ? 20 : 10;
+    const targetLevels = trainingType === "comprehensive"
+      ? Array.from({ length: requestedCount }, (_, index) => questionModel.trainingLevelSlots(10)[index % 10])
+      : questionModel.trainingLevelSlots(requestedCount);
+    const student = store.students.find((item) => item.id === studentId) || {};
+    const usedIds = new Set((store.attempts || []).filter((item) => item.studentId === studentId).map((item) => item.questionId).filter(Boolean));
+    usedIds.add(sourceQuestion.id);
+    const selectedEntries = [];
+    const matchTiers = {};
+    const addSelection = (selection) => {
+      selection.selected.forEach((entry) => {
+        if (usedIds.has(entry.question.id)) return;
+        usedIds.add(entry.question.id);
+        selectedEntries.push(entry);
+        matchTiers[entry.matchTier] = (matchTiers[entry.matchTier] || 0) + 1;
+      });
+    };
+    if (trainingType === "targeted") {
+      addSelection(questionModel.selectSimilarQuestions(questions, sourceQuestion, {
+        count: requestedCount,
+        targetLevels,
+        seed: `${latest.id}:${sourceQuestion.id}:${trainingType}`,
+        subject: student.mathType,
+        excludeIds: Array.from(usedIds)
+      }));
+    } else {
+      const focuses = [sourceQuestion, ...eligible.map((item) => questions.find((question) => question.id === item.questionId)).filter(Boolean)];
+      targetLevels.forEach((targetLevel, index) => {
+        const start = index % Math.max(1, focuses.length);
+        const ordered = [focuses[start], ...focuses.filter((_, focusIndex) => focusIndex !== start)];
+        for (const focus of ordered) {
+          const selection = questionModel.selectSimilarQuestions(questions, focus, {
+            count: 1,
+            targetLevels: [targetLevel],
+            seed: `${latest.id}:${sourceQuestion.id}:${trainingType}:${index}:${focus.id}`,
+            subject: student.mathType,
+            excludeIds: Array.from(usedIds)
+          });
+          if (selection.selected.length) {
+            addSelection(selection);
+            break;
+          }
+        }
+      });
+    }
+    const questionsForTraining = selectedEntries.map((entry, index) => ({
+      ...entry.question,
       id: `trainq_${Date.now()}_${index}_${Math.random().toString(16).slice(2)}`,
+      questionId: "",
+      bankQuestionId: entry.question.id,
       index: index + 1,
-      ...window.TrainingFactory.createTrainingQuestion({ sourceQuestion, sourceTag, index: trainingType === "targeted" ? index % 10 : index, variant: index + 1, trainingType, purpose: purpose[index] })
+      trainingPurpose: staticTrainingPurpose(entry.targetLevel, trainingType),
+      trainingLevel: entry.targetLevel,
+      difficultyLevel: entry.question.difficulty,
+      knowledgePoint: entry.question.practiceMeta?.knowledgePointName || entry.question.point,
+      subKnowledgePoint: entry.question.practiceMeta?.knowledgePointName || entry.question.point,
+      sourceErrorType: sourceTag.errorType,
+      sourceWrongStep: sourceTag.sourceWrongStep,
+      matchRank: entry.matchRank,
+      matchTier: entry.matchTier,
+      estimatedSeconds: staticTrainingSeconds(entry.question)
     }));
     questionsForTraining.forEach((question) => { question.questionId = question.id; });
-    questionsForTraining.forEach((question) => {
-      const validation = window.TrainingFactory.validateTrainingQuestion(question);
-      if (!validation.valid) throw new Error(`第${question.index}题校验失败：${validation.reasons.join("、")}`);
-    });
+    if (!questionsForTraining.length) throw new Error("当前知识点没有足够的已标注相似题，请先补齐题库标注。");
     const batch = {
       id: `batch_${Date.now()}_${Math.random().toString(16).slice(2)}`,
       trainingBatchId: "",
@@ -330,17 +431,20 @@
       sourceQuestionTitle: sourceQuestion.stem,
       sourceKnowledgePoint: sourceTag.subKnowledgePoint || sourceQuestion.point,
       sourceErrorEvidence: wrong.firstErrorStep ? `第${wrong.firstErrorStep}步：${wrong.deductionReason || sourceTag.errorType}` : sourceTag.errorType,
-      sourceErrorType: questionsForTraining[0].sourceErrorType || sourceTag.errorType,
+      sourceErrorType: sourceTag.errorType,
       sourceWrongStep: sourceTag.sourceWrongStep,
       knowledgePoint: wrong.chapterName || "考研数学",
       subKnowledgePoint: sourceTag.subKnowledgePoint,
       errorCategory: sourceTag.errorCategory,
-      trainingTheme: trainingType === "targeted" ? `${sourceTag.subKnowledgePoint} · ${questionsForTraining[0].sourceErrorType}` : "20题综合训练",
-      composition: trainingType === "comprehensive" ? { mainErrorType: 10, otherWeakKnowledge: 4, repeatedHistory: 3, antiForgetting: 2, stretch: 1 } : { conceptDiscrimination: 2, basicSteps: 2, sameType: 2, variants: 2, trap: 1, synthesis: 1 },
-      questionCount: total,
-      total,
+      trainingTheme: trainingType === "targeted" ? `${sourceTag.subKnowledgePoint} · ${sourceTag.errorType}` : "20题综合训练",
+      composition: trainingType === "comprehensive" ? { requested: requestedCount, selected: questionsForTraining.length, mainErrorType: 10, otherWeakKnowledge: 4, repeatedHistory: 3, antiForgetting: 2, stretch: 1 } : { requested: requestedCount, selected: questionsForTraining.length, conceptDiscrimination: 2, basicSteps: 2, sameType: 2, variants: 2, trap: 1, synthesis: 1 },
+      requestedCount,
+      questionCount: questionsForTraining.length,
+      total: questionsForTraining.length,
       estimatedMinutes: Math.ceil(questionsForTraining.reduce((sum, item) => sum + item.estimatedSeconds, 0) / 60),
       questions: questionsForTraining,
+      selection: { source: "annotated_question_bank", requestedCount, availableCount: questionsForTraining.length, shortage: Math.max(0, requestedCount - questionsForTraining.length), matchTiers },
+      shortage: Math.max(0, requestedCount - questionsForTraining.length),
       progress: { answered: 0, correct: 0, accuracy: 0, hintsUsed: 0, repeatedOriginalError: false, masteryBefore: 35, masteryAfter: null },
       status: "waiting_answer",
       createdAt: nowIso(),
@@ -499,7 +603,7 @@
       importedQuestionCount: 0,
       localSources: [{ sourceId: "classified-probability", site: "本地真题资料库", year: "1987-2025", mathType: "概率专题", title: "真题分类概率（原页资料）", url: "past-exam-preview.html", format: "classified_pages", importStatus: "page_preview_ready_pending_question_review", description: "100 页原页已发布；候选题待人工校对，暂未发布为正式刷题题目。" }]
     };
-    if (method === "GET" && path === "/api/bootstrap") return json({ chapters, inviteCodes: ["demo"], pastExamSources: staticPastExamSources, aiStatus: { handwritingRecognition: false, model: "static-demo" } });
+    if (method === "GET" && path === "/api/bootstrap") return json({ questionSchemaVersion, chapters, inviteCodes: ["demo"], pastExamSources: staticPastExamSources, aiStatus: { handwritingRecognition: false, model: "static-demo" } });
     if (method === "GET" && path === "/api/past-exam-sources") return json(staticPastExamSources);
     if (method === "POST" && path === "/api/login") {
       if ((body.password || "demo123") !== "demo123") return json({ error: "演示账号密码错误" }, 401);
@@ -511,7 +615,7 @@
       return json({ student, demo: true, sessionId });
     }
     if (method === "POST" && path === "/api/demo/reset") {
-      writeStore({ students: store.students, attempts: [], submissions: [] });
+      writeStore({ students: store.students, attempts: [], submissions: [], trainingBatches: [], trainingRecords: [], retestRecords: [] });
       return json({ ok: true, student: store.students[0] || studentFrom({}) });
     }
     if (method === "GET" && path === "/api/questions") {
@@ -527,8 +631,10 @@
       const mode = url.searchParams.get("mode") || "reinforce";
       const requestedPracticeType = url.searchParams.get("practiceType") || "new";
       const practiceType = ["new", "wrong", "mixed"].includes(requestedPracticeType) ? requestedPracticeType : "new";
-      let pool = questions.filter((item) => item.subjects.includes(student.mathType) && (chapterSet === null || chapterSet.has(item.chapterId)));
-      if (sourceType !== "all") pool = pool.filter((item) => item.sourceType === sourceType);
+      let pool = questionModel?.queryQuestions
+        ? questionModel.queryQuestions(questions, { sectionIds: chapterIds, subjects: [student.mathType] })
+        : questions.filter((item) => item.subjects.includes(student.mathType) && (chapterSet === null || chapterSet.has(item.chapterId)));
+      if (sourceType !== "all") pool = pool.filter((item) => (item.sourceSpec?.type || item.sourceType) === sourceType);
       if (!["all", "mode"].includes(difficulty)) pool = pool.filter((item) => String(item.difficulty) === String(difficulty));
       if (!pool.length && chapterIds === null) pool = questions.filter((item) => item.subjects.includes(student.mathType));
       const modeDifficulty = { foundation: ["1", "2"], reinforce: ["3", "4"], mock: ["1", "2", "3", "4", "5"] }[mode] || ["3", "4"];
@@ -552,6 +658,8 @@
       localStorage.setItem(roundKey, JSON.stringify(selection.questions.map((item) => item.id)));
       const response = {
         questions: selection.questions,
+        questionSchemaVersion,
+        bank: { name: "question-bank", sectionIds: chapterIds || [], sourceType },
         chapterId: chapterIds === null ? "all" : chapterIds.length === 1 ? chapterIds[0] : "mixed",
         chapterIds: chapterIds || [],
         count,
@@ -576,14 +684,17 @@
       if (!question) return json({ error: "题目不存在" }, 404);
       const correct = scoreAnswer(question, body);
       const diagnosis = diagnose(question, correct, body);
-      const finalAnswer = body.answer || body.selectedOption || body.formulaText || (question.type === "fill" ? extractFillAnswerFromWorkSpace(body.stepsText) : "");
+      const finalAnswer = responseAnswerFor(question, body);
+      const choice = question.type === "choice" ? choiceSelection(question, body.choice || body.selectedOption || body.answer || finalAnswer) : null;
       const attempt = {
         id: `att_${Date.now()}_${Math.random().toString(16).slice(2)}`,
         studentId: body.studentId,
         questionId: question.id,
         chapterId: question.chapterId,
         answer: finalAnswer,
-        selectedOption: body.selectedOption || "",
+        selectedOption: choice?.key || body.selectedOption || "",
+        selectedOptionText: choice?.text || "",
+        choice,
         formulaText: body.formulaText || "",
         stepsText: body.stepsText || "",
         flagged: Boolean(body.flagged),
@@ -628,7 +739,12 @@
         ],
         questionIds,
         attemptIds: [],
-        responsesLocked: responses.map((item, index) => ({ questionId: item.questionId, answer: item.answer || "", selectedOption: item.selectedOption || "", formulaText: item.formulaText || "", stepsText: item.stepsText || "", hasScratchImage: Boolean(item.scratchImage), hasAnswerImage: Boolean(item.answerImage), strokeCount: Number(item.strokeCount || 0), durationMs: Number(item.durationMs || 0), answerOrder: index, abandoned: !hasResponseContent(item) })),
+        responsesLocked: responses.map((item, index) => {
+          const question = questions.find((candidate) => candidate.id === item.questionId);
+          const answer = question ? responseAnswerFor(question, item) : (item.answer || item.selectedOption || "");
+          const choice = question?.type === "choice" ? choiceSelection(question, item.choice || item.selectedOption || item.answer || answer) : null;
+          return { questionId: item.questionId, answer, selectedOption: choice?.key || item.selectedOption || "", selectedOptionText: choice?.text || "", choice, formulaText: item.formulaText || "", stepsText: item.stepsText || "", hasScratchImage: Boolean(item.scratchImage), hasAnswerImage: Boolean(item.answerImage), strokeCount: Number(item.strokeCount || 0), durationMs: Number(item.durationMs || 0), answerOrder: index, abandoned: !hasResponseContent(item) };
+        }),
         completenessIssues: [],
         durationMs: Number(body.durationMs || 0),
         answerOrder: Array.isArray(body.answerOrder) ? body.answerOrder : questionIds,
@@ -644,7 +760,8 @@
         const payload = responses.find((item) => item.questionId === qid) || { questionId: qid };
         const correct = scoreAnswer(question, payload);
         const diagnosis = diagnose(question, correct, payload);
-        const finalAnswer = payload.answer || payload.selectedOption || payload.formulaText || (question.type === "fill" ? extractFillAnswerFromWorkSpace(payload.stepsText) : "");
+        const finalAnswer = responseAnswerFor(question, payload);
+        const choice = question.type === "choice" ? choiceSelection(question, payload.choice || payload.selectedOption || payload.answer || finalAnswer) : null;
         if (!hasResponseContent(payload)) submission.completenessIssues.push({ questionId: qid, type: "unanswered", severity: "warn", message: `第${index + 1}题未作答` });
         if (question.type !== "choice" && correct === null) submission.completenessIssues.push({ questionId: qid, type: "pending_ocr", severity: "warn", message: `第${index + 1}题主观过程等待真实 OCR/AI 识别` });
         const attempt = {
@@ -655,7 +772,9 @@
           orderIndex: index,
           chapterId: question.chapterId,
           answer: finalAnswer,
-          selectedOption: payload.selectedOption || "",
+          selectedOption: choice?.key || payload.selectedOption || "",
+          selectedOptionText: choice?.text || "",
+          choice,
           formulaText: payload.formulaText || "",
           stepsText: payload.stepsText || "",
           strokeCount: Number(payload.strokeCount || 0),
@@ -693,7 +812,7 @@
       try {
         const batch = createStaticTrainingBatch(store, body.studentId, body);
         writeStore(store);
-        return json({ batch });
+        return json({ batch: questionModel.publicTrainingBatch(batch) });
       } catch (error) {
         return json({ error: error.message || "训练批次生成失败" }, 400);
       }
@@ -704,23 +823,39 @@
       const list = (store.trainingBatches || []).filter((item) => {
         const total = Number(item.total || item.questionCount || 0);
         return total > 0 && Array.isArray(item.questions) && item.questions.length === total
-          && item.questions.every((question) => window.TrainingFactory.validateTrainingQuestion(question).valid)
+          && item.questions.every((question) => question.bankQuestionId && questionModel.isPracticeQuestionReady(question))
           && (!studentId || item.studentId === studentId)
           && (!type || item.trainingType === type);
       }).sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
-      return json({ batches: list, latest: list[0] || null });
+      return json({ batches: list.map((item) => questionModel.publicTrainingBatch(item)), latest: list[0] ? questionModel.publicTrainingBatch(list[0]) : null });
+    }
+    if (method === "GET" && path === "/api/training-records") {
+      const studentId = url.searchParams.get("studentId");
+      const trainingBatchId = url.searchParams.get("trainingBatchId");
+      const records = (store.trainingRecords || [])
+        .filter((record) => (!studentId || record.studentId === studentId) && (!trainingBatchId || record.trainingBatchId === trainingBatchId))
+        .map((record) => ({ ...record, locked: true }));
+      return json({ records });
     }
     if (method === "POST" && path === "/api/training-records") {
       const batch = (store.trainingBatches || []).find((item) => item.id === body.trainingBatchId);
       if (!batch) return json({ error: "训练批次不存在" }, 404);
       const question = batch.questions.find((item) => item.id === body.trainingQuestionId);
       if (!question) return json({ error: "训练题不存在" }, 404);
-      const correct = question.questionType === "subjective" ? null : equivalentAnswer(question.answer, body.answer || body.selectedOption || "");
-      const record = { id: `tr_${Date.now()}_${Math.random().toString(16).slice(2)}`, studentId: batch.studentId, trainingBatchId: batch.id, trainingQuestionId: question.id, answer: body.answer || "", selectedOption: body.selectedOption || "", stepsText: body.stepsText || "", strokeCount: Number(body.strokeCount || 0), hintLevelUsed: Number(body.hintLevelUsed || 0), correct, score: correct === true ? 100 : 0, gradingStatus: correct === null ? "pending_recognition" : "graded", repeatedOriginalError: correct === false && String(body.stepsText || body.answer || "").includes(batch.sourceErrorType), createdAt: nowIso() };
+      if (!questionModel.isPracticeQuestionReady(question)) return json({ error: "训练题未通过题库校验" }, 400);
+      const existingRecord = (store.trainingRecords || []).find((item) => item.trainingBatchId === batch.id && item.trainingQuestionId === question.id);
+      if (existingRecord) return json({ error: "本题已经提交，不能重复作答", record: { ...existingRecord, locked: true }, batch: questionModel.publicTrainingBatch(batch) }, 409);
+      const trainingAnswer = canonicalQuestionAnswer(question, body.answer || body.selectedOption || "");
+      const correct = question.questionType === "subjective"
+        ? null
+          : question.questionType === "choice"
+            ? choiceAnswerMatches(question, trainingAnswer)
+            : equivalentAnswer(question.answer, trainingAnswer);
+      const trainingChoice = question.questionType === "choice" ? choiceSelection(question, body.selectedOption || body.answer || trainingAnswer) : null;
+      const record = { id: `tr_${Date.now()}_${Math.random().toString(16).slice(2)}`, studentId: batch.studentId, trainingBatchId: batch.id, trainingQuestionId: question.id, answer: trainingAnswer, selectedOption: trainingChoice?.key || body.selectedOption || "", selectedOptionText: trainingChoice?.text || "", choice: trainingChoice, stepsText: body.stepsText || "", strokeCount: Number(body.strokeCount || 0), hintLevelUsed: Number(body.hintLevelUsed || 0), correct, score: correct === true ? 100 : 0, gradingStatus: correct === null ? "pending_recognition" : "graded", repeatedOriginalError: correct === false && String(body.stepsText || body.answer || "").includes(batch.sourceErrorType), submitted: true, locked: true, reveal: questionModel.trainingReveal(question), createdAt: nowIso() };
       store.trainingRecords = store.trainingRecords || [];
-      const existingRecordIndex = store.trainingRecords.findIndex((item) => item.trainingBatchId === batch.id && item.trainingQuestionId === question.id);
-      if (existingRecordIndex >= 0) store.trainingRecords[existingRecordIndex] = { ...store.trainingRecords[existingRecordIndex], ...record };
-      else store.trainingRecords.push(record);
+      store.trainingRecords.push(record);
+      batch.progress = batch.progress || { answered: 0, correct: 0, accuracy: 0, hintsUsed: 0, repeatedOriginalError: false, masteryBefore: 35, masteryAfter: null };
       const records = store.trainingRecords.filter((item) => item.trainingBatchId === batch.id);
       batch.progress.answered = records.length;
       batch.progress.correct = records.filter((item) => item.correct).length;
@@ -730,7 +865,7 @@
       batch.progress.masteryAfter = Math.min(95, Math.max(batch.progress.masteryBefore, batch.progress.accuracy - batch.progress.hintsUsed * 2));
       batch.status = batch.progress.answered >= batch.questionCount ? "completed" : "in_progress";
       writeStore(store);
-      return json({ record, batch, warning: record.repeatedOriginalError ? `你在本题中再次出现了与原错题相同的错误：${batch.sourceErrorType}。建议暂停继续刷题，重新复习对应知识点。` : "" });
+      return json({ record, batch: questionModel.publicTrainingBatch(batch), warning: record.repeatedOriginalError ? `你在本题中再次出现了与原错题相同的错误：${batch.sourceErrorType}。建议暂停继续刷题，重新复习对应知识点。` : "" });
     }
     if (method === "POST" && path === "/api/retests") {
       const batch = (store.trainingBatches || []).find((item) => item.id === body.trainingBatchId);
