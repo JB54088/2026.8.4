@@ -2,8 +2,23 @@ const http = require("http");
 const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
-const { createTrainingQuestion: createGeneratedTrainingQuestion, validateTrainingQuestion } = require("./public/training-factory.js");
-const { gradeQuestion: runCanonicalGrading, canonicalQuestionType } = require("./public/grading-engine.js");
+const { classifyQuestionChapter } = require("./public/chapter-classifier.js");
+const {
+  QUESTION_SCHEMA_VERSION,
+  choiceAnswerKey,
+  choiceSelection,
+  choiceSpec,
+  canonicalAnswer,
+  normalizeQuestion,
+  normalizeQuestionList,
+  queryQuestions,
+  isPracticeQuestionReady,
+  selectSimilarQuestions,
+  trainingLevelSlots,
+  trainingReveal,
+  publicTrainingBatch,
+  publicTrainingQuestion
+} = require("./public/question-model.js");
 
 const ROOT = __dirname;
 const PUBLIC = path.join(ROOT, "public");
@@ -53,19 +68,38 @@ function writeJson(file, value) {
   fs.writeFileSync(file, JSON.stringify(value, null, 2), "utf8");
 }
 
+function normalizeQuestionRecord(question) {
+  return normalizeQuestion(classifyQuestionChapter(question));
+}
+
 function db() {
   if (!fs.existsSync(DB_FILE)) writeJson(DB_FILE, seedDb());
   const store = readJson(DB_FILE);
-  if (!Array.isArray(store.questions) || store.questions.length < 10000 || store.meta.questionSchemaVersion !== 13) {
-    store.questions = buildQuestions().map(enrichQuestionWithSolution);
-    store.meta.questionSchemaVersion = 13;
+  const rawQuestions = Array.isArray(store.questions) ? store.questions : [];
+  const needsQuestionNormalization = rawQuestions.some((question) => (
+    !question
+    || question.schemaVersion !== QUESTION_SCHEMA_VERSION
+    || !question.sectionId
+    || !question.answerSpec
+    || !question.content
+    || !question.sourceSpec
+  ));
+  let changed = false;
+  if (!rawQuestions.length) {
+    store.questions = buildQuestions();
+    changed = true;
+  } else if (needsQuestionNormalization) {
+    store.questions = normalizeQuestionList(rawQuestions.map(normalizeQuestionRecord));
+    changed = true;
+  }
+  store.meta = store.meta || {};
+  if (store.meta.questionSchemaVersion !== QUESTION_SCHEMA_VERSION) {
+    store.meta.questionSchemaVersion = QUESTION_SCHEMA_VERSION;
+    changed = true;
+  }
+  if (changed) {
+    migrateChapterReferences(store);
     saveDb(store);
-  } else {
-    const missingSolutions = store.questions.some((question) => question.solutionVersion !== 1);
-    if (missingSolutions) {
-      store.questions = store.questions.map(enrichQuestionWithSolution);
-      saveDb(store);
-    }
   }
   if (!Array.isArray(store.submissions)) {
     store.submissions = [];
@@ -81,10 +115,52 @@ function saveDb(next) {
   writeJson(DB_FILE, next);
 }
 
+function migrateChapterReferences(store) {
+  const questionById = new Map((store.questions || []).map((question) => [question.id, question]));
+  const chapterIdsForQuestionIds = (questionIds) => Array.from(new Set(
+    (Array.isArray(questionIds) ? questionIds : [])
+      .map((questionId) => questionById.get(questionId)?.sectionId || questionById.get(questionId)?.chapterId)
+      .filter(Boolean)
+  ));
+
+  if (Array.isArray(store.attempts)) {
+    store.attempts = store.attempts.map((attempt) => {
+      const question = questionById.get(attempt.questionId);
+      return question
+        ? {
+          ...attempt,
+          chapterId: question.sectionId || question.chapterId,
+          chapterName: question.sectionName || question.chapterName
+        }
+        : attempt;
+    });
+  }
+
+  if (Array.isArray(store.submissions)) {
+    store.submissions = store.submissions.map((submission) => {
+      const chapterIds = chapterIdsForQuestionIds(submission.questionIds);
+      if (!chapterIds.length) return submission;
+      return {
+        ...submission,
+        chapterId: chapterIds.length === 1 ? chapterIds[0] : "mixed",
+        chapterIds
+      };
+    });
+  }
+}
+
 function readPastExamSources() {
   const file = path.join(ROOT, "data", "past-exam-sources.json");
   if (!fs.existsSync(file)) return { trustedSources: [], candidateSourcesNeedReview: [] };
   return readJson(file);
+}
+
+function pastExamSourcesFor(store) {
+  const sources = readPastExamSources();
+  sources.importedQuestionCount = (store?.questions || []).filter((question) =>
+    question.sourceType === "past_exam" && isQuestionReadyForPractice(question)
+  ).length;
+  return sources;
 }
 
 function readPastExamQuestions() {
@@ -93,12 +169,16 @@ function readPastExamQuestions() {
   return readJson(file);
 }
 
+function isQuestionReadyForPractice(question) {
+  if (!question || question.sourceType !== "past_exam") return true;
+  return isPracticeQuestionReady(question);
+}
+
 function id(prefix) {
   return `${prefix}_${crypto.randomBytes(8).toString("hex")}`;
 }
 
 function cleanId(value) {
-
   return String(value || "").replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 48);
 }
 
@@ -190,137 +270,9 @@ function buildQuestions() {
   const handPicked = q.map(([qid, subjects, chapterId, chapterName, point, reason, type, level, stem, options, answer, aliases, explanation], index) => ({
     id: qid, subjects, chapterId, chapterName, point, reason, type, level, difficulty: difficultyFor(level), stem, options, answer, aliases, explanation, ...sourceMeta(index)
   }));
-  return [...readPastExamQuestions(), ...buildSubjectiveQuestions(), ...buildExamStyleQuestions(), ...handPicked, ...buildGeneratedQuestions()];
-}
-
-function solutionStep(order, title, content) {
-  return { order, title, content };
-}
-
-function buildDetailedSolution(question) {
-  const stem = String(question.stem || "");
-
-  const chapter = question.chapterName || "考研数学";
-  const point = question.point || chapter;
-  const answer = question.answer || "待教研校对";
-  const formula = question.formula || "先写出定义、公式和适用条件";
-  const explanation = question.explanation || "按等式逐步完成代入、变形和化简，并保留能够复核的中间结果。";
-  const common = `本题考查${chapter}中的${point}。先把题干条件翻译成数学关系，再选择公式并逐步计算。`;
-  let examFocus = common;
-  let preAnalysis = "读题时先标出已知量、所求量、定义域和限制条件，确认每一步变形都在题目允许的范围内。";
-  let formulas = [formula, "每一步保留等号或等价号的依据", "最后检查定义域、符号、范围和题目问法"];
-  let steps = [
-    solutionStep(1, "第1步：提取条件", "明确题目给出的量、关系式和最终所求，不能只看最后一个空。"),
-    solutionStep(2, "第2步：选择方法", `根据${point}选择对应定义或公式，并先确认公式的适用条件。`),
-    solutionStep(3, "第3步：逐步推导", explanation),
-    solutionStep(4, "第4步：检查结论", `得到${answer}。回代原条件，检查符号、定义域、单位和结论是否真正回答了题目。`)
-  ];
-  let commonPitfall = `本题容易在${question.reason || "方法选择或计算过程"}处出错。不要跳过关键中间步骤，做完后再次核对最后一步。`;
-
-  if (/极限|lim|sin|cos|tan|ln|e\^/i.test(stem)) {
-    examFocus = `本题考查${point}，核心是判断分子、分母的最低非零阶并选择正确的极限工具。`;
-    preAnalysis = "先代入判断是否为未定式，再观察是否存在相减相消；如果低阶项会相消，展开阶数必须至少达到分母的最低非零阶。";
-    formulas = [formula, "sin u∼u，tan u∼u，1−cos u∼u²/2，ln(1+u)=u−u²/2+o(u²)", "等价无穷小只能在乘除结构中稳定替换，相减结构要先展开到保留下来的阶数"];
-    steps = [
-      solutionStep(1, "第1步：判断未定式与相消关系", "将趋近值代入，确定是 0/0 还是需要比较无穷小阶数；特别检查分子中是否有同阶项相减。"),
-      solutionStep(2, "第2步：选取展开阶数", "分母是几阶，就至少保留分子中相应的最低非零阶；若一次项被消掉，就必须继续保留二次项。"),
-      solutionStep(3, "第3步：代入等价无穷小或泰勒展开", explanation),
-      solutionStep(4, "第4步：约去公共阶并求极限", `化去分子、分母的公共最低阶，得到最终结果 ${answer}，再检查是否遗漏高阶无穷小。`)
-    ];
-    commonPitfall = "不能在相减结构中直接把一阶等价无穷小代入；一次项相消后，真正决定极限的可能是二阶或更高阶项。";
-  } else if (/积分|∫|面积|利润|应用建模/.test(stem + point)) {
-    examFocus = `本题考查${point}，重点是识别积分模型、积分方法和上下限或常数条件。`;
-    preAnalysis = "先判断是不定积分、定积分、反常积分还是应用建模题；写清被积函数、积分区间、换元关系或分部积分中的 u、dv。";
-    formulas = [formula, "∫u dv=uv−∫v du", "定积分先求原函数再代入上下限；不定积分最后必须补常数 C"];
-    steps = [
-      solutionStep(1, "第1步：确定积分类型", "区分不定积分与定积分，检查上下限、被积函数和是否需要常数 C。"),
-      solutionStep(2, "第2步：选择积分方法", "看到内层函数及其导数因子优先换元；乘积中多项式与指数、对数或三角函数组合时检查分部积分。"),
-      solutionStep(3, "第3步：逐步计算", explanation),
-      solutionStep(4, "第4步：回代与检查", `得到 ${answer}。检查上下限代入、常数项、符号以及应用题中的取值范围。`)
-    ];
-    commonPitfall = question.type === "fill" ? "不定积分漏写 C、定积分误保留 C、换元后忘记替换 dx，都是本类题的高频错误。" : "先写方法依据再计算，不能只凭形式套公式。";
-  } else if (/导数|偏导|全微分|极值|单调/.test(stem + point)) {
-    examFocus = `本题考查${point}，重点是变量依赖关系、求导规则和结论成立条件。`;
-    preAnalysis = "先确定对哪个变量求导，以及其他变量是否视为常数；若判断极值或单调性，还要检查驻点附近符号或二阶条件。";
-    formulas = [formula, "链式法则：对外层求导后乘以内层导数", "二元函数：dz=z_x dx+z_y dy；极值判断要结合驻点和判别条件"];
-    steps = [
-      solutionStep(1, "第1步：确定求导对象", "标明自变量和因变量；偏导时把其他自变量视为常数。"),
-      solutionStep(2, "第2步：写出求导规则", `根据${point}选择链式法则、隐函数求导、偏导或极值判别公式。`),
-      solutionStep(3, "第3步：逐步计算", explanation),
-      solutionStep(4, "第4步：验证结论", `得到 ${answer}。检查内层导数、符号变化、驻点条件和定义域。`)
-    ];
-    commonPitfall = "复合函数漏乘内层导数、偏导时没有固定其他变量、极值题只求驻点不做判别，是本类题最常见的过程错误。";
-  } else if (/矩阵|行列式|秩|线性|特征值/.test(stem + point)) {
-    examFocus = `本题考查${point}，重点是矩阵运算规则、秩与维数关系或行列式性质。`;
-    preAnalysis = "先确认矩阵阶数、行列式结构、秩和未知量个数，再选择按定义计算、初等变换或维数定理。";
-    formulas = [formula, "二阶行列式 ad−bc", "齐次方程组解空间维数 = 未知量个数 − 矩阵秩"];
-    steps = [
-      solutionStep(1, "第1步：读出矩阵信息", "确认矩阵的阶数、元素位置、秩或相似关系，避免把矩阵乘法和数乘混淆。"),
-      solutionStep(2, "第2步：选择运算依据", "按行列式展开、初等变换、秩-维数定理或特征值性质建立计算路径。"),
-      solutionStep(3, "第3步：完成计算", explanation),
-      solutionStep(4, "第4步：检查维数与符号", `得到 ${answer}。检查矩阵阶数、行列式符号和解空间维数是否与题意一致。`)
-    ];
-    commonPitfall = "矩阵乘法通常不满足交换律；行列式变换会影响符号或倍数；秩与未知量个数不能混为一谈。";
-  } else if (/概率|期望|方差|独立|分布/.test(stem + point)) {
-    examFocus = `本题考查${point}，重点是识别事件关系和期望、方差的线性性质。`;
-    preAnalysis = "先确认题目给出的是独立、互斥还是一般事件，再根据随机变量的线性变换写出概率、期望或方差公式。";
-    formulas = [formula, "独立事件：P(AB)=P(A)P(B)", "E(aX+b)=aE(X)+b；D(aX+b)=a²D(X)"];
-    steps = [
-      solutionStep(1, "第1步：识别关系", "区分独立与互斥；独立可以相乘，互斥只能说明交集为空，不能直接替代。"),
-      solutionStep(2, "第2步：写出性质", `根据${point}写出对应概率、期望或方差公式。`),
-      solutionStep(3, "第3步：代入计算", explanation),
-      solutionStep(4, "第4步：检查范围", `得到 ${answer}。概率应位于 [0,1]，方差非负，线性变换的系数平方不能漏掉。`)
-    ];
-    commonPitfall = "把独立误认为互斥、把方差的系数写成一次方、忽略概率范围，是本类题的主要错误。";
-  } else if (/微分方程|方程 y|通解/.test(stem + point)) {
-    examFocus = `本题考查${point}，重点是识别方程类型并保留通解中的任意常数。`;
-    preAnalysis = "先判断是可分离变量、一阶线性还是其他标准形式，再写出积分因子或分离后的积分关系；有初值时最后代入确定常数。";
-    formulas = [formula, "可分离变量：dy/y=f(x)dx", "一阶线性方程先乘积分因子，再对左侧整体求导"];
-    steps = [
-      solutionStep(1, "第1步：识别方程类型", "观察方程是否能分离变量，或是否符合 y'+P(x)y=Q(x) 的一阶线性形式。"),
-      solutionStep(2, "第2步：建立积分关系", "分离变量或写出积分因子，保证每一步都记录任意常数。"),
-      solutionStep(3, "第3步：整理通解或特解", explanation),
-      solutionStep(4, "第4步：代回检验", `得到 ${answer}。将结果代回原方程或初值条件，确认符号和常数正确。`)
-    ];
-    commonPitfall = "漏掉任意常数、初值代入过早、积分因子写错，是微分方程题最常见的过程错误。";
-  } else if (/级数|幂级数|收敛/.test(stem + point)) {
-    examFocus = `本题考查${point}，重点是选择正确的收敛性判别并区分绝对收敛与条件收敛。`;
-    preAnalysis = "先识别正项、交错、幂级数或等比结构，再写判别条件；幂级数求出收敛半径后还要单独检查端点。";
-    formulas = [formula, "等比级数 |q|<1 时收敛", "幂级数先求收敛半径，再分别判断端点"];
-    steps = [
-      solutionStep(1, "第1步：判断级数类型", "区分等比级数、p 级数、交错级数和幂级数，不能只看通项趋于零。"),
-      solutionStep(2, "第2步：选择判别法", "根据项的结构选择比较、比值、根值或莱布尼茨判别法，并写明条件。"),
-      solutionStep(3, "第3步：逐步判断", explanation),
-      solutionStep(4, "第4步：补充端点或绝对收敛检查", `得到 ${answer}。如果是幂级数，必须单独检查收敛区间端点。`)
-    ];
-    commonPitfall = "通项趋于零只是收敛的必要条件；幂级数端点不能沿用开区间结论；条件收敛不能写成绝对收敛。";
-  }
-
-  return {
-    version: 1,
-    status: question.answer && question.answerStatus !== "pending_review" ? "ready" : "pending_teacher_review",
-    generatedBy: "math-solution-engine-v1",
-
-    examFocus,
-    preAnalysis,
-    formulas,
-    conditions: "使用公式前必须满足题目给出的定义域、连续性、可导性、独立性、矩阵维数或收敛判别条件。",
-    steps,
-    finalAnswer: answer,
-    commonPitfall,
-    methodSummary: explanation,
-    sourceExplanation: question.explanation || ""
-  };
-}
-
-function enrichQuestionWithSolution(question) {
-  if (!question || question.solutionVersion === 1) return question;
-  return {
-    ...question,
-    detailedSolution: question.detailedSolution || buildDetailedSolution(question),
-    solutionVersion: 1,
-    solutionStatus: question.answer && question.answerStatus !== "pending_review" ? "ready" : "pending_teacher_review"
-  };
+  return [...readPastExamQuestions(), ...buildSubjectiveQuestions(), ...buildExamStyleQuestions(), ...handPicked, ...buildGeneratedQuestions()]
+    .map(classifyQuestionChapter)
+    .map(normalizeQuestion);
 }
 
 function buildSubjectiveQuestions() {
@@ -401,7 +353,6 @@ function buildSubjectiveQuestions() {
         { label: "表达基础解系含1个向量", score: 2 }
       ],
       sourceType: "teacher_original",
-
       source: "签约教师审核题",
       reviewStatus: "教师已审核",
       qualityTier: "exam_standard"
@@ -503,7 +454,6 @@ function buildGeneratedQuestions() {
       `z=x^2+${k}xy，dz 中 dx 的系数是？`, [`2x+${k}y`, `${k}x`, "2x", `${k}y`], `2x+${k}y`, [], "dz=z_x dx+z_y dy。");
   }
 
-
   for (let k = 1; k <= 10; k += 1) {
     add("ode", "常微分方程", common, "可分离变量", "方法问题", "choice", "基础巩固",
       `微分方程 y'=${k}y 的通解是？`, [`y=Ce^(${k}x)`, `y=C+${k}x`, `y=${k}Cx`, "y=0"], `y=Ce^(${k}x)`, [], "分离变量后积分。");
@@ -603,7 +553,6 @@ function buildGeneratedQuestions() {
     } else {
       const a = n % 7 + 1;
       add("integral", "一元函数积分学", common, "面积应用", "能力问题", "综合提升",
-
         `曲线 y=${a}x 与 y=x^2 在 [0,${a}] 上围成面积应写为？`, [`∫(0,${a})(${a}x-x^2)dx`, `∫(0,${a})(x^2-${a}x)dx`, `∫(0,${a})${a}x^3dx`, "无法判断"], `∫(0,${a})(${a}x-x^2)dx`, [], "面积按上函数减下函数积分。");
     }
   }
@@ -643,6 +592,43 @@ function normalizeAnswer(value) {
     .toLowerCase();
 }
 
+function numericValue(value) {
+  const raw = normalizeAnswer(value).replace(/^答案[:：]?/, "").replace(/[。；;]$/g, "");
+  if (!raw) return null;
+  if (/^[+-]?\d+(\.\d+)?$/.test(raw)) return Number(raw);
+  const fraction = raw.match(/^([+-]?\d+(?:\.\d+)?)\/([+-]?\d+(?:\.\d+)?)$/);
+  if (fraction && Number(fraction[2]) !== 0) return Number(fraction[1]) / Number(fraction[2]);
+  return null;
+}
+
+function equivalentAnswer(expected, actual) {
+  const left = normalizeAnswer(expected)
+    .replace(/（/g, "(").replace(/）/g, ")").replace(/，/g, ",")
+    .replace(/＋/g, "+").replace(/－/g, "-").replace(/×/g, "*").replace(/÷/g, "/");
+  const right = normalizeAnswer(actual)
+    .replace(/（/g, "(").replace(/）/g, ")").replace(/，/g, ",")
+    .replace(/＋/g, "+").replace(/－/g, "-").replace(/×/g, "*").replace(/÷/g, "/");
+  if (!left || !right) return false;
+  if (left === right) return true;
+  const leftNum = numericValue(left);
+  const rightNum = numericValue(right);
+  if (leftNum !== null && rightNum !== null) return Math.abs(leftNum - rightNum) < 1e-8;
+  const compact = (value) => value.replace(/\*/g, "").replace(/\^1(?!\d)/g, "").replace(/\+c$/i, "+c").replace(/c$/i, "c");
+  return compact(left) === compact(right);
+}
+
+function grade(question, answer) {
+  if (question?.type === "choice") {
+    const expectedKeys = [question.answer, ...(question.aliases || [])]
+      .map((item) => choiceAnswerKey(question, item))
+      .filter(Boolean);
+    const actualKey = choiceAnswerKey(question, answer);
+    return Boolean(actualKey && expectedKeys.includes(actualKey));
+  }
+  const accepted = [question.answer, ...(question.aliases || [])];
+  return accepted.some((item) => equivalentAnswer(item, answer));
+}
+
 function extractJson(text) {
   const raw = String(text || "").trim();
   try { return JSON.parse(raw); } catch {}
@@ -652,15 +638,13 @@ function extractJson(text) {
 }
 
 function questionPromptText(question) {
-  const solution = question.detailedSolution || {};
   return [
     `题目：${question.stem || ""}`,
     `题型：${question.type || ""}`,
     `章节：${question.chapterName || ""}`,
     `知识点：${question.point || ""}`,
     `标准答案：${question.answer || "未校对"}`,
-    `简要解析：${question.explanation || "暂无"}`,
-    `标准分步解析：${JSON.stringify({ formulas: solution.formulas || [], conditions: solution.conditions || "", steps: solution.steps || [], finalAnswer: solution.finalAnswer || question.answer || "" })}`
+    `解析：${question.explanation || "暂无"}`
   ].join("\n");
 }
 
@@ -668,7 +652,7 @@ async function callAiScratchRecognition(question, payload) {
   const apiKey = configuredOpenAIKey();
   if (!apiKey || !payload.scratchImage) return null;
   const model = process.env.OPENAI_VISION_MODEL || "gpt-5";
-  const prompt = `你是考研数学阅卷老师。请识别学生“做题空间”中的全部手写内容，包括填空题和主观题；不能因为题型是填空题就只看一个最终数字。请按学生实际写出的步骤逐步批改，并与标准分步解析对照。
+  const prompt = `你是考研数学阅卷老师。请识别学生草稿图中的解题步骤和最终答案，并判断解法是否正确。
 
 请重点分析：
 1. 学生最终答案是什么。
@@ -676,8 +660,6 @@ async function callAiScratchRecognition(question, payload) {
 3. 如果错误，第一处错误在哪里。
 4. 错误属于哪个薄弱点，例如：知识问题、方法问题、计算问题、表达问题、能力问题、易错问题、过程缺失。
 5. 应追加什么练习来补强。
-6. 如果最终答案正确但步骤错误，必须把 processHasIssue 设为 true，并指出第一处有问题的步骤。
-7. 如果图片清晰度不足，返回 uncertain，不要猜测学生没有写出的内容。
 
 ${questionPromptText(question)}
 
@@ -703,7 +685,6 @@ ${questionPromptText(question)}
   "recommendedPractice": "建议追加的练习方向",
   "confidence": 0到100的数字
 }`;
-
 
   const response = await fetch("https://api.openai.com/v1/responses", {
     method: "POST",
@@ -798,13 +779,63 @@ function sampleQuestions(pool, size, seedInput) {
 function uniqueByStem(pool) {
   const seen = new Set();
   return pool.filter((question) => {
-    const key = normalizeAnswer(`${question.chapterId}:${question.stem}`);
+    const key = normalizeAnswer(`${question.sectionId || question.chapterId}:${question.stem}`);
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
   });
 }
 
+function latestAttemptMap(attempts) {
+  const latest = new Map();
+  (attempts || []).forEach((attempt) => {
+    if (attempt?.questionId) latest.set(attempt.questionId, attempt);
+  });
+  return latest;
+}
+
+function chapterFilterFromUrl(url) {
+  const raw = url.searchParams.has("chapterIds")
+    ? url.searchParams.get("chapterIds")
+    : (url.searchParams.get("chapterId") || "integral");
+  if (raw === "all") return null;
+  return String(raw || "").split(",").map((item) => item.trim()).filter(Boolean);
+}
+
+function buildPracticeSelection(pool, attempts, practiceType, count, seedInput, excludeIds = new Set()) {
+  const latest = latestAttemptMap(attempts);
+  const newPool = uniqueByStem(pool.filter((question) => !latest.has(question.id)));
+  const wrongPool = uniqueByStem(pool.filter((question) => latest.get(question.id)?.correct === false));
+  const selected = [];
+  const selectedIds = new Set();
+
+  const pick = (sourcePool, size, label) => {
+    if (size <= 0) return;
+    let candidates = sourcePool.filter((question) => !selectedIds.has(question.id) && !excludeIds.has(question.id));
+    if (candidates.length < size) candidates = sourcePool.filter((question) => !selectedIds.has(question.id));
+    sampleQuestions(candidates, size, `${seedInput}:${label}`).forEach((question) => {
+      selected.push(question);
+      selectedIds.add(question.id);
+    });
+  };
+
+  if (practiceType === "wrong") {
+    pick(wrongPool, count, "wrong");
+  } else if (practiceType === "mixed") {
+    pick(newPool, Math.ceil(count / 2), "new");
+    pick(wrongPool, Math.floor(count / 2), "wrong");
+    if (selected.length < count) pick(newPool, count - selected.length, "new-fallback");
+    if (selected.length < count) pick(wrongPool, count - selected.length, "wrong-fallback");
+  } else {
+    pick(newPool, count, "new");
+  }
+
+  return {
+    questions: selected,
+    availableCount: practiceType === "wrong" ? wrongPool.length : practiceType === "mixed" ? new Set([...newPool, ...wrongPool].map((question) => question.id)).size : newPool.length,
+    poolCounts: { new: newPool.length, wrong: wrongPool.length }
+  };
+}
 
 function diagnose(question, payload, correct) {
   const steps = String(payload.stepsText || "");
@@ -827,7 +858,7 @@ function diagnose(question, payload, correct) {
     mainReason = "过程缺失";
     advice = "建议写出关键步骤。否则系统只能判断最终答案，无法定位第一处错误。";
   }
-  if (correct === false && answer && answer.length <= 2 && canonicalQuestionType(question) === "fill_blank") {
+  if (correct === false && answer && answer.length <= 2 && question.type === "fill") {
     mainReason = "表达问题";
     advice = "最终结论过短，检查是否漏写常数、区间、条件或完整表达。";
   }
@@ -906,7 +937,6 @@ function publicFile(req, res) {
     ".png": "image/png"
   };
   res.writeHead(200, { "content-type": types[ext] || "application/octet-stream" });
-
   fs.createReadStream(file).pipe(res);
 }
 
@@ -937,9 +967,10 @@ async function api(req, res) {
 
   if (req.method === "GET" && url.pathname === "/api/bootstrap") {
     send(res, 200, {
+      questionSchemaVersion: QUESTION_SCHEMA_VERSION,
       chapters: chapterSummary(store.questions),
       inviteCodes: store.students.map((s) => s.inviteCode),
-      pastExamSources: readPastExamSources(),
+      pastExamSources: pastExamSourcesFor(store),
       aiStatus: {
         handwritingRecognition: Boolean(configuredOpenAIKey()),
         model: process.env.OPENAI_VISION_MODEL || "gpt-5"
@@ -949,7 +980,7 @@ async function api(req, res) {
   }
 
   if (req.method === "GET" && url.pathname === "/api/past-exam-sources") {
-    send(res, 200, readPastExamSources());
+    send(res, 200, pastExamSourcesFor(store));
     return;
   }
 
@@ -1007,14 +1038,19 @@ async function api(req, res) {
     return;
   }
 
-
   if (req.method === "POST" && url.pathname === "/api/demo/reset") {
     const body = await parseBody(req);
     const studentId = cleanId(body.studentId);
     const student = store.students.find((s) => s.id === studentId && s.isDemo);
     if (!student) return send(res, 404, { error: "演示会话不存在" });
-    store.attempts = store.attempts.filter((a) => a.studentId !== student.id);
-    store.submissions = Array.isArray(store.submissions) ? store.submissions.filter((s) => s.studentId !== student.id) : [];
+    const trainingOnly = body.trainingOnly === true;
+    if (!trainingOnly) {
+      store.attempts = store.attempts.filter((a) => a.studentId !== student.id);
+      store.submissions = Array.isArray(store.submissions) ? store.submissions.filter((s) => s.studentId !== student.id) : [];
+    }
+    store.trainingBatches = Array.isArray(store.trainingBatches) ? store.trainingBatches.filter((batch) => batch.studentId !== student.id) : [];
+    store.trainingRecords = Array.isArray(store.trainingRecords) ? store.trainingRecords.filter((record) => record.studentId !== student.id) : [];
+    store.retestRecords = Array.isArray(store.retestRecords) ? store.retestRecords.filter((record) => record.studentId !== student.id) : [];
     store.notes = Array.isArray(store.notes) ? store.notes.filter((n) => n.studentId !== student.id) : [];
     student.lastLoginAt = nowIso();
     saveDb(store);
@@ -1025,16 +1061,19 @@ async function api(req, res) {
   if (req.method === "GET" && url.pathname === "/api/questions") {
     const student = store.students.find((s) => s.id === url.searchParams.get("studentId"));
     if (!student) return send(res, 404, { error: "学生不存在" });
-    const chapterId = url.searchParams.get("chapterId") || "integral";
     const count = 20;
+    const chapterIds = chapterFilterFromUrl(url);
     const difficulty = url.searchParams.get("difficulty") || "all";
     const sourceType = url.searchParams.get("sourceType") || "all";
     const mode = url.searchParams.get("mode") || "reinforce";
+    const requestedPracticeType = url.searchParams.get("practiceType") || "new";
+    const practiceType = ["new", "wrong", "mixed"].includes(requestedPracticeType) ? requestedPracticeType : "new";
     const attempts = store.attempts.filter((a) => a.studentId === student.id);
-    const attemptedIds = new Set(attempts.map((a) => a.questionId));
     const mathType = student.mathType || "数学二";
-    let pool = store.questions.filter((q) => q.subjects.includes(mathType) && (chapterId === "all" || q.chapterId === chapterId));
-    if (!pool.length && chapterId === "all") pool = store.questions.filter((q) => q.subjects.includes(mathType));
+    let pool = queryQuestions(store.questions, {
+      sectionIds: chapterIds,
+      subjects: [mathType]
+    }).filter((q) => isQuestionReadyForPractice(q));
     if (sourceType !== "past_exam") {
       const standardPool = pool.filter((q) => q.qualityTier === "exam_standard");
       if (standardPool.length >= Math.min(count, 10)) {
@@ -1045,14 +1084,21 @@ async function api(req, res) {
       }
     }
     const basePool = pool;
-    const sourcePool = sourceType !== "all" ? basePool.filter((q) => q.sourceType === sourceType) : basePool;
+    const sourcePool = sourceType !== "all"
+      ? basePool.filter((q) => (q.sourceSpec?.type || q.sourceType) === sourceType)
+      : basePool;
     if (sourceType === "past_exam" && !sourcePool.length) {
       return send(res, 200, {
         questions: [],
-        chapterId,
+        questionSchemaVersion: QUESTION_SCHEMA_VERSION,
+        bank: { name: "question-bank", sectionIds: chapterIds || [], sourceType },
+        chapterId: chapterIds === null ? "all" : chapterIds.length === 1 ? chapterIds[0] : "mixed",
+        chapterIds: chapterIds || [],
         count,
         difficulty,
         sourceType,
+        practiceType,
+        availableCount: 0,
         message: "尚未导入真实历年考研数学真题，请先导入2000-2026真题题库。"
       });
     }
@@ -1064,7 +1110,10 @@ async function api(req, res) {
     const difficultyPool = !["all", "mode"].includes(difficulty)
       ? sourcePool.filter((q) => String(q.difficulty) === String(difficulty) || q.level.includes(difficulty))
       : sourcePool.filter((q) => modeDifficulty.includes(String(q.difficulty)));
-    if (difficultyPool.length >= count) {
+    if (sourceType === "past_exam") {
+      // 真题专项不能用普通题补足，否则学生会误以为整组都是真题。
+      pool = difficultyPool.length ? difficultyPool : sourcePool;
+    } else if (difficultyPool.length >= count) {
       pool = difficultyPool;
     } else if (sourcePool.length >= count) {
       pool = sourcePool;
@@ -1072,16 +1121,38 @@ async function api(req, res) {
       pool = basePool;
     }
     const refresh = url.searchParams.get("refresh") === "1";
-    // Deduplicate before sampling and never silently fall back to attempted questions.
-    pool = uniqueByStem(pool);
-    const unseen = pool.filter((q) => !attemptedIds.has(q.id));
-    const source = unseen;
-    if (!source.length) {
-      send(res, 200, { questions: [], chapterId, count: 0, requestedCount: count, difficulty, sourceType, mode, availableCount: 0, message: "当前筛选条件下暂无未重复题目，请切换章节或难度。" });
-      return;
+    const excludeIds = new Set(String(url.searchParams.get("excludeIds") || "").split(",").filter(Boolean));
+    const chapterKey = chapterIds === null ? "all" : chapterIds.join(",") || "none";
+    const selection = buildPracticeSelection(
+      pool,
+      attempts,
+      practiceType,
+      count,
+      refresh ? `${Date.now()}` : `${student.id}-${chapterKey}-${difficulty}-${sourceType}-${mode}-${practiceType}-${attempts.length}`,
+      refresh ? excludeIds : new Set()
+    );
+    const response = {
+      questions: selection.questions,
+      questionSchemaVersion: QUESTION_SCHEMA_VERSION,
+      bank: { name: "question-bank", sectionIds: chapterIds || [], sourceType },
+      chapterId: chapterIds === null ? "all" : chapterIds.length === 1 ? chapterIds[0] : "mixed",
+      chapterIds: chapterIds || [],
+      count,
+      difficulty,
+      sourceType,
+      mode,
+      practiceType,
+      availableCount: selection.availableCount,
+      poolCounts: selection.poolCounts
+    };
+    if (!selection.questions.length) {
+      response.message = practiceType === "wrong"
+        ? "当前筛选下没有明确判错的错题。"
+        : practiceType === "mixed"
+          ? "当前筛选下没有可用的新题或错题。"
+          : "当前筛选下没有未作答的新题。";
     }
-    const selected = sampleQuestions(source, count, refresh ? Date.now() : `${student.id}-${chapterId}-${difficulty}-${sourceType}-${mode}-${count}-${attempts.length}`);
-    send(res, 200, { questions: selected, chapterId, count: selected.length, requestedCount: count, difficulty, sourceType, mode, availableCount: source.length, message: selected.length < count ? `当前筛选条件下仅有 ${selected.length} 道未重复题目，已全部返回。` : "" });
+    send(res, 200, response);
     return;
   }
 
@@ -1090,26 +1161,29 @@ async function api(req, res) {
     const student = store.students.find((s) => s.id === body.studentId);
     const question = store.questions.find((q) => q.id === body.questionId);
     if (!student || !question) return send(res, 404, { error: "学生或题目不存在" });
-    const { recognition, finalAnswer, grading } = await evaluateQuestionSubmission(question, body);
-    const correct = grading.isCorrect;
-    const gradingStatus = grading.legacyGradingStatus;
-    const diagnosis = diagnosisForGrading(question, { ...body, answer: finalAnswer }, grading);
-    if (grading.status === "RECOGNITION_FAILED") {
+    const recognition = await recognizeScratch(question, body);
+    const finalAnswer = answerValueForQuestion(question, body, recognition);
+    const choice = choiceSelectionForPayload(question, body, finalAnswer);
+    const hasReviewedAnswer = Boolean(question.answer) && question.answerStatus !== "pending_review";
+    const correct = recognition.modelJudgment && typeof recognition.isCorrect === "boolean"
+      ? recognition.isCorrect
+      : (finalAnswer && hasReviewedAnswer ? grade(question, finalAnswer) : null);
+    const gradingStatus = recognition.recognitionError
+      ? "recognition_error"
+      : recognition.modelJudgment
+      ? "ai_reviewed"
+      : (!hasReviewedAnswer ? "pending_answer_review" : (finalAnswer ? "graded" : "pending_recognition"));
+    const diagnosis = diagnose(question, { ...body, answer: finalAnswer }, correct);
+    if (recognition.recognitionError) {
       diagnosis.mainReason = "识别服务不可用";
       diagnosis.advice = recognition.recognitionError.includes("no credits")
         ? "OpenAI API 账户没有可用额度。请到 OpenAI Platform 的 Billing 页面充值/绑定付款方式后再提交草稿，系统才能识别步骤并判断薄弱点。"
         : `手写识别服务调用失败：${recognition.recognitionError}`;
       diagnosis.evidence.push(`识别错误：${recognition.recognitionError}`);
     }
-    if (grading.diagnosisTriggered && recognition.weakPoint) diagnosis.mainReason = recognition.weakPoint;
-    if (grading.diagnosisTriggered && recognition.advice) diagnosis.advice = recognition.advice;
-    if (grading.diagnosisTriggered && recognition.firstError) diagnosis.evidence.push(`第一处错误：${recognition.firstError}`);
-    if (grading.diagnosisTriggered && recognition.processHasIssue) {
-      diagnosis.mainReason = recognition.errorType || recognition.processIssueReason || "解题过程存在错误";
-      diagnosis.advice = recognition.advice || "最终答案不能掩盖过程错误，请从第一处偏差开始重做，并完成对应知识点的变式训练。";
-      diagnosis.evidence.push(`过程诊断：${recognition.processIssueReason || "标准答案正确但步骤不完整或不成立"}`);
-
-    }
+    if (recognition.modelJudgment && recognition.weakPoint) diagnosis.mainReason = recognition.weakPoint;
+    if (recognition.modelJudgment && recognition.advice) diagnosis.advice = recognition.advice;
+    if (recognition.modelJudgment && recognition.firstError) diagnosis.evidence.push(`第一处错误：${recognition.firstError}`);
     const attempt = {
       id: id("att"),
       studentId: student.id,
@@ -1129,7 +1203,9 @@ async function api(req, res) {
       affectedSteps: recognition.affectedSteps || [],
       uncertainRegions: recognition.uncertainRegions || [],
       recognitionEngine: recognition.engine,
-      selectedOption: body.selectedOption || "",
+      selectedOption: choice?.key || body.selectedOption || "",
+      selectedOptionText: choice?.text || "",
+      choice,
       stepsText: body.stepsText || "",
       formulaText: body.formulaText || "",
       flagged: Boolean(body.flagged),
@@ -1143,15 +1219,9 @@ async function api(req, res) {
       durationMs: Number(body.durationMs || 0),
       gradingStatus,
       correct,
-      score: grading.score,
-      maxScore: grading.maxScore,
-      gradingResult: grading,
-      gradingTrace: { ...grading, diagnosisTriggered: Boolean(grading.diagnosisTriggered) },
       reason: diagnosis.mainReason,
       advice: diagnosis.advice,
       recommendedPractice: recognition.recommendedPractice || "",
-      solutionStatus: question.solutionStatus || "pending_teacher_review",
-      detailedSolution: question.detailedSolution || null,
       evidence: diagnosis.evidence,
       createdAt: nowIso()
     };
@@ -1179,6 +1249,8 @@ async function api(req, res) {
       paperName: body.paperName || `${student.mathType || "考研数学"} ${body.mode || "训练"}整卷`,
       mode: body.mode || "",
       chapterId: body.chapterId || "",
+      chapterIds: Array.isArray(body.chapterIds) ? body.chapterIds : (body.chapterId ? [body.chapterId] : []),
+      practiceType: ["new", "wrong", "mixed"].includes(body.practiceType) ? body.practiceType : "",
       status: "uploading",
       gradingStatusHistory: [
         { status: "submit_confirmed", at: nowIso() },
@@ -1186,21 +1258,28 @@ async function api(req, res) {
       ],
       questionIds: questions.map((q) => q.id),
       attemptIds: [],
-      responsesLocked: responses.map((item, index) => ({
-        questionId: item.questionId,
-        answer: item.answer || "",
-        selectedOption: item.selectedOption || "",
-        formulaText: item.formulaText || "",
-        stepsText: item.stepsText || "",
-        hasScratchImage: Boolean(item.scratchImage),
-        hasAnswerImage: Boolean(item.answerImage),
-        strokeCount: Number(item.strokeCount || 0),
-        durationMs: Number(item.durationMs || 0),
-        flagged: Boolean(item.flagged),
-        favorite: Boolean(item.favorite),
-        answerOrder: index,
-        abandoned: !responseHasContent(item)
-      })),
+      responsesLocked: responses.map((item, index) => {
+        const question = questions.find((candidate) => candidate.id === item.questionId);
+        const finalAnswer = question ? answerValueForQuestion(question, item) : (item.answer || item.selectedOption || "");
+        const choice = question ? choiceSelectionForPayload(question, item, finalAnswer) : null;
+        return {
+          questionId: item.questionId,
+          answer: finalAnswer,
+          selectedOption: choice?.key || item.selectedOption || "",
+          selectedOptionText: choice?.text || "",
+          choice,
+          formulaText: item.formulaText || "",
+          stepsText: item.stepsText || "",
+          hasScratchImage: Boolean(item.scratchImage),
+          hasAnswerImage: Boolean(item.answerImage),
+          strokeCount: Number(item.strokeCount || 0),
+          durationMs: Number(item.durationMs || 0),
+          flagged: Boolean(item.flagged),
+          favorite: Boolean(item.favorite),
+          answerOrder: index,
+          abandoned: !responseHasContent(item)
+        };
+      }),
       completenessIssues,
       durationMs: Number(body.durationMs || 0),
       answerOrder: Array.isArray(body.answerOrder) ? body.answerOrder : responses.map((item) => item.questionId),
@@ -1209,7 +1288,6 @@ async function api(req, res) {
       submittedAt: nowIso(),
       createdAt: nowIso(),
       updatedAt: nowIso(),
-
       report: null
     };
     store.submissions = store.submissions || [];
@@ -1296,37 +1374,12 @@ async function api(req, res) {
     const body = await parseBody(req);
     const attempt = store.attempts.find((a) => a.id === body.attemptId);
     if (!attempt) return send(res, 404, { error: "作答记录不存在" });
-    const question = store.questions.find((item) => item.id === attempt.questionId);
     attempt.recognizedAnswer = body.recognizedAnswer || attempt.recognizedAnswer || "";
     attempt.recognizedSteps = body.structuredSteps || body.recognizedSteps || attempt.recognizedSteps || "";
     attempt.recognitionConfidence = Number(body.confidenceScore || attempt.recognitionConfidence || 100);
     attempt.uncertainRegions = Array.isArray(body.uncertainRegions) ? body.uncertainRegions : [];
     attempt.studentConfirmedOcr = true;
-    if (question) {
-      const recognition = {
-        recognizedAnswer: attempt.recognizedAnswer,
-        structuredSteps: Array.isArray(body.structuredSteps) ? body.structuredSteps : [],
-        confidence: attempt.recognitionConfidence,
-        processHasIssue: Boolean(body.processHasIssue),
-        processIssueReason: body.processIssueReason || "",
-        modelJudgment: Boolean(body.modelJudgment),
-
-        isCorrect: typeof body.isCorrect === "boolean" ? body.isCorrect : null,
-        status: "CONFIRMED"
-      };
-      const grading = runCanonicalGrading(question, { ...attempt, answer: attempt.recognizedAnswer, recognizedAnswer: attempt.recognizedAnswer }, { recognition });
-      attempt.gradingResult = grading;
-      attempt.gradingTrace = { ...grading, source: "ocr_confirm", diagnosisTriggered: Boolean(grading.diagnosisTriggered) };
-      attempt.correct = grading.isCorrect;
-      attempt.score = grading.score;
-      attempt.maxScore = grading.maxScore;
-      attempt.gradingStatus = grading.legacyGradingStatus;
-      const diagnosis = diagnosisForGrading(question, { ...attempt, answer: attempt.recognizedAnswer }, grading);
-      attempt.reason = diagnosis.mainReason;
-      attempt.advice = diagnosis.advice;
-      const submission = (store.submissions || []).find((item) => item.id === attempt.submissionId);
-      if (submission) submission.report = buildSubmissionDiagnosis(store, submission);
-    }
+    attempt.gradingStatus = "ocr_confirmed";
     attempt.updatedAt = nowIso();
     saveDb(store);
     send(res, 200, { attempt });
@@ -1359,7 +1412,7 @@ async function api(req, res) {
         trainingType: body.trainingType === "comprehensive" ? "comprehensive" : "targeted"
       });
       saveDb(store);
-      send(res, 200, { batch });
+      send(res, 200, { batch: publicTrainingBatch(batch) });
     } catch (error) {
       send(res, 400, { error: error.message || "训练批次生成失败" });
     }
@@ -1372,7 +1425,21 @@ async function api(req, res) {
     const list = (store.trainingBatches || [])
       .filter((item) => isTrainingBatchReady(item) && (!studentId || item.studentId === studentId) && (!type || item.trainingType === type))
       .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
-    send(res, 200, { batches: list, latest: list[0] || null });
+    send(res, 200, {
+      batches: list.map(publicTrainingBatch),
+      latest: list[0] ? publicTrainingBatch(list[0]) : null
+    });
+    return;
+  }
+
+  if (req.method === "GET" && url.pathname === "/api/training-records") {
+    const studentId = url.searchParams.get("studentId");
+    const trainingBatchId = url.searchParams.get("trainingBatchId");
+    const records = (store.trainingRecords || [])
+      .filter((record) => (!studentId || record.studentId === studentId)
+        && (!trainingBatchId || record.trainingBatchId === trainingBatchId))
+      .map((record) => ({ ...record, locked: true }));
+    send(res, 200, { records });
     return;
   }
 
@@ -1382,15 +1449,27 @@ async function api(req, res) {
     if (!batch) return send(res, 404, { error: "训练批次不存在" });
     const question = batch.questions.find((item) => item.id === body.trainingQuestionId);
     if (!question) return send(res, 404, { error: "训练题不存在" });
-    const judged = await gradeTrainingQuestion(question, body);
+    if (!isTrainingBatchReady(batch)) return send(res, 400, { error: "训练批次中存在未通过题库校验的题目" });
+    const existingRecord = (store.trainingRecords || []).find((item) => item.trainingBatchId === batch.id && item.trainingQuestionId === question.id);
+    if (existingRecord) {
+      return send(res, 409, {
+        error: "本题已经提交，不能重复作答",
+        record: { ...existingRecord, locked: true },
+        batch: publicTrainingBatch(batch)
+      });
+    }
+    const judged = gradeTrainingQuestion(question, body);
+    const suppliedAnswer = body.choice?.key || body.answer || body.selectedOption || body.formulaText || "";
+    const choice = question.type === "choice" ? choiceSelection(question, suppliedAnswer) : null;
     const record = {
       id: id("tr"),
       studentId: batch.studentId,
       trainingBatchId: batch.id,
       trainingQuestionId: question.id,
-      answer: body.answer || body.selectedOption || body.formulaText || "",
-      recognizedAnswer: judged.recognizedAnswer || "",
-      selectedOption: body.selectedOption || "",
+      answer: question.type === "choice" ? (choice.key || canonicalAnswer(question, suppliedAnswer)) : suppliedAnswer,
+      selectedOption: choice?.key || body.selectedOption || "",
+      selectedOptionText: choice?.text || body.selectedOptionText || "",
+      choice,
       stepsText: body.stepsText || "",
       scratchImageStored: Boolean(body.scratchImage),
       strokeCount: Number(body.strokeCount || 0),
@@ -1399,31 +1478,18 @@ async function api(req, res) {
       durationMs: Number(body.durationMs || 0),
       correct: judged.correct,
       gradingStatus: judged.gradingStatus,
-      recognitionConfidence: Number(judged.recognitionConfidence || 0),
-      recognitionEngine: judged.recognitionEngine || "",
-      recognizedSteps: judged.recognizedSteps || "",
-      structuredSteps: judged.structuredSteps || [],
-      firstWrongStep: Number(judged.firstWrongStep || 0),
-      processHasIssue: Boolean(judged.processHasIssue),
-      processIssueReason: judged.processIssueReason || "",
-      errorType: judged.errorType || "",
-      weakPoint: judged.weakPoint || "",
-      advice: judged.advice || "",
-      recognitionError: judged.recognitionError || "",
       repeatedOriginalError: judged.repeatedOriginalError,
-
       score: judged.score,
-      maxScore: judged.gradingResult?.maxScore || 100,
-      gradingResult: judged.gradingResult,
-      gradingTrace: judged.gradingResult ? { ...judged.gradingResult, diagnosisTriggered: Boolean(judged.gradingResult.diagnosisTriggered) } : null,
+      submitted: true,
+      locked: true,
+      reveal: trainingReveal(question),
       createdAt: nowIso()
     };
-    const existingRecordIndex = store.trainingRecords.findIndex((item) => item.trainingBatchId === batch.id && item.trainingQuestionId === question.id);
-    if (existingRecordIndex >= 0) store.trainingRecords[existingRecordIndex] = { ...store.trainingRecords[existingRecordIndex], ...record };
-    else store.trainingRecords.push(record);
+    store.trainingRecords.push(record);
+    batch.progress = batch.progress || { answered: 0, correct: 0, accuracy: 0, hintsUsed: 0, repeatedOriginalError: false, masteryBefore: 35, masteryAfter: null };
     const records = store.trainingRecords.filter((item) => item.trainingBatchId === batch.id);
     batch.progress.answered = records.length;
-    batch.progress.correct = records.filter((item) => canonicalTrainingResult(batch, item).status === "CORRECT").length;
+    batch.progress.correct = records.filter((item) => item.correct).length;
     batch.progress.accuracy = records.length ? Math.round(batch.progress.correct / records.length * 100) : 0;
     batch.progress.hintsUsed = records.reduce((sum, item) => sum + Number(item.hintLevelUsed || 0), 0);
     batch.progress.repeatedOriginalError = records.some((item) => item.repeatedOriginalError);
@@ -1431,7 +1497,11 @@ async function api(req, res) {
     batch.status = batch.progress.answered >= batch.questionCount ? "completed" : "in_progress";
     batch.updatedAt = nowIso();
     saveDb(store);
-    send(res, 200, { record, batch, warning: record.repeatedOriginalError ? `你在本题中再次出现了与原错题相同的错误：${batch.sourceErrorType}。建议暂停继续刷题，重新复习对应知识点。` : "" });
+    send(res, 200, {
+      record,
+      batch: publicTrainingBatch(batch),
+      warning: record.repeatedOriginalError ? `你在本题中再次出现了与原错题相同的错误：${batch.sourceErrorType}。建议暂停继续刷题，重新复习对应知识点。` : ""
+    });
     return;
   }
 
@@ -1512,7 +1582,6 @@ async function api(req, res) {
       reports: store.students.map((s) => ({ student: s, report: buildReportFor(store, s.id) }))
     });
     return;
-
   }
 
   send(res, 404, { error: "接口不存在" });
@@ -1521,38 +1590,60 @@ async function api(req, res) {
 function chapterSummary(questions) {
   const map = new Map();
   questions.forEach((q) => {
-    if (!map.has(q.chapterId)) {
-      map.set(q.chapterId, { id: q.chapterId, name: q.chapterName, subjects: q.subjects, count: 0, countsByMathType: {} });
+    const sectionId = q.sectionId || q.chapterId;
+    const sectionName = q.sectionName || q.chapterName;
+    const section = q.section || {};
+    if (!map.has(sectionId)) {
+      map.set(sectionId, {
+        id: sectionId,
+        name: sectionName,
+        subjects: q.subjects,
+        count: 0,
+        countsByMathType: {},
+        groupId: section.groupId || q.chapterGroupId || "",
+        groupName: section.groupName || q.chapterGroupName || "",
+        syllabusOrder: section.order || q.syllabusOrder || 0
+      });
     }
-    const item = map.get(q.chapterId);
+    const item = map.get(sectionId);
     item.count += 1;
     item.subjects = Array.from(new Set([...item.subjects, ...q.subjects]));
     q.subjects.forEach((mathType) => {
       item.countsByMathType[mathType] = (item.countsByMathType[mathType] || 0) + 1;
     });
   });
-  return Array.from(map.values());
+  const groupOrder = { "": 0, linear: 1, prob: 2 };
+  return Array.from(map.values())
+    .map((item, index) => ({ item, index }))
+    .sort((left, right) => {
+      const leftGroup = groupOrder[left.item.groupId] ?? 0;
+      const rightGroup = groupOrder[right.item.groupId] ?? 0;
+      if (leftGroup !== rightGroup) return leftGroup - rightGroup;
+      if (leftGroup > 0 && left.item.syllabusOrder !== right.item.syllabusOrder) {
+        return left.item.syllabusOrder - right.item.syllabusOrder;
+      }
+      return left.index - right.index;
+    })
+    .map(({ item }) => item);
 }
 
 function buildReportFor(store, studentId) {
   const attempts = store.attempts.filter((a) => a.studentId === studentId);
   const total = attempts.length;
-  const gradedAttempts = attempts.map((attempt) => ({ attempt, grading: canonicalResultForAttempt(store.questions.find((q) => q.id === attempt.questionId) || {}, attempt) }));
-  const pending = gradedAttempts.filter(({ grading }) => ["EMPTY", "RECOGNITION_FAILED", "NEEDS_MANUAL_REVIEW"].includes(grading.status)).length;
-  const gradableTotal = gradedAttempts.filter(({ grading }) => !["EMPTY", "RECOGNITION_FAILED", "NEEDS_MANUAL_REVIEW"].includes(grading.status)).length;
-  const correct = gradedAttempts.filter(({ grading }) => grading.status === "CORRECT").length;
+  const pending = attempts.filter((a) => a.correct === null || a.gradingStatus === "pending_recognition").length;
+  const gradableTotal = attempts.filter((a) => a.correct !== null && a.gradingStatus !== "pending_recognition").length;
+  const correct = attempts.filter((a) => a.correct).length;
   const accuracy = gradableTotal ? Math.round(correct / gradableTotal * 100) : 0;
   const byReason = {};
   const byChapter = {};
-  gradedAttempts.forEach(({ attempt: a, grading }) => {
-    const reason = grading.status === "CORRECT" ? "已掌握" : grading.status === "EMPTY" ? "未作答" : grading.status === "RECOGNITION_FAILED" ? "手写识别失败" : a.reason || grading.reason;
-    byReason[reason] = (byReason[reason] || 0) + 1;
+  attempts.forEach((a) => {
+    byReason[a.reason] = (byReason[a.reason] || 0) + 1;
     byChapter[a.chapterId] = byChapter[a.chapterId] || { total: 0, correct: 0 };
     byChapter[a.chapterId].total += 1;
-    if (grading.status === "CORRECT") byChapter[a.chapterId].correct += 1;
+    if (a.correct) byChapter[a.chapterId].correct += 1;
   });
   const weakReasons = Object.entries(byReason)
-    .filter(([reason]) => !["已掌握", "未作答"].includes(reason))
+    .filter(([reason]) => !["已掌握", "待识别"].includes(reason))
     .sort((a, b) => b[1] - a[1])
     .slice(0, 3)
     .map(([reason, count]) => ({ reason, count, advice: adviceFor(reason) }));
@@ -1560,30 +1651,21 @@ function buildReportFor(store, studentId) {
 }
 
 function typeLabelFor(type) {
-  return ["choice", "single_choice"].includes(type) ? "选择题"
-    : type === "multiple_choice" ? "多选题"
-    : type === "true_false" ? "判断题"
-    : ["fill", "fill_blank", "numeric"].includes(type) ? "填空题"
-    : "主观题";
+  return type === "choice" ? "选择题" : type === "fill" ? "填空题" : "主观题";
 }
 
 function scoreForAttempt(question, attempt) {
-  const grading = canonicalResultForAttempt(question, attempt);
-  return { score: grading.score, maxScore: grading.maxScore, grading };
-}
-
-function canonicalResultForAttempt(question, attempt) {
-  if (attempt?.gradingResult?.status) return attempt.gradingResult;
-  const hasLegacyGrade = typeof attempt?.correct === "boolean" && ["graded", "ai_reviewed", "pending_answer_review"].includes(attempt?.gradingStatus);
-  const recognition = attempt?.gradingStatus === "recognition_error"
-    ? { recognitionError: attempt.reason || "历史记录识别失败", confidence: Number(attempt.recognitionConfidence || 0) }
-    : { recognizedAnswer: attempt?.recognizedAnswer || "", modelJudgment: attempt?.gradingStatus === "ai_reviewed" && typeof attempt.correct === "boolean", isCorrect: attempt?.correct };
-  const result = runCanonicalGrading(question, attempt || {}, { recognition, legacyCorrect: hasLegacyGrade ? attempt.correct : undefined });
-  if (!result.gradingTrace) result.gradingTrace = { ...result, diagnosisTriggered: Boolean(result.diagnosisTriggered) };
-  return result;
+  const maxScore = question?.type === "choice" ? 5 : question?.type === "fill" ? 5 : 10;
+  if (!attempt || attempt.correct === null || attempt.gradingStatus === "pending_recognition") return { score: 0, maxScore };
+  if (attempt.correct) return { score: maxScore, maxScore };
+  const hasProcess = Number(attempt.strokeCount || 0) > 2 || Number(attempt.strokePointCount || 0) > 20 || String(attempt.stepsText || "").trim();
+  return { score: hasProcess ? Math.max(1, Math.floor(maxScore * 0.35)) : 0, maxScore };
 }
 
 function answerValueFrom(payload = {}, recognition = {}) {
+  if (payload.choice && typeof payload.choice === "object") {
+    return payload.choice.key || payload.choice.text || payload.choice.value || "";
+  }
   return payload.answer
     || payload.selectedOption
     || payload.formulaText
@@ -1613,38 +1695,30 @@ function extractFillAnswerFromWorkSpace(text = "") {
   const equation = last.match(/=\s*([^=]+)$/);
   if (equation?.[1]) return equation[1].replace(/[。；;，,]$/g, "").trim();
   return last.length <= 40 ? last.replace(/[。；;，,]$/g, "").trim() : "";
-
 }
 
 function answerValueForQuestion(question, payload = {}, recognition = {}) {
   const direct = answerValueFrom(payload, recognition);
+  if (question?.type === "choice" && direct) return canonicalAnswer(question, direct);
   if (direct) return direct;
   if (question?.type === "fill") return extractFillAnswerFromWorkSpace(payload.stepsText);
   return "";
 }
 
-async function evaluateQuestionSubmission(question, payload = {}) {
-  const recognition = await recognizeScratch(question, payload);
-  const finalAnswer = answerValueForQuestion(question, payload, recognition);
-  const grading = runCanonicalGrading(question, {
-    ...payload,
-    answer: finalAnswer,
-    recognizedAnswer: recognition.recognizedAnswer || payload.recognizedAnswer || ""
-  }, { recognition });
-  return { recognition, finalAnswer, grading };
-}
-
-function diagnosisForGrading(question, payload, grading) {
-  if (grading.status === "CORRECT") return { mainReason: "已掌握", advice: "本题表现稳定，可在做题集中安排间隔复刷。", evidence: [grading.reason] };
-  if (grading.status === "EMPTY") return { mainReason: "未作答", advice: "该题没有检测到答案、过程或草稿内容，建议补全作答。", evidence: [grading.reason] };
-  if (grading.status === "RECOGNITION_FAILED") return { mainReason: "手写识别失败", advice: "检测到作答痕迹，但当前无法可靠识别答案；请重新上传或手动确认。", evidence: [grading.reason] };
-  if (grading.status === "NEEDS_MANUAL_REVIEW") return { mainReason: "待人工复核", advice: "当前答案证据不足，暂不归类为普通错题。", evidence: [grading.reason] };
-  return diagnose(question, payload, grading.isCorrect);
+function choiceSelectionForPayload(question, payload = {}, finalAnswer = "") {
+  if (question?.type !== "choice") return null;
+  const supplied = payload.choice || payload.selectedOption || payload.answer || finalAnswer;
+  const selection = choiceSelection(question, supplied);
+  return {
+    key: selection.key || canonicalAnswer(question, finalAnswer),
+    text: selection.text || String(payload.selectedOptionText || "").trim(),
+    raw: selection.raw || String(supplied || "").trim()
+  };
 }
 
 function responseHasContent(payload = {}) {
   return Boolean(
-    String(payload.answer || payload.selectedOption || payload.formulaText || payload.stepsText || "").trim()
+    String(payload.choice?.key || payload.answer || payload.selectedOption || payload.formulaText || payload.stepsText || "").trim()
     || payload.scratchImage
     || payload.answerImage
     || Number(payload.strokeCount || 0) > 0
@@ -1667,11 +1741,10 @@ function inspectPaperCompleteness(questions, responses) {
       issues.push({ questionId: question.id, type: "unanswered", severity: "warn", message: `${label}未作答` });
       return;
     }
-    const questionType = canonicalQuestionType(question);
-    if (questionType === "subjective" && !String(payload.stepsText || "").trim() && !payload.scratchImage && !payload.answerImage) {
+    if (question.type !== "choice" && !String(payload.stepsText || "").trim() && !payload.scratchImage && !payload.answerImage) {
       issues.push({ questionId: question.id, type: "missing_process", severity: "warn", message: `${label}缺少可分析的解题过程` });
     }
-    if (questionType === "subjective" && (payload.answer || payload.formulaText) && !String(payload.stepsText || "").trim() && !payload.scratchImage) {
+    if (question.type !== "choice" && (payload.answer || payload.formulaText) && !String(payload.stepsText || "").trim() && !payload.scratchImage) {
       issues.push({ questionId: question.id, type: "answer_without_process", severity: "warn", message: `${label}只有答案，缺少过程` });
     }
     if (payload.uploadError) {
@@ -1682,29 +1755,33 @@ function inspectPaperCompleteness(questions, responses) {
 }
 
 async function buildAttemptFromResponse(store, student, question, payload, submissionId, orderIndex) {
-  const { recognition, finalAnswer, grading } = await evaluateQuestionSubmission(question, payload);
-  const correct = grading.isCorrect;
-  const gradingStatus = grading.legacyGradingStatus;
-  const diagnosis = diagnosisForGrading(question, { ...payload, answer: finalAnswer }, grading);
-  if (grading.status === "RECOGNITION_FAILED") {
+  const recognition = await recognizeScratch(question, payload);
+  const finalAnswer = answerValueForQuestion(question, payload, recognition);
+  const choice = choiceSelectionForPayload(question, payload, finalAnswer);
+  const hasReviewedAnswer = Boolean(question.answer) && question.answerStatus !== "pending_review";
+  const correct = recognition.modelJudgment && typeof recognition.isCorrect === "boolean"
+    ? recognition.isCorrect
+    : (finalAnswer && hasReviewedAnswer ? grade(question, finalAnswer) : null);
+  const gradingStatus = recognition.recognitionError
+    ? "recognition_error"
+    : recognition.modelJudgment
+      ? "ai_reviewed"
+      : (!hasReviewedAnswer ? "pending_answer_review" : (finalAnswer ? "graded" : "pending_recognition"));
+  const diagnosis = diagnose(question, { ...payload, answer: finalAnswer }, correct);
+  if (recognition.recognitionError) {
     diagnosis.mainReason = "识别服务不可用";
     diagnosis.advice = recognition.recognitionError.includes("no credits")
       ? "OpenAI API 账户没有可用额度。系统已保存整卷答卷，客观题继续批改，主观题标记为需复核。"
       : `手写识别服务调用失败：${recognition.recognitionError}`;
     diagnosis.evidence.push(`识别错误：${recognition.recognitionError}`);
   }
-  if (grading.status === "EMPTY") {
+  if (!responseHasContent(payload)) {
     diagnosis.mainReason = "未作答";
     diagnosis.advice = "该题没有检测到答案、过程或草稿内容，建议在原题重做中补全。";
   }
-  if (grading.diagnosisTriggered && recognition.weakPoint) diagnosis.mainReason = recognition.weakPoint;
-  if (grading.diagnosisTriggered && recognition.advice) diagnosis.advice = recognition.advice;
-  if (grading.diagnosisTriggered && recognition.firstError) diagnosis.evidence.push(`第一处错误：${recognition.firstError}`);
-  if (grading.diagnosisTriggered && recognition.processHasIssue) {
-    diagnosis.mainReason = recognition.errorType || recognition.processIssueReason || "解题过程存在错误";
-    diagnosis.advice = recognition.advice || "最终答案不能掩盖过程错误，请从第一处偏差开始重做，并完成对应知识点的变式训练。";
-    diagnosis.evidence.push(`过程诊断：${recognition.processIssueReason || "标准答案正确但步骤不完整或不成立"}`);
-  }
+  if (recognition.modelJudgment && recognition.weakPoint) diagnosis.mainReason = recognition.weakPoint;
+  if (recognition.modelJudgment && recognition.advice) diagnosis.advice = recognition.advice;
+  if (recognition.modelJudgment && recognition.firstError) diagnosis.evidence.push(`第一处错误：${recognition.firstError}`);
   return {
     id: id("att"),
     studentId: student.id,
@@ -1714,7 +1791,6 @@ async function buildAttemptFromResponse(store, student, question, payload, submi
     orderIndex,
     chapterId: question.chapterId,
     answer: finalAnswer,
-
     recognizedAnswer: recognition.recognizedAnswer,
     recognitionConfidence: recognition.confidence,
     ocrResult: {
@@ -1736,7 +1812,9 @@ async function buildAttemptFromResponse(store, student, question, payload, submi
     affectedSteps: recognition.affectedSteps || [],
     uncertainRegions: recognition.uncertainRegions || [],
     recognitionEngine: recognition.engine,
-    selectedOption: payload.selectedOption || "",
+    selectedOption: choice?.key || payload.selectedOption || "",
+    selectedOptionText: choice?.text || "",
+    choice,
     stepsText: payload.stepsText || "",
     formulaText: payload.formulaText || "",
     flagged: Boolean(payload.flagged),
@@ -1749,29 +1827,11 @@ async function buildAttemptFromResponse(store, student, question, payload, submi
     durationMs: Number(payload.durationMs || 0),
     gradingStatus,
     correct,
-    score: grading.score,
-    maxScore: grading.maxScore,
-    gradingResult: grading,
-    gradingTrace: { ...grading, diagnosisTriggered: Boolean(grading.diagnosisTriggered) },
     reason: diagnosis.mainReason,
     advice: diagnosis.advice,
     recommendedPractice: recognition.recommendedPractice || "",
-    solutionStatus: question.solutionStatus || "pending_teacher_review",
-    detailedSolution: question.detailedSolution || null,
     evidence: diagnosis.evidence,
-    steps: buildStepAnalysis(question, {
-      ...payload,
-      answer: finalAnswer,
-      correct,
-      gradingStatus,
-      reason: diagnosis.mainReason,
-      recognizedAnswer: recognition.recognizedAnswer,
-      recognizedSteps: recognition.stepsSummary,
-      structuredSteps: recognition.structuredSteps || [],
-      ocrResult: { structuredSteps: recognition.structuredSteps || [] },
-      rootCause: recognition.rootCause || "",
-      processIssueReason: recognition.processIssueReason || ""
-    }),
+    steps: buildStepAnalysis(question, { ...payload, answer: finalAnswer, correct, gradingStatus, reason: diagnosis.mainReason, recognizedAnswer: recognition.recognizedAnswer, recognizedSteps: recognition.stepsSummary }),
     createdAt: nowIso()
   };
 }
@@ -1785,7 +1845,6 @@ function severityForError(count, scoreLoss) {
 function abilityEvidenceFor(name, attempts, questions) {
   const related = attempts.filter((attempt) => {
     const question = questions.find((item) => item.id === attempt.questionId) || {};
-    const grading = canonicalResultForAttempt(question, attempt);
     const text = `${question.point || ""} ${question.reason || ""} ${attempt.reason || ""}`;
     if (name === "基础计算能力") return /计算|化简|积分|导数|行列式/.test(text);
     if (name === "公式应用能力") return /公式|换元|分部|概率|极限/.test(text);
@@ -1793,13 +1852,13 @@ function abilityEvidenceFor(name, attempts, questions) {
     if (name === "建模能力") return /建模|应用|利润|函数应用/.test(text);
     if (name === "推理能力") return /推理|证明|步骤|逻辑/.test(text);
     if (name === "综合分析能力") return Number(question.difficulty || 0) >= 4;
-    if (name === "解题规范性") return ["RECOGNITION_FAILED", "NEEDS_MANUAL_REVIEW"].includes(grading.status) || /书写|过程|步骤/.test(text);
+    if (name === "解题规范性") return attempt.gradingStatus === "pending_recognition" || /书写|过程|步骤/.test(text);
     if (name === "时间管理能力") return Number(attempt.durationMs || 0) > 180000;
     if (name === "难题处理能力") return Number(question.difficulty || 0) >= 4;
-    return attempt.flagged || ["INCORRECT", "PARTIAL"].includes(grading.status);
+    return attempt.flagged || attempt.correct === false;
   });
   const total = related.length || attempts.length || 1;
-  const good = related.filter((attempt) => canonicalResultForAttempt(questions.find((item) => item.id === attempt.questionId) || {}, attempt).status === "CORRECT").length;
+  const good = related.filter((attempt) => attempt.correct === true).length;
   const score = Math.round(good / total * 100);
   return {
     name,
@@ -1815,52 +1874,53 @@ function buildSubmissionDiagnosis(store, submission) {
   const questions = submission.questionIds.map((qid) => store.questions.find((q) => q.id === qid)).filter(Boolean);
   const attempts = submission.attemptIds.map((aid) => store.attempts.find((a) => a.id === aid)).filter(Boolean);
   const attemptByQuestion = new Map(attempts.map((attempt) => [attempt.questionId, attempt]));
-
   const questionAnalyses = questions.map((question, index) => {
     const attempt = attemptByQuestion.get(question.id);
+    const choice = choiceSpec(question);
+    const studentChoice = attempt?.choice?.key
+      ? `${attempt.choice.key}${attempt.choice.text ? `. ${attempt.choice.text}` : ""}`
+      : "";
     const scored = scoreForAttempt(question, attempt);
-    const grading = scored.grading;
     const reason = reasonForAttempt(question, attempt);
     const steps = buildStepAnalysis(question, attempt);
     const firstWrong = steps.find((step) => step.status !== "correct") || null;
     const lastCorrect = [...steps].reverse().find((step) => step.status === "correct") || null;
     const processIssue = detectProcessIssue(question, attempt, steps);
-    const needsDeepDiagnosis = Boolean(grading.diagnosisTriggered);
+    const needsDeepDiagnosis = attempt?.correct !== true || processIssue.hasIssue;
     const errorTag = classifyErrorTag(question, attempt, firstWrong || {});
     return {
       questionId: question.id,
       orderIndex: index,
-      type: grading.questionType,
-      typeLabel: typeLabelFor(grading.questionType),
+      type: question.type,
+      typeLabel: typeLabelFor(question.type),
       chapterId: question.chapterId,
       chapterName: question.chapterName,
       knowledgePoints: [normalizeWeakPoint(question, attempt)],
       title: question.stem || question.point || question.chapterName,
       stemHtml: question.stemHtml || "",
       stemImage: question.stemImage || "",
-      studentAnswer: attempt?.recognizedAnswer || attempt?.answer || attempt?.selectedOption || "",
+      studentAnswer: attempt?.recognizedAnswer || studentChoice || attempt?.answer || attempt?.selectedOption || "",
       studentSteps: attempt?.stepsText || attempt?.recognizedSteps || "",
       handwritingImage: attempt?.scratchImageStored ? "stored_in_submission_payload" : "",
       ocrResult: attempt?.ocrResult || { recognizedAnswer: attempt?.recognizedAnswer || "", structuredSteps: attempt?.recognizedSteps || "", confidenceScore: Number(attempt?.recognitionConfidence || 0), uncertainRegions: [] },
       structuredSteps: steps,
       confidenceScore: Number(attempt?.recognitionConfidence || 0),
       uncertainRegions: attempt?.ocrResult?.uncertainRegions || [],
-      standardAnswer: question.answer || "待校对",
-      standardSteps: question.detailedSolution || question.explanation || "",
+      standardAnswer: question.type === "choice"
+        ? (choice.answerKey ? `${choice.answerKey}${choice.answerText ? `. ${choice.answerText}` : ""}` : "待校对")
+        : (question.answer || "待校对"),
+      standardSteps: question.explanation || "",
       score: scored.score,
       maxScore: scored.maxScore,
-      finalAnswerCorrect: grading.isCorrect === true,
-      processCorrect: grading.isCorrect === true && !processIssue.hasIssue,
-      answerCorrectButProcessIssue: grading.status === "PARTIAL" || (grading.isCorrect === true && processIssue.hasIssue),
+      finalAnswerCorrect: attempt?.correct === true,
+      processCorrect: attempt?.correct === true && !processIssue.hasIssue,
+      answerCorrectButProcessIssue: attempt?.correct === true && processIssue.hasIssue,
       needsDeepDiagnosis,
       analysisDepth: needsDeepDiagnosis ? "deep" : "light",
       processIssue,
-      gradingCanonicalStatus: grading.status,
-      gradingStatus: grading.legacyGradingStatus || attempt?.gradingStatus || "missing",
-      gradingResult: grading,
-      gradingTrace: attempt?.gradingTrace || { ...grading, diagnosisTriggered: Boolean(grading.diagnosisTriggered) },
+      gradingStatus: attempt?.gradingStatus || "missing",
       errorTypes: needsDeepDiagnosis ? [processIssue.reason || reason] : [],
-      deductionReason: needsDeepDiagnosis ? (processIssue.reason || reason) : grading.status === "CORRECT" ? "正确题仅记录结果" : grading.reason,
+      deductionReason: needsDeepDiagnosis ? (processIssue.reason || reason) : "正确题仅记录结果",
       firstErrorStep: firstWrong?.stepNumber || null,
       lastCorrectStep: lastCorrect?.stepNumber || null,
       errorTag,
@@ -1870,12 +1930,10 @@ function buildSubmissionDiagnosis(store, submission) {
   });
   const totalScore = questionAnalyses.reduce((sum, item) => sum + item.score, 0);
   const totalMax = Math.max(1, questionAnalyses.reduce((sum, item) => sum + item.maxScore, 0));
-  const correctCount = questionAnalyses.filter((item) => item.gradingCanonicalStatus === "CORRECT").length;
-  const unansweredCount = questionAnalyses.filter((item) => item.gradingCanonicalStatus === "EMPTY").length;
-  const recognitionFailedCount = questionAnalyses.filter((item) => ["RECOGNITION_FAILED", "NEEDS_MANUAL_REVIEW"].includes(item.gradingCanonicalStatus)).length;
-  const objectiveTypes = ["single_choice", "multiple_choice", "true_false", "fill_blank", "numeric"];
-  const objectiveScore = questionAnalyses.filter((item) => objectiveTypes.includes(item.type)).reduce((sum, item) => sum + item.score, 0);
-  const subjectiveScore = questionAnalyses.filter((item) => !objectiveTypes.includes(item.type)).reduce((sum, item) => sum + item.score, 0);
+  const correctCount = questionAnalyses.filter((item) => item.finalAnswerCorrect).length;
+  const unansweredCount = attempts.filter((attempt) => attempt.abandoned).length + Math.max(0, questions.length - attempts.length);
+  const objectiveScore = questionAnalyses.filter((item) => ["choice", "fill"].includes(item.type)).reduce((sum, item) => sum + item.score, 0);
+  const subjectiveScore = questionAnalyses.filter((item) => !["choice", "fill"].includes(item.type)).reduce((sum, item) => sum + item.score, 0);
   const byType = {};
   const byChapter = {};
   const byKnowledge = {};
@@ -1884,18 +1942,18 @@ function buildSubmissionDiagnosis(store, submission) {
     byType[item.typeLabel].score += item.score;
     byType[item.typeLabel].maxScore += item.maxScore;
     byType[item.typeLabel].total += 1;
-      if (item.gradingCanonicalStatus === "CORRECT") byType[item.typeLabel].correct += 1;
+    if (item.finalAnswerCorrect) byType[item.typeLabel].correct += 1;
     byChapter[item.chapterName] = byChapter[item.chapterName] || { score: 0, maxScore: 0, total: 0, correct: 0 };
     byChapter[item.chapterName].score += item.score;
     byChapter[item.chapterName].maxScore += item.maxScore;
     byChapter[item.chapterName].total += 1;
-    if (item.gradingCanonicalStatus === "CORRECT") byChapter[item.chapterName].correct += 1;
+    if (item.finalAnswerCorrect) byChapter[item.chapterName].correct += 1;
     item.knowledgePoints.forEach((point) => {
       byKnowledge[point] = byKnowledge[point] || { score: 0, maxScore: 0, total: 0, correct: 0, status: "" };
       byKnowledge[point].score += item.score;
       byKnowledge[point].maxScore += item.maxScore;
       byKnowledge[point].total += 1;
-      if (item.gradingCanonicalStatus === "CORRECT") byKnowledge[point].correct += 1;
+      if (item.finalAnswerCorrect) byKnowledge[point].correct += 1;
     });
   });
   Object.values(byKnowledge).forEach((item) => {
@@ -1916,7 +1974,6 @@ function buildSubmissionDiagnosis(store, submission) {
   });
   Object.values(errorMap).forEach((item) => {
     item.severity = severityForError(item.count, item.scoreLoss);
-
     item.repeated = item.count >= 2;
   });
   const weakKnowledgePoints = Object.entries(byKnowledge)
@@ -1948,8 +2005,7 @@ function buildSubmissionDiagnosis(store, submission) {
       totalMax,
       scoreRate: percent,
       correctCount,
-      wrongCount: questionAnalyses.filter((item) => ["INCORRECT", "PARTIAL"].includes(item.gradingCanonicalStatus)).length,
-      recognitionFailedCount,
+      wrongCount: questionAnalyses.filter((item) => !item.finalAnswerCorrect).length,
       deepDiagnosisCount: questionAnalyses.filter((item) => item.needsDeepDiagnosis).length,
       lightRecordCount: questionAnalyses.filter((item) => !item.needsDeepDiagnosis).length,
       unansweredCount,
@@ -2012,40 +2068,154 @@ function selectSourceError(store, submission, sourceQuestionId = "") {
       .filter(Boolean));
     item = candidates.find((q) => !usedSourceIds.has(q.questionId));
   }
-  if (!item) item = candidates[0] || (report.questionAnalyses || [])[0];
-  const question = store.questions.find((q) => q.id === item?.questionId) || {};
+  if (!item) return { item: null, question: {}, attempt: {}, tag: classifyErrorTag({}, {}, {}) };
+  const question = store.questions.find((q) => q.id === item.questionId) || {};
   const attempt = store.attempts.find((a) => a.submissionId === submission.id && a.questionId === question.id) || {};
   const firstStep = (item?.steps || []).find((step) => step.status !== "correct") || (item?.steps || [])[0] || {};
   return { item, question, attempt, tag: classifyErrorTag(question, attempt, firstStep) };
+}
 
+function trainingPurposeFor(level, trainingType) {
+  if (trainingType === "comprehensive") {
+    return {
+      foundation: "薄弱知识点基础补漏",
+      same_type: "同类方法稳定训练",
+      variation: "同知识点变式迁移",
+      comprehensive: "综合应用检验"
+    }[level] || "综合巩固";
+  }
+  return {
+    foundation: "基础概念与解题入口",
+    same_type: "同类方法训练",
+    variation: "同知识点变式训练",
+    comprehensive: "综合迁移检验"
+  }[level] || "相似题训练";
+}
+
+function trainingSecondsFor(question) {
+  if (question.type === "choice") return 90;
+  if (question.type === "fill") return 120;
+  return 240;
+}
+
+function sourceQuestionWithAnalysis(question, analysis) {
+  if (!question || !analysis) return question;
+  const analysisErrorTypes = Array.isArray(analysis.errorTypes) ? analysis.errorTypes : [];
+  if (!analysisErrorTypes.length) return question;
+  return normalizeQuestion({
+    ...question,
+    practiceMeta: {
+      ...(question.practiceMeta || {}),
+      errorTypes: analysisErrorTypes
+    }
+  });
+}
+
+function comprehensiveTrainingFocuses(store, submission, source) {
+  const analyses = (submission.report?.questionAnalyses || [])
+    .slice()
+    .sort((left, right) => {
+      const leftLoss = Number(left.maxScore || 0) - Number(left.score || 0);
+      const rightLoss = Number(right.maxScore || 0) - Number(right.score || 0);
+      return rightLoss - leftLoss;
+    });
+  const focuses = [];
+  const seen = new Set();
+  const add = (question, analysis) => {
+    if (!question?.id || seen.has(question.id)) return;
+    seen.add(question.id);
+    focuses.push(sourceQuestionWithAnalysis(question, analysis));
+  };
+  add(source.question, source.item);
+  analyses.forEach((analysis) => add(store.questions.find((question) => question.id === analysis.questionId), analysis));
+  return focuses.length ? focuses : [source.question];
+}
+
+function trainingQuestionSnapshot(entry, index, source, trainingType) {
+  const question = normalizeQuestion(entry.question);
+  return {
+    ...question,
+    id: id("trainq"),
+    questionId: "",
+    bankQuestionId: question.id,
+    index: index + 1,
+    trainingPurpose: trainingPurposeFor(entry.targetLevel, trainingType),
+    trainingLevel: entry.targetLevel,
+    difficultyLevel: question.difficulty,
+    knowledgePoint: question.practiceMeta.knowledgePointName || question.point,
+    subKnowledgePoint: question.practiceMeta.knowledgePointName || question.point,
+    sourceErrorType: source.tag.errorType,
+    sourceWrongStep: source.tag.sourceWrongStep,
+    matchRank: entry.matchRank,
+    matchTier: entry.matchTier,
+    estimatedSeconds: trainingSecondsFor(question)
+  };
 }
 
 function buildTrainingBatch(store, studentId, { submissionId = "", sourceQuestionId = "", trainingType = "targeted" } = {}) {
   const submission = latestSubmissionFor(store, studentId, submissionId);
   if (!submission) throw new Error("没有可用于生成训练的整卷诊断");
   const source = selectSourceError(store, submission, sourceQuestionId);
-  const total = trainingType === "comprehensive" ? 20 : 10;
-  const questions = Array.from({ length: total }, (_, index) => ({
-    id: id("trainq"),
-    index: index + 1,
-    ...createGeneratedTrainingQuestion({
-      sourceQuestion: source.question,
-      sourceTag: source.tag,
-      index,
-      trainingType,
-      purpose: trainingType === "targeted"
-        ? ["基础概念题", "基础概念题", "关键步骤题", "关键步骤题", "同类题", "同类题", "变式题", "变式题", "易错题", "综合检验题"][index]
-        : ["当前最严重错误专项", "当前最严重错误专项", "当前最严重错误专项", "当前最严重错误专项", "当前最严重错误专项", "当前最严重错误专项", "当前最严重错误专项", "当前最严重错误专项", "当前最严重错误专项", "当前最严重错误专项", "其他薄弱知识点", "其他薄弱知识点", "其他薄弱知识点", "其他薄弱知识点", "历史重复错误", "历史重复错误", "历史重复错误", "防遗忘巩固题", "防遗忘巩固题", "提升题"][index]
-    })
-  }));
+  if (!source.question?.id) throw new Error("诊断中没有可关联的原题");
+  const requestedCount = trainingType === "comprehensive" ? 20 : 10;
+  const student = store.students.find((item) => item.id === studentId) || {};
+  const attemptedQuestionIds = new Set((store.attempts || [])
+    .filter((attempt) => attempt.studentId === studentId)
+    .map((attempt) => attempt.questionId)
+    .filter(Boolean));
+  const seed = `${submission.id}:${source.question.id}:${trainingType}`;
+  const targetLevels = trainingType === "comprehensive"
+    ? Array.from({ length: requestedCount }, (_, index) => trainingLevelSlots(10)[index % 10])
+    : trainingLevelSlots(requestedCount);
+  const selectedEntries = [];
+  const selectedBankIds = new Set(attemptedQuestionIds);
+  selectedBankIds.add(source.question.id);
+  const matchTiers = {};
+  const addSelection = (selection) => {
+    selection.selected.forEach((entry) => {
+      if (selectedBankIds.has(entry.question.id)) return;
+      selectedBankIds.add(entry.question.id);
+      selectedEntries.push(entry);
+      matchTiers[entry.matchTier] = (matchTiers[entry.matchTier] || 0) + 1;
+    });
+  };
+
+  if (trainingType === "targeted") {
+    addSelection(selectSimilarQuestions(store.questions, source.question, {
+      count: requestedCount,
+      targetLevels,
+      seed,
+      subject: student.mathType,
+      excludeIds: Array.from(selectedBankIds)
+    }));
+  } else {
+    const focuses = comprehensiveTrainingFocuses(store, submission, source);
+    targetLevels.forEach((targetLevel, index) => {
+      const orderedFocuses = [focuses[index % focuses.length], ...focuses.filter((_, focusIndex) => focusIndex !== index % focuses.length)];
+      for (const focus of orderedFocuses) {
+        const selection = selectSimilarQuestions(store.questions, focus, {
+          count: 1,
+          targetLevels: [targetLevel],
+          seed: `${seed}:${index}:${focus.id}`,
+          subject: student.mathType,
+          excludeIds: Array.from(selectedBankIds)
+        });
+        if (selection.selected.length) {
+          addSelection(selection);
+          break;
+        }
+      }
+    });
+  }
+
+  const questions = selectedEntries.map((entry, index) => trainingQuestionSnapshot(entry, index, source, trainingType));
   questions.forEach((question) => { question.questionId = question.id; });
-  questions.forEach((question) => {
-    const validation = validateTrainingQuestion(question);
-    if (!validation.valid) throw new Error(`第${question.index}题校验失败：${validation.reasons.join("、")}`);
-  });
+  if (!questions.length) {
+    throw new Error("当前知识点没有足够的已标注相似题，请先通过导入模板补齐已审核题目。");
+  }
   const composition = trainingType === "comprehensive"
-    ? { mainErrorType: 10, otherWeakKnowledge: 4, repeatedHistory: 3, antiForgetting: 2, stretch: 1 }
-    : { conceptDiscrimination: 2, basicSteps: 2, sameType: 2, variants: 2, trap: 1, synthesis: 1 };
+    ? { requested: requestedCount, selected: questions.length, mainErrorType: 10, otherWeakKnowledge: 4, repeatedHistory: 3, antiForgetting: 2, stretch: 1 }
+    : { requested: requestedCount, selected: questions.length, conceptDiscrimination: 2, basicSteps: 2, sameType: 2, variants: 2, trap: 1, synthesis: 1 };
   const batch = {
     id: id("batch"),
     trainingBatchId: "",
@@ -2056,19 +2226,28 @@ function buildTrainingBatch(store, studentId, { submissionId = "", sourceQuestio
     sourceQuestionTitle: source.question.stem || source.item?.title || "",
     sourceKnowledgePoint: source.tag.subKnowledgePoint || source.question.point || "",
     sourceErrorEvidence: source.item?.firstErrorStep ? `第${source.item.firstErrorStep}步：${source.item.deductionReason || source.tag.errorType}` : source.tag.errorType,
-    sourceErrorType: questions[0].sourceErrorType || source.tag.errorType,
+    sourceErrorType: source.tag.errorType,
     sourceWrongStep: source.tag.sourceWrongStep,
     knowledgePoint: source.tag.knowledgePoint,
     subKnowledgePoint: source.tag.subKnowledgePoint,
     errorCategory: source.tag.errorCategory,
-    trainingTheme: trainingType === "targeted" ? `${source.tag.subKnowledgePoint} · ${questions[0].sourceErrorType}` : "20题综合训练",
+    trainingTheme: trainingType === "targeted" ? `${source.tag.subKnowledgePoint} · ${source.tag.errorType}` : "20题综合训练",
     composition,
-    questionCount: total,
-    total,
+    requestedCount,
+    questionCount: questions.length,
+    total: questions.length,
     estimatedMinutes: Math.ceil(questions.reduce((sum, q) => sum + q.estimatedSeconds, 0) / 60),
     questions,
+    selection: {
+      source: "annotated_question_bank",
+      requestedCount,
+      availableCount: questions.length,
+      shortage: Math.max(0, requestedCount - questions.length),
+      matchTiers
+    },
+    shortage: Math.max(0, requestedCount - questions.length),
     progress: { answered: 0, correct: 0, accuracy: 0, hintsUsed: 0, repeatedOriginalError: false, masteryBefore: source.item?.score && source.item?.maxScore ? Math.round(source.item.score / source.item.maxScore * 100) : 35, masteryAfter: null },
-    status: "waiting_review_first",
+    status: "waiting_answer",
     createdAt: nowIso(),
     updatedAt: nowIso()
   };
@@ -2080,67 +2259,37 @@ function buildTrainingBatch(store, studentId, { submissionId = "", sourceQuestio
 function isTrainingBatchReady(batch) {
   if (!batch || !Array.isArray(batch.questions)) return false;
   const total = Number(batch.total || batch.questionCount || 0);
-  return total > 0 && batch.questions.length === total && batch.questions.every((question) => validateTrainingQuestion(question).valid);
+  return total > 0 && batch.questions.length === total && batch.questions.every((question) => (
+    Boolean(question.bankQuestionId) && isPracticeQuestionReady(question)
+  ));
 }
 
-async function gradeTrainingQuestion(question, body = {}) {
-  const answer = body.answer || body.selectedOption || body.formulaText || "";
-  const sourceQuestion = {
-    ...question,
-    id: question.sourceWrongQuestionId || question.id,
-    type: question.questionType,
-    point: question.knowledgePoint || question.subKnowledgePoint,
-    chapterName: question.chapterName || "考研数学",
-    detailedSolution: question.detailedSolution || null,
-    explanation: question.detailedSolution?.methodSummary || question.explanation || ""
-  };
-  const { recognition, finalAnswer, grading } = await evaluateQuestionSubmission(sourceQuestion, body);
-  const recognizedAnswer = recognition.recognizedAnswer || finalAnswer || answer;
+function gradeTrainingQuestion(question, body = {}) {
+  const answer = body.choice?.key || body.answer || body.selectedOption || body.formulaText || "";
+  const questionType = question.type || question.questionType;
+  const correct = questionType === "subjective" || questionType === "solution"
+    ? null
+    : questionType === "choice"
+      ? grade({ ...question, type: "choice" }, answer)
+      : equivalentAnswer(question.answer, answer);
   const usedHints = Number(body.hintLevelUsed || 0);
   return {
-    correct: grading.isCorrect,
-    repeatedOriginalError: grading.status === "INCORRECT" && String(body.stepsText || recognizedAnswer).includes(question.sourceErrorType || ""),
-    score: grading.isCorrect === true ? (usedHints >= 3 ? 70 : usedHints ? 85 : grading.score) : grading.score,
-    gradingStatus: grading.legacyGradingStatus,
-    gradingResult: grading,
-    recognizedAnswer,
-    recognizedSteps: recognition.stepsSummary || "",
-    structuredSteps: recognition.structuredSteps || [],
-    firstWrongStep: Number(recognition.firstWrongStep || 0),
-    processHasIssue: Boolean(recognition.processHasIssue),
-    processIssueReason: recognition.processIssueReason || "",
-    errorType: recognition.errorType || "",
-    weakPoint: recognition.weakPoint || question.knowledgePoint || "",
-    advice: recognition.advice || "",
-    recognitionConfidence: Number(recognition.confidence || 0),
-    recognitionEngine: recognition.engine || "scratch-recognition-not-connected",
-    recognitionError: recognition.recognitionError || ""
+    correct,
+    repeatedOriginalError: correct === false && String(body.stepsText || answer).includes(question.sourceErrorType),
+    score: correct === true ? (usedHints >= 3 ? 70 : usedHints ? 85 : 100) : 0,
+    gradingStatus: correct === null ? "pending_recognition" : "graded"
   };
-}
-
-
-function canonicalTrainingResult(batch, record) {
-  const question = batch?.questions?.find((item) => item.id === record?.trainingQuestionId) || {};
-  if (record?.gradingResult?.status) return record.gradingResult;
-  return runCanonicalGrading(question, record || {}, { legacyCorrect: typeof record?.correct === "boolean" ? record.correct : undefined });
 }
 
 function detectProcessIssue(question, attempt, steps = []) {
   if (!attempt) {
     return { hasIssue: true, reason: "未检测到作答记录", severity: "high" };
   }
-  const grading = canonicalResultForAttempt(question, attempt);
-  if (["RECOGNITION_FAILED", "EMPTY", "NEEDS_MANUAL_REVIEW"].includes(grading.status)) {
-    return { hasIssue: false, reason: "", severity: "none" };
-  }
   if (attempt.gradingStatus === "recognition_error") {
-    return { hasIssue: false, reason: "", severity: "none" };
+    return { hasIssue: true, reason: "手写内容识别不确定", severity: "medium" };
   }
-  if (grading.status === "INCORRECT") {
+  if (attempt.correct !== true) {
     return { hasIssue: true, reason: reasonForAttempt(question, attempt), severity: "high" };
-  }
-  if (grading.status === "PARTIAL") {
-    return { hasIssue: true, reason: attempt.processIssueReason || "结果正确但过程存在问题", severity: "medium" };
   }
   if (attempt.processHasIssue) {
     return { hasIssue: true, reason: attempt.processIssueReason || "结果正确但过程存在问题", severity: "medium" };
@@ -2150,7 +2299,7 @@ function detectProcessIssue(question, attempt, steps = []) {
     || attempt.scratchImageStored
     || attempt.answerImageStored
     || (Array.isArray(attempt.structuredSteps) && attempt.structuredSteps.length);
-  if (grading.questionType === "subjective" && !hasStudentProcess) {
+  if (!["choice", "fill"].includes(question?.type) && !hasStudentProcess) {
     return { hasIssue: true, reason: "结果正确但主观题缺少可复核过程", severity: "medium" };
   }
   if (Number(attempt.recognitionConfidence || 0) > 0 && Number(attempt.recognitionConfidence || 0) < 70) {
@@ -2189,72 +2338,16 @@ function normalizeWeakPoint(question, attempt) {
 
 function reasonForAttempt(question, attempt) {
   const raw = String(attempt?.reason || "").trim();
-  const grading = canonicalResultForAttempt(question, attempt);
-  if (!attempt || ["EMPTY", "RECOGNITION_FAILED", "NEEDS_MANUAL_REVIEW"].includes(grading.status)) return grading.status === "EMPTY" ? "未作答" : "过程识别不足";
-  if (grading.status === "CORRECT") return "已掌握";
+  if (!attempt || attempt.correct === null || attempt.gradingStatus === "pending_recognition") return "过程识别不足";
+  if (attempt.correct) return "已掌握";
   return raw && !["已掌握", "待识别"].includes(raw) ? raw : (question?.reason || "解题方法选择错误");
-}
-
-function buildStructuredStepAnalysis(question, attempt, weakPoint, maxScore) {
-  const rawSteps = Array.isArray(attempt?.structuredSteps)
-    ? attempt.structuredSteps
-    : (Array.isArray(attempt?.ocrResult?.structuredSteps) ? attempt.ocrResult.structuredSteps : []);
-  if (!rawSteps.length) return [];
-
-  const fallbackReason = reasonForAttempt(question, attempt);
-  const baseScore = Math.floor(maxScore / rawSteps.length);
-  const remainder = maxScore % rawSteps.length;
-  return rawSteps.map((rawStep, index) => {
-    const step = rawStep && typeof rawStep === "object" ? rawStep : {};
-    const statusValue = String(step.status || "uncertain").toLowerCase();
-    const status = ["correct", "wrong", "partial", "uncertain", "blank"].includes(statusValue)
-      ? statusValue
-      : "uncertain";
-    const stepMaxScore = Number.isFinite(Number(step.maxScore))
-      ? Math.max(0, Number(step.maxScore))
-      : baseScore + (index < remainder ? 1 : 0);
-    const defaultScore = status === "correct"
-      ? stepMaxScore
-      : status === "partial" ? Math.round(stepMaxScore * 0.5) : 0;
-    const score = Number.isFinite(Number(step.score))
-      ? Math.max(0, Math.min(stepMaxScore, Number(step.score)))
-      : defaultScore;
-
-    const studentContent = String(step.studentRaw || step.studentContent || "").trim();
-    const normalizedExpression = String(step.normalized || step.normalizedExpression || "").trim();
-    const conditionCheck = String(step.conditionCheck || "").trim();
-    const linkWithPrevious = String(step.linkWithPrevious || "").trim();
-    const errorDescription = String(step.errorDescription || "").trim()
-      || (status === "correct" ? "该步骤与标准解法一致。" : (attempt?.rootCause || fallbackReason));
-    const correction = String(step.correction || step.correctedExpression || "").trim()
-      || (status === "correct" ? "继续保持当前方法。" : `回到“${weakPoint}”的定义、公式和适用条件后重新推导。`);
-    const judgment = String(step.judgment || "").trim()
-      || (status === "correct" ? "步骤正确" : status === "partial" ? "步骤部分正确" : status === "uncertain" ? "步骤待确认" : "步骤存在错误");
-    return {
-      stepNumber: Number(step.stepNumber || index + 1),
-      status,
-      judgment,
-      score,
-      maxScore: stepMaxScore,
-      studentContent: studentContent || "未识别到该步骤的有效内容",
-      normalizedExpression: normalizedExpression || "未形成可比对的数学表达",
-      errorDescription,
-      correction,
-      relatedKnowledgePoint: String(step.knowledgePoint || weakPoint),
-      conditionCheck,
-      linkWithPrevious
-    };
-  });
 }
 
 function buildStepAnalysis(question, attempt) {
   const weakPoint = normalizeWeakPoint(question, attempt);
   const reason = reasonForAttempt(question, attempt);
-  const grading = canonicalResultForAttempt(question, attempt);
   const { maxScore } = scoreForAttempt(question, attempt);
-  const structuredSteps = buildStructuredStepAnalysis(question, attempt, weakPoint, maxScore);
-  if (structuredSteps.length) return structuredSteps;
-  if (!attempt || ["EMPTY", "RECOGNITION_FAILED", "NEEDS_MANUAL_REVIEW"].includes(grading.status)) {
+  if (!attempt || attempt.correct === null || attempt.gradingStatus === "pending_recognition") {
     return [{
       stepNumber: 1,
       status: "blank",
@@ -2268,7 +2361,7 @@ function buildStepAnalysis(question, attempt) {
       relatedKnowledgePoint: weakPoint
     }];
   }
-  if (grading.status === "CORRECT") {
+  if (attempt.correct) {
     return [{
       stepNumber: 1,
       status: "correct",
@@ -2282,7 +2375,7 @@ function buildStepAnalysis(question, attempt) {
       relatedKnowledgePoint: weakPoint
     }];
   }
-  const partial = grading.score;
+  const partial = scoreForAttempt(question, attempt).score;
   return [
     {
       stepNumber: 1,
@@ -2320,7 +2413,6 @@ function buildDemoLoop() {
       summary: "本轮主要问题不是计算量不足，而是题意中的数量关系没有转成正确模型。AI定位到第一次偏差出现在利润表达式：把单件利润误写为 60+x，导致后续方程和结论全部偏离。",
       questionAnalyses: [{
         typeLabel: "主观题",
-
         score: 6,
         maxScore: 15,
         finalAnswerCorrect: false,
@@ -2376,26 +2468,24 @@ function buildLearningLoopFor(store, studentId, demo = false) {
   if (!attempts.length) return buildDemoLoop();
   const questionAnalyses = attempts.map((attempt) => {
     const question = store.questions.find((q) => q.id === attempt.questionId) || {};
-    const { score, maxScore, grading } = scoreForAttempt(question, attempt);
+    const { score, maxScore } = scoreForAttempt(question, attempt);
     const reason = reasonForAttempt(question, attempt);
     return {
-      typeLabel: typeLabelFor(grading.questionType),
+      typeLabel: typeLabelFor(question.type),
       score,
       maxScore,
-      finalAnswerCorrect: grading.isCorrect === true,
+      finalAnswerCorrect: attempt.correct === true,
       title: question.stem || question.point || question.chapterName || "未命名题目",
       studentAnswer: attempt.recognizedAnswer || attempt.answer || attempt.selectedOption || "",
       standardAnswer: question.answer || "待校对",
-      errorTypes: grading.diagnosisTriggered ? [reason] : [],
-      gradingCanonicalStatus: grading.status,
-      gradingResult: grading,
+      errorTypes: attempt.correct ? [] : [reason],
       knowledgePoints: [normalizeWeakPoint(question, attempt)],
       steps: buildStepAnalysis(question, attempt)
     };
   });
   const totalScore = questionAnalyses.reduce((sum, item) => sum + item.score, 0);
   const totalMax = Math.max(1, questionAnalyses.reduce((sum, item) => sum + item.maxScore, 0));
-  const wrongItems = questionAnalyses.filter((item) => ["INCORRECT", "PARTIAL"].includes(item.gradingCanonicalStatus));
+  const wrongItems = questionAnalyses.filter((item) => !item.finalAnswerCorrect);
   const weakKnowledgePoints = Array.from(new Set(wrongItems.flatMap((item) => item.knowledgePoints))).slice(0, 5);
   const weakReasons = Array.from(new Set(wrongItems.flatMap((item) => item.errorTypes))).slice(0, 5);
   const accuracy = Math.round(totalScore / totalMax * 100);
@@ -2421,7 +2511,6 @@ function buildLearningLoopFor(store, studentId, demo = false) {
         { type: "例题拆解", title: "对照标准解法标出第一次偏差位置", purpose: "让学生知道为什么错，而不是只知道答案错", knowledgePoint: primaryWeak, errorType: primaryReason, completed: false },
         { type: "同类训练", title: "完成3道同知识点基础变式题", purpose: "验证能否迁移到新题", knowledgePoint: primaryWeak, errorType: "方法迁移", completed: false },
         { type: "限时巩固", title: "完成2道易错/综合变式题", purpose: "检查速度和稳定性", knowledgePoint: primaryWeak, errorType: "综合应用", completed: false }
-
       ]
     },
     retest: {
@@ -2447,7 +2536,7 @@ function buildLearningLoopFor(store, studentId, demo = false) {
 }
 
 function enrichMistakeLoop(loop) {
-  const first = loop.diagnosis?.questionAnalyses?.find((item) => ["INCORRECT", "PARTIAL"].includes(item.gradingCanonicalStatus)) || loop.diagnosis?.questionAnalyses?.[0] || {};
+  const first = loop.diagnosis?.questionAnalyses?.find((item) => !item.finalAnswerCorrect) || loop.diagnosis?.questionAnalyses?.[0] || {};
   const firstWrongStep = first.steps?.find((step) => step.status !== "correct") || first.steps?.[0] || {};
   const knowledgePoint = first.knowledgePoints?.[0] || loop.diagnosis?.weakKnowledgePoints?.[0] || "当前薄弱知识点";
   const errorType = first.errorTypes?.[0] || "知识点应用错误";
@@ -2522,7 +2611,6 @@ function enrichMistakeLoop(loop) {
   loop.recoveryPath = {
     currentStage: "DIAGNOSED",
     nextAction: `先复习 ${reviewModule.title}，通过理解检查后再进入相似题。`,
-
     stages: [
       { key: "DETECTED", label: "检测", status: "已完成", summary: first.finalAnswerCorrect === false ? "发现本题作答错误" : "本题待进一步验证" },
       { key: "DIAGNOSED", label: "诊断", status: "已完成", summary: firstWrongStep.judgment || errorType },
