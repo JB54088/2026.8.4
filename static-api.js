@@ -452,9 +452,18 @@
     const url = new URL(raw, location.origin);
     const apiIndex = url.pathname.indexOf("/api/");
     if (apiIndex < 0) return originalFetch(input, init);
-    await questionCatalogReady;
     const path = url.pathname.slice(apiIndex);
     const method = (init.method || "GET").toUpperCase();
+    // Let the shell, login and health checks respond while the large catalog
+    // downloads in the background. Catalog-backed endpoints still wait for it.
+    const catalogFreePaths = new Set([
+      "/api/health",
+      "/api/bootstrap",
+      "/api/past-exam-sources",
+      "/api/login",
+      "/api/demo/reset"
+    ]);
+    if (!catalogFreePaths.has(path)) await questionCatalogReady;
     const body = init.body ? JSON.parse(init.body) : {};
     const store = readStore();
 
