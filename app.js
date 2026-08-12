@@ -272,7 +272,7 @@ function mathExpressionToLatex(value) {
     .replace(/\b(ln|sin|cos|tan|cot|exp)\b/gi, "\\$1")
     .replace(/([A-Za-z])\^\(([^()]*)\)/g, "$1^{$2}")
     .replace(/([A-Za-z0-9])\^([A-Za-z0-9]+)/g, "$1^{$2}")
-    .replace(/([A-Za-z])_([0-9]+)/g, "$1_{$2}");
+    .replace(/([A-Za-z])_([A-Za-z0-9]+)/g, "$1_{$2}");
   const groupedFraction = expression.match(/^\((.*)\)\s*\/\s*([A-Za-z0-9{}^()+-]+)$/);
   if (groupedFraction) return `\\frac{${mathExpressionToLatex(groupedFraction[1])}}{${mathExpressionToLatex(groupedFraction[2])}}`;
   const simpleFraction = expression.match(/^([^\s]+)\s*\/\s*([^\s]+)$/);
@@ -355,13 +355,37 @@ function fallbackDetailedSolution(question = {}) {
   };
 }
 
-function renderSolutionContent(value) {
+function solutionLineIsMath(line) {
+  const clean = String(line || "").replace(/[。；;，,]$/, "").trim();
+  if (!clean) return false;
+  if (/^\\\[[\s\S]*\\\]$/.test(clean)) return true;
+  if (/[\u4e00-\u9fff]/.test(clean)) return false;
+  return /(?:=|≈|≠|≤|≥|→|∫|∂|lim|sin|cos|tan|ln|sqrt|[A-Za-z]\s*\^|[A-Za-z][²³⁴⁵⁶⁷⁸⁹⁰]|\/)/i.test(clean);
+}
+
+function renderSolutionLine(line, className = "") {
+  const clean = String(line || "").trim();
+  if (!clean) return "";
+  if (solutionLineIsMath(clean)) {
+    const content = /^\\\[[\s\S]*\\\]$/.test(clean) ? renderMathText(clean) : renderMathBlock(clean);
+    return `<div class="solution-equation ${className}">${content}</div>`;
+  }
+  return `<p class="solution-prose ${className}">${renderMathText(clean)}</p>`;
+}
+
+function renderSolutionContent(value, options = {}) {
   return String(value ?? "")
     .split(/\r?\n/)
     .map((line) => line.trim())
     .filter(Boolean)
-    .map((line) => /^\\\[[\s\S]*\\\]$/.test(line) ? renderMathText(line) : `<p>${renderMathText(line)}</p>`)
+    .map((line) => renderSolutionLine(line, options.className || ""))
     .join("");
+}
+
+function renderSolutionAnswer(value) {
+  const text = String(value ?? "").trim();
+  if (!text) return "";
+  return solutionLineIsMath(text) ? renderSolutionLine(text, "solution-final-equation") : renderSolutionContent(text, { className: "solution-final-text" });
 }
 
 function renderStemHtml(value) {
@@ -386,18 +410,45 @@ function renderDetailedExplanation(question = {}) {
   );
   const solution = hasDetailedSteps ? existingSolution : fallbackDetailedSolution(question);
   const steps = Array.isArray(solution.steps) ? solution.steps : [];
-  const formulas = Array.isArray(solution.formulas)
-    ? solution.formulas
-    : (question.formula ? [question.formula] : []);
-  const sections = [
-    ["题目考查", solution.examFocus || `${question.chapterName || "本章节"}中的${question.point || "核心知识点"}。`],
-    ["题目理解", solution.preAnalysis || "先提取题干中的已知条件、限制条件和所求量，明确题目最终要求。"],
-    ["公式与适用条件", formulas.length ? formulas.join("；") : "先写出定义、公式及其适用条件，再开始变形和计算。"],
-    ["解题步骤", steps.length ? steps.map((step, index) => `${step.title || `步骤${step.order || index + 1}`}：${step.content || ""}`).join("\n") : (question.explanation || "逐行完成代入、变形和化简，不能跳过影响结论的关键等式。")],
-    ["最终结论", solution.finalAnswer || question.answer || "请根据最后一步计算结果作答。"],
-    ["易错提醒", solution.commonPitfall || question.reason || "检查公式条件、符号、定义域和最后一步是否回答了题目所问。"]
-  ];
-  return `<div class="solution-sections">${sections.map(([title, content]) => `<section class="solution-section"><h4>${title}</h4><div class="solution-content">${renderSolutionContent(content)}</div></section>`).join("")}</div>`;
+  const formulas = Array.from(new Set([
+    question.formula,
+    ...(Array.isArray(solution.formulas) ? solution.formulas : [])
+  ].map((item) => String(item || "").trim()).filter(Boolean)));
+  const focus = solution.examFocus || `${question.chapterName || "本章节"}中的${question.point || "核心知识点"}。`;
+  const preAnalysis = solution.preAnalysis || "先提取题干中的已知条件、限制条件和所求量，明确题目最终要求。";
+  const condition = solution.conditions || "先确认定义域、连续性、可导性、独立性或其他公式适用条件。";
+  const finalAnswer = solution.finalAnswer || question.answer || "请根据最后一步计算结果作答。";
+  const stepMarkup = steps.length
+    ? steps.map((step, index) => `<article class="solution-step">
+        <div class="solution-step-title">${escapeHtml(step.title || `第${step.order || index + 1}步`)}</div>
+        <div class="solution-step-body">${renderSolutionContent(step.content || step.explanation || "")}${step.formula ? renderSolutionLine(step.formula, "solution-step-equation") : ""}</div>
+      </article>`).join("")
+    : renderSolutionContent(question.explanation || "逐行完成代入、变形和化简，不能跳过影响结论的关键等式。");
+  return `<div class="solution-paper">
+    <div class="solution-paper-heading">标准解题过程</div>
+    <section class="solution-intro">
+      <div class="solution-label">本题考查</div>
+      ${renderSolutionContent(focus)}
+      ${renderSolutionContent(preAnalysis)}
+    </section>
+    <section class="solution-block">
+      <div class="solution-label">所用公式与适用条件</div>
+      ${formulas.length ? formulas.map((formula) => renderSolutionLine(formula)).join("") : renderSolutionContent("先写出定义、公式及其适用条件，再开始变形和计算。")}
+      ${renderSolutionContent(condition)}
+    </section>
+    <section class="solution-steps">
+      <div class="solution-label">解题步骤</div>
+      ${stepMarkup}
+    </section>
+    <section class="solution-conclusion">
+      <div class="solution-prose">所以答案是：</div>
+      ${renderSolutionAnswer(finalAnswer)}
+    </section>
+    <section class="solution-pitfall">
+      <div class="solution-label">易错提醒</div>
+      ${renderSolutionContent(solution.commonPitfall || question.reason || "检查公式条件、符号、定义域和最后一步是否回答了题目所问。")}
+    </section>
+  </div>`;
 }
 
 function uiMessage(message, type = "info") {
