@@ -64,4 +64,28 @@ canvas{display:block;width:100%;height:68vh;min-height:560px;border:0;background
 @media(max-width:900px){.section-heading{flex-direction:column}.chapter-card-grid{grid-template-columns:1fr}.practice-context strong{width:100%;margin-left:0}.practice-choice-list{grid-template-columns:1fr}.chooser-head h2{font-size:26px}.fixed-practice-count label{width:100%;margin-left:0}}
 @media(max-width:900px){.practice-type-tabs,.practice-chapter-grid{grid-template-columns:1fr}.practice-start-row{align-items:stretch}.practice-start-row button{width:100%}}
 
+/* Exam-style explanation layout: prose first, equations centered, conclusion boxed. */
+.solution-paper{margin:18px auto 4px;max-width:900px;padding:4px 8px 8px;font-family:"SimSun","宋体","Times New Roman",serif;color:#111827;background:#fff;line-height:1.8}
+.solution-paper-heading{padding-bottom:10px;border-bottom:1px solid #e4e7ec;font-family:system-ui,"Microsoft YaHei",sans-serif;font-size:16px;font-weight:800;color:#344054}
+.solution-intro,.solution-block,.solution-steps,.solution-conclusion,.solution-pitfall{padding:16px 18px;border-bottom:1px solid #edf0f4}
+.solution-label{margin-bottom:8px;font-family:system-ui,"Microsoft YaHei",sans-serif;font-size:14px;font-weight:800;color:#344054}
+.solution-prose{margin:6px 0;color:#111827;font-size:17px;line-height:1.9}
+.solution-equation{margin:14px 0;text-align:center;overflow-x:auto;color:#111827;font-size:23px;line-height:1.8}
+.solution-equation .math-display{padding:4px 0;margin:0;background:transparent}
+.solution-equation mjx-container{max-width:100%;}
+.solution-step{padding:14px 0;border-top:1px dashed #d8dee8}
+.solution-step:first-of-type{border-top:0;padding-top:4px}
+.solution-step-title{margin-bottom:5px;font-family:system-ui,"Microsoft YaHei",sans-serif;font-size:15px;font-weight:800;color:#172033}
+.solution-step-body{min-width:0}
+.solution-step-equation{margin-top:8px}
+.solution-conclusion{padding-top:20px;padding-bottom:20px}
+.solution-conclusion>.solution-prose{font-size:18px}
+.solution-final-equation{display:flex;justify-content:center;align-items:center;min-height:62px;width:max-content;max-width:100%;margin:14px auto 2px;padding:4px 18px;border:1px solid #111827;background:#fff;font-size:24px}
+.solution-final-equation .math-display{padding:0;overflow:visible}
+.solution-final-text{display:block;width:max-content;max-width:100%;margin:14px auto 2px;padding:8px 18px;border:1px solid #111827;text-align:center}
+.solution-pitfall{border-bottom:0;background:#fffaf0}
+.solution-pitfall .solution-prose{color:#475467;font-size:15px}
+.result-explanation{color:#111827}
+@media(max-width:900px){.solution-paper{padding-inline:0}.solution-intro,.solution-block,.solution-steps,.solution-conclusion,.solution-pitfall{padding-inline:8px}.solution-prose{font-size:16px}.solution-equation{font-size:19px}.solution-final-equation{font-size:20px;padding-inline:12px}}
+
 .math-text{font-family:"Times New Roman","Cambria Math","STIX Two Math","SimSun","宋体",serif;color:#101828}.math-display{display:block;max-width:100%;overflow-x:auto;padding:10px 0;text-align:center}.math-display mjx-container{margin:0 auto!important}.exam-paper .math-display{font-size:1.12em;line-height:1.7}.training-stem .math-display{font-size:1.08em;line-height:1.6}.report-question-stem{border-top:1px solid var(--line);border-bottom:1px solid var(--line);margin:4px 0 8px;padding:4px 0}.result-explanation{margin-top:14px;border-top:1px solid var(--line);padding-top:12px;color:var(--muted);line-height:1.65}.result-explanation>strong{display:block;color:var(--ink);font-size:16px;margin-bottom:8px}.solution-sections{display:grid;gap:10px;margin-top:8px}.solution-section{border:1px solid #dbe3ef;border-radius:8px;background:#fbfcfe;padding:12px 14px}.solution-section h4{margin:0 0 6px;color:var(--ink);font-size:15px}.solution-section>div{white-space:pre-line}.solution-content p{margin:0 0 8px}.solution-content p:last-child{margin-bottom:0}.solution-section .math-display{background:#fff;border-radius:6px;padding:8px 4px;margin:6px 0}.training-feedback .solution-sections{margin-top:12px}.training-feedback .solution-section{background:rgba(255,255,255,.72)}
