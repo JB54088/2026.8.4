@@ -2,6 +2,13 @@
   const isStaticHost = location.hostname.endsWith("github.io") || location.protocol === "file:";
   if (!isStaticHost) return;
   const { gradeQuestion } = window.GradingEngine || {};
+  const retryQuestionTools = window.RetestQuestion || {};
+  const createOriginalRetryQuestion = retryQuestionTools.createOriginalRetryQuestion || ((question = {}) => ({
+    ...question,
+    originalQuestionId: question.originalQuestionId || question.id || "",
+    isOriginalRetry: true,
+    answerMode: Array.isArray(question.options) && question.options.length ? "choice" : "handwriting"
+  }));
 
   window.__APP_CONFIG__ = { apiBaseUrl: "", environment: "static-demo" };
   window.__APP_BASE_PATH__ = location.hostname.endsWith("github.io")
@@ -220,15 +227,19 @@
       ? ["基础概念题", "基础概念题", "关键步骤题", "关键步骤题", "同类题", "同类题", "变式题", "变式题", "易错题", "综合检验题"]
       : ["当前最严重错误专项", "当前最严重错误专项", "当前最严重错误专项", "当前最严重错误专项", "当前最严重错误专项", "当前最严重错误专项", "当前最严重错误专项", "当前最严重错误专项", "当前最严重错误专项", "当前最严重错误专项", "其他薄弱知识点", "其他薄弱知识点", "其他薄弱知识点", "其他薄弱知识点", "历史重复错误", "历史重复错误", "历史重复错误", "防遗忘巩固题", "防遗忘巩固题", "提升题"];
     const sourceBase = questions.find((item) => item.id === wrong.questionId) || {};
-    const sourceQuestion = {
-      id: wrong.questionId || "",
-      stem: wrong.title || "",
-      answer: wrong.standardAnswer || "",
+    const sourceQuestion = createOriginalRetryQuestion({
+      ...sourceBase,
+      id: wrong.questionId || sourceBase.id || "",
+      stem: wrong.title || sourceBase.stem || "",
+      answer: wrong.standardAnswer || sourceBase.answer || "",
       stepsText: wrong.studentSteps || "",
       chapterId: wrong.chapterId || sourceBase.chapterId || "integral",
       point: wrong.knowledgePoints?.[0] || sourceBase.point || "",
-      type: wrong.type || sourceBase.type || ""
-    };
+      type: wrong.type || sourceBase.type || "",
+      questionType: sourceBase.questionType || sourceBase.type || wrong.type || "",
+      options: sourceBase.options || [],
+      detailedSolution: sourceBase.detailedSolution || {}
+    });
     const sourceTag = {
       questionId: wrong.questionId || "",
       errorType: wrong.errorTypes?.[0] || "方法选择错误",
@@ -254,6 +265,7 @@
       trainingType,
       sourceWrongQuestionId: sourceTag.questionId,
       sourceQuestionTitle: sourceQuestion.stem,
+      sourceQuestion,
       sourceKnowledgePoint: sourceTag.subKnowledgePoint || sourceQuestion.point,
       sourceErrorEvidence: wrong.firstErrorStep ? `第${wrong.firstErrorStep}步：${wrong.deductionReason || sourceTag.errorType}` : sourceTag.errorType,
       sourceErrorType: questionsForTraining[0].sourceErrorType || sourceTag.errorType,
@@ -391,6 +403,7 @@
         ]
       },
       originalRetry: {
+        ...createOriginalRetryQuestion(baseQuestion),
         stem: baseQuestion.stem,
         firstMistakeSummary: `${errorType}，第一次偏差通常出现在「${weakPoint}」的条件判断或关键计算。`,
         acceptedSignals: [baseQuestion.answer, weakPoint],
@@ -674,6 +687,22 @@
       const batch = (store.trainingBatches || []).find((item) => item.id === body.trainingBatchId);
       if (!batch) return json({ error: "训练批次不存在" }, 404);
       const retest = { id: `retest_${Date.now()}`, studentId: batch.studentId, trainingBatchId: batch.id, sourceWrongQuestionId: batch.sourceWrongQuestionId, sourceErrorType: batch.sourceErrorType, questions: Array.from({ length: 5 }, (_, index) => ({ id: `retestq_${index}`, sourceWrongQuestionId: batch.sourceWrongQuestionId, sourceErrorType: batch.sourceErrorType, knowledgePoint: batch.knowledgePoint, subKnowledgePoint: batch.subKnowledgePoint, questionType: index === 4 ? "original_retry" : "subjective", stem: `${index === 4 ? "原错题重新作答" : "复测题"}：围绕 ${batch.subKnowledgePoint} 独立完成。`, answer: "按步骤完整作答", detailedSolution: {} })), status: "waiting_answer", result: null, createdAt: nowIso() };
+      const original = createOriginalRetryQuestion(batch.sourceQuestion || questions.find((item) => item.id === batch.sourceWrongQuestionId) || {
+        id: batch.sourceWrongQuestionId,
+        stem: batch.sourceQuestionTitle || "",
+        type: "subjective",
+        options: [],
+        answer: ""
+      });
+      retest.questions[4] = {
+        ...retest.questions[4],
+        ...original,
+        id: original.id || retest.questions[4].id,
+        sourceWrongQuestionId: batch.sourceWrongQuestionId,
+        originalQuestionId: original.originalQuestionId || original.id,
+        isOriginalRetry: true,
+        hintPolicy: "retest_no_hint"
+      };
       store.retestRecords = store.retestRecords || [];
       store.retestRecords.push(retest);
       writeStore(store);

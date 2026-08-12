@@ -2002,6 +2002,168 @@ async function renderSimilarTrainingV2() {
 
 async function renderOriginalRetry() {
   const loop = await loadLoop();
+  const stateFlow = readFlowState();
+  const retryMeta = loop.originalRetry || {};
+  const retestQuestion = stateFlow.retest?.retest?.questions?.find((item) => item.isOriginalRetry)
+    || stateFlow.retest?.questions?.find((item) => item.isOriginalRetry)
+    || {};
+  const retryQuestion = window.RetestQuestion?.createOriginalRetryQuestion
+    ? window.RetestQuestion.createOriginalRetryQuestion({ ...retryMeta, ...retestQuestion })
+    : { ...retryMeta, ...retestQuestion };
+  const isChoice = retryQuestion.answerMode === "choice"
+    || (window.RetestQuestion?.answerModeForQuestion && window.RetestQuestion.answerModeForQuestion(retryQuestion) === "choice")
+    || (Array.isArray(retryQuestion.options) && retryQuestion.options.length > 0);
+  const optionEntries = window.ChoiceGrading?.optionEntries
+    ? window.ChoiceGrading.optionEntries(retryQuestion.options)
+    : (Array.isArray(retryQuestion.options) ? retryQuestion.options.map((content, index) => ({ label: String.fromCharCode(65 + index), content })) : []);
+  const selectedOption = stateFlow.retrySelectedOption || "";
+  const optionsHtml = optionEntries.map((option) => `<button class="training-choice ${selectedOption === option.label ? "active" : ""}" data-retry-choice="${escapeHtml(option.label)}">${escapeHtml(option.label)}. ${renderMathText(option.content)}</button>`).join("");
+  const answerArea = isChoice
+    ? `<div class="training-choices retry-choices">${optionsHtml}</div>`
+    : `<div class="training-writing retry-writing">
+      <div class="paper-stage"><canvas id="retryPad" width="1800" height="1120"></canvas></div>
+      <div class="training-pad-actions"><button class="ghost" id="retryClear">清空手写</button><button class="ghost" id="retryUndo">撤销</button><button class="ghost" id="retryRedo">重做</button></div>
+    </div>`;
+  shell("原题重做", `${loopProgress("retry")}
+  <section class="panel original-retry-page">
+    <div class="similar-training-head">
+      <div><span class="badge">原题重做</span><h2>请重新完成这道原题</h2><p>${isChoice ? "请选择一个选项" : "请在做题空间中写出完整过程和最终答案"}</p></div>
+      <div class="training-progress"><span>${escapeHtml(retryQuestion.typeLabel || (isChoice ? "选择题" : "手写题"))}</span></div>
+    </div>
+    <article class="training-question original-retry-question">
+      <div class="training-question-number">原题</div>
+      <div class="training-stem">${retryQuestion.stemHtml ? `<div class="typeset-stem">${retryQuestion.stemHtml}</div>` : renderMathText(retryQuestion.stem || "原题内容暂不可用", { display: true })}</div>
+      ${retryQuestion.stemImage ? `<img class="stem-image exam" src="${escapeHtml(retryQuestion.stemImage)}" alt="原题图片">` : ""}
+      ${retryQuestion.formula ? renderMathBlock(retryQuestion.formula) : ""}
+      ${answerArea}
+    </article>
+    <div class="row original-retry-actions">
+      <label>用时（秒）<input id="retryDuration" type="number" min="0" value="${Number(stateFlow.retryDuration || retryQuestion.durationSecond || 0)}"></label>
+      <button class="primary" id="submitRetry">提交原题重做</button>
+      <button class="ghost" data-view="similarTraining">返回相似题训练</button>
+    </div>
+  </section>`);
+
+  let retryPadApi = null;
+  if (!isChoice) {
+    const canvas = $("#retryPad");
+    if (canvas) {
+      const ctx = canvas.getContext("2d");
+      let strokes = Array.isArray(stateFlow.retryStrokes) ? JSON.parse(JSON.stringify(stateFlow.retryStrokes)) : [];
+      let redoStrokes = [];
+      let drawing = false;
+      let currentStroke = null;
+      const redraw = () => {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        strokes.forEach((stroke) => {
+          if (!stroke.points?.length) return;
+          beginStroke(ctx, stroke);
+          stroke.points.forEach((point) => { ctx.lineTo(point.x, point.y); ctx.stroke(); });
+        });
+        ctx.globalCompositeOperation = "source-over";
+        ctx.globalAlpha = 1;
+      };
+      const point = (event) => {
+        const rect = canvas.getBoundingClientRect();
+        return { x: Math.round((event.clientX - rect.left) * canvas.width / rect.width), y: Math.round((event.clientY - rect.top) * canvas.height / rect.height), t: Date.now() };
+      };
+      const save = () => {
+        writeFlowState({ retryStrokes: strokes, retryStrokeCount: strokes.length, retryScratchImage: canvas.toDataURL("image/png") });
+      };
+      canvas.onpointerdown = (event) => {
+        drawing = true;
+        canvas.setPointerCapture?.(event.pointerId);
+        currentStroke = { tool: "pen", color: "#172033", width: 3, points: [point(event)] };
+        beginStroke(ctx, currentStroke);
+        drawPoint(ctx, currentStroke.points[0]);
+        event.preventDefault();
+      };
+      canvas.onpointermove = (event) => {
+        if (!drawing || !currentStroke) return;
+        const next = point(event);
+        currentStroke.points.push(next);
+        ctx.lineTo(next.x, next.y);
+        ctx.stroke();
+        event.preventDefault();
+      };
+      canvas.onpointerup = () => {
+        if (!drawing) return;
+        drawing = false;
+        if (currentStroke?.points.length) {
+          strokes.push(currentStroke);
+          redoStrokes = [];
+          save();
+        }
+        currentStroke = null;
+      };
+      canvas.onpointercancel = canvas.onpointerup;
+      const clear = () => { redoStrokes = strokes.slice(); strokes = []; save(); redraw(); };
+      const undo = () => { const stroke = strokes.pop(); if (stroke) redoStrokes.push(stroke); save(); redraw(); };
+      const redo = () => { const stroke = redoStrokes.pop(); if (stroke) strokes.push(stroke); save(); redraw(); };
+      $("#retryClear").onclick = clear;
+      $("#retryUndo").onclick = undo;
+      $("#retryRedo").onclick = redo;
+      redraw();
+      retryPadApi = { snapshot: () => ({ strokes, strokeCount: strokes.length, scratchImage: canvas.toDataURL("image/png") }) };
+    }
+  } else {
+    document.querySelectorAll("[data-retry-choice]").forEach((button) => {
+      button.onclick = () => {
+        document.querySelectorAll("[data-retry-choice]").forEach((item) => item.classList.remove("active"));
+        button.classList.add("active");
+        writeFlowState({ retrySelectedOption: button.dataset.retryChoice, retryAnswer: button.dataset.retryChoice });
+      };
+    });
+  }
+
+  const submit = $("#submitRetry");
+  if (submit) submit.onclick = async () => {
+    const choice = document.querySelector("[data-retry-choice].active")?.dataset.retryChoice || selectedOption;
+    const pad = retryPadApi?.snapshot() || { strokes: [], strokeCount: 0, scratchImage: "" };
+    if (isChoice && !choice) { alert("请先选择一个选项，再提交原题重做。"); return; }
+    if (!isChoice && !pad.strokeCount) { alert("请先在做题空间中写出解题过程，再提交原题重做。"); return; }
+    const duration = Number($("#retryDuration")?.value || 0);
+    const submission = isChoice ? { selectedOption: choice, answer: choice } : { answer: "", stepsText: "", ...pad };
+    let attempt = null;
+    try {
+      const result = await api("/api/attempts", { method: "POST", body: JSON.stringify({
+        studentId: state.student.id,
+        questionId: retryQuestion.originalQuestionId || retryQuestion.id,
+        ...submission,
+        durationMs: duration * 1000
+      }) });
+      attempt = result.attempt || null;
+    } catch (error) {
+      if (isChoice && window.GradingEngine?.gradeQuestion) {
+        attempt = { gradingResult: window.GradingEngine.gradeQuestion(retryQuestion, submission) };
+      } else if (!isChoice) {
+        alert(error.message || "原题重做提交失败，请稍后重试。");
+        return;
+      }
+    }
+    const localGrading = isChoice && window.GradingEngine?.gradeQuestion
+      ? window.GradingEngine.gradeQuestion(retryQuestion, submission)
+      : null;
+    const corrected = attempt?.correct === true || attempt?.gradingResult?.isCorrect === true || localGrading?.isCorrect === true;
+    writeFlowState({
+      retryAnswer: choice || "",
+      retrySelectedOption: choice || "",
+      retryDuration: duration,
+      retryStrokes: pad.strokes,
+      retryScratchImage: pad.scratchImage,
+      retryAttempt: attempt,
+      retrySubmitted: true,
+      retryCorrected: corrected,
+      retryPendingRecognition: !isChoice && attempt?.correct !== true && attempt?.gradingResult?.isCorrect !== true,
+      sameErrorRepeated: corrected !== true,
+      stage: corrected === true ? "MASTERED" : "NEEDS_REINFORCEMENT"
+    });
+    setView("masteryVerify");
+  };
+}
+
+async function renderOriginalRetryLegacy() {
+  const loop = await loadLoop();
   const retry = loop.originalRetry;
   const stateFlow = readFlowState();
   shell("原题重做", `${loopProgress("retry")}
