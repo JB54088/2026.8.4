@@ -75,36 +75,6 @@ const trainingModes = {
   }
 };
 
-const practiceTypes = {
-  new: {
-    name: "刷新题",
-    description: "只抽取从未作答过的题目。",
-    emptyMessage: "当前筛选下没有未作答的新题。"
-  },
-  wrong: {
-    name: "刷错题",
-    description: "只抽取最近一次明确判错、仍需巩固的题目。",
-    emptyMessage: "当前筛选下没有明确判错的错题。"
-  },
-  mixed: {
-    name: "混合刷题",
-    description: "默认约一半新题、一半错题，某一类不足时自动补足。",
-    emptyMessage: "当前筛选下没有可用的新题或错题。"
-  }
-};
-
-function readPracticeChapterIds() {
-  const stored = localStorage.getItem("practiceChapterIds");
-  if (stored === null) return null;
-  try {
-    const parsed = JSON.parse(stored);
-    if (parsed === null) return null;
-    return Array.isArray(parsed) ? parsed.filter(Boolean) : null;
-  } catch (error) {
-    return null;
-  }
-}
-
 const state = {
   student: JSON.parse(localStorage.getItem("student") || "null"),
   view: routeToView[currentRoutePath()] || localStorage.getItem("view") || "home",
@@ -116,9 +86,6 @@ const state = {
   questions: [],
   collectionItems: [],
   chapterId: "integral",
-  practiceChapterIds: readPracticeChapterIds(),
-  practiceType: localStorage.getItem("practiceType") || "new",
-  practiceSessionActive: false,
   questionCount: FIXED_PRACTICE_COUNT,
   difficulty: localStorage.getItem("difficulty") || "all",
   sourceType: localStorage.getItem("sourceType") || "all",
@@ -163,70 +130,36 @@ const difficultyOptions = [
 ];
 
 const $ = (selector) => document.querySelector(selector);
-const questionModel = window.QuestionModel;
+
+function gradingStatusOf(record = {}) {
+  if (record.gradingResult?.status) return record.gradingResult.status;
+  if (record.correct === true) return "CORRECT";
+  if (record.correct === false) return "INCORRECT";
+  if (["pending_recognition", "recognition_error"].includes(record.gradingStatus)) return record.gradingStatus === "recognition_error" ? "RECOGNITION_FAILED" : "RECOGNITION_FAILED";
+  return "EMPTY";
+}
+
+function gradingCorrectOf(record = {}) {
+  return gradingStatusOf(record) === "CORRECT";
+}
+
+function gradingNeedsDiagnosisOf(record = {}) {
+  return Boolean(record.gradingResult?.diagnosisTriggered) || ["INCORRECT", "PARTIAL"].includes(gradingStatusOf(record));
+}
+
+function questionTypeOf(question = {}, record = {}) {
+  return record.gradingResult?.questionType || window.GradingEngine?.canonicalQuestionType?.(question) || question.questionType || question.type || "subjective";
+}
 
 function mode() {
   return trainingModes[state.trainingMode] || trainingModes.reinforce;
 }
 
-function currentPracticeType() {
-  return practiceTypes[state.practiceType] ? state.practiceType : "new";
-}
-
-function availablePracticeChapters() {
-  return state.chapters.filter((chapter) => chapter.subjects.includes(state.student?.mathType));
-}
-
-function selectedPracticeChapterIds() {
-  const availableIds = new Set(availablePracticeChapters().map((chapter) => chapter.id));
-  if (state.practiceChapterIds === null) return Array.from(availableIds);
-  return state.practiceChapterIds.filter((chapterId) => availableIds.has(chapterId));
-}
-
-function practiceChapterFilterLabel() {
-  const chapters = availablePracticeChapters();
-  const selectedIds = selectedPracticeChapterIds();
-  if (state.practiceChapterIds === null) return "全部章节";
-  if (!selectedIds.length) return "未选择章节";
-  if (selectedIds.length === chapters.length) return "全部章节";
-  return chapters.filter((chapter) => selectedIds.includes(chapter.id)).map((chapter) => chapter.name).join("、");
-}
-
-function practiceChapterKey() {
-  const selectedIds = selectedPracticeChapterIds();
-  return selectedIds.length === 1 ? selectedIds[0] : "mixed";
-}
-
-function savePracticeConfig() {
-  localStorage.setItem("practiceChapterIds", JSON.stringify(state.practiceChapterIds));
-  localStorage.setItem("practiceType", currentPracticeType());
-}
-
-function setPracticeChapterSelection(chapterIds) {
-  state.practiceChapterIds = chapterIds === null ? null : Array.from(new Set(chapterIds));
-  const selectedIds = selectedPracticeChapterIds();
-  if (selectedIds.length === 1) state.chapterId = selectedIds[0];
-  else if (!state.chapterId || state.chapterId === "mixed") state.chapterId = availablePracticeChapters()[0]?.id || "integral";
-  savePracticeConfig();
-}
-
-function setPracticeType(practiceType) {
-  state.practiceType = practiceTypes[practiceType] ? practiceType : "new";
-  savePracticeConfig();
-}
-
-function updateHistory(view, replace = false) {
-  if (location.protocol === "file:") return;
-  const nextPath = `${APP_BASE_PATH}${viewToRoute[view] || "/"}`;
-  if (location.pathname === nextPath) return;
-  const method = replace ? "replaceState" : "pushState";
-  history[method]({ view }, "", nextPath);
-}
-
 function setView(view) {
   state.view = view;
   localStorage.setItem("view", view);
-  updateHistory(view);
+  const nextPath = `${APP_BASE_PATH}${viewToRoute[view] || "/"}`;
+  if (location.pathname !== nextPath) history.pushState({ view }, "", nextPath);
   render();
 }
 
@@ -254,8 +187,8 @@ function saveStudent(student) {
 }
 
 function chapterGroup(chapter) {
-  if (chapter.groupId === "linear" || chapter.id === "linear" || /线性代数/.test(chapter.name || "")) return "线性代数";
-  if (chapter.groupId === "prob" || chapter.id === "prob" || /概率/.test(chapter.name || "")) return "概率论与数理统计";
+  if (chapter.id === "linear" || /线性代数/.test(chapter.name || "")) return "线性代数";
+  if (chapter.id === "prob" || /概率/.test(chapter.name || "")) return "概率论与数理统计";
   return "高等数学";
 }
 
@@ -269,7 +202,7 @@ function chapterProgress(progress, chapterId) {
     : [];
   const reportItem = progress?.report?.byChapter?.[chapterId] || progress?.report?.byChapter?.[state.chapters.find((item) => item.id === chapterId)?.name];
   const completed = Number(reportItem?.total ?? attempts.length);
-  const correct = Number(reportItem?.correct ?? attempts.filter((item) => item.correct === true).length);
+  const correct = Number(reportItem?.correct ?? attempts.filter((item) => gradingCorrectOf(item)).length);
   return { completed, accuracy: completed ? Math.round(correct / completed * 100) : 0 };
 }
 
@@ -304,14 +237,12 @@ async function persistMathType(mathType) {
     const res = await api("/api/login", { method: "POST", body: JSON.stringify(payload) });
     saveStudent(res.student);
     state.chapterId = "integral";
-    setPracticeChapterSelection(null);
     state.questions = [];
-    state.practiceSessionActive = false;
     state.current = 0;
     state.responses = {};
     state.view = "home";
     localStorage.setItem("view", "home");
-    updateHistory("home", true);
+    history.replaceState({ view: "home" }, "", `${APP_BASE_PATH}/dashboard`);
     render();
   } catch (error) {
     alert(error.message || "数学类型保存失败，请稍后重试。");
@@ -326,10 +257,147 @@ function escapeHtml(value) {
     .replace(/"/g, "&quot;");
 }
 
-function renderMathText(value) {
-  return questionModel?.renderFormulaText
-    ? questionModel.renderFormulaText(value)
-    : `<span class="math-text">${escapeHtml(value)}</span>`;
+function mathExpressionToLatex(value) {
+  let expression = String(value || "")
+    .trim()
+    .replace(/[−–]/g, "-")
+    .replace(/²/g, "^2")
+    .replace(/³/g, "^3")
+    .replace(/×/g, "\\cdot ")
+    .replace(/÷/g, "\\div ")
+    .replace(/∞/g, "\\infty")
+    .replace(/→/g, "\\to")
+    .replace(/√\s*\(([^()]*)\)/g, "\\sqrt{$1}")
+    .replace(/√\s*([A-Za-z0-9]+)/g, "\\sqrt{$1}")
+    .replace(/\b(ln|sin|cos|tan|cot|exp)\b/gi, "\\$1")
+    .replace(/([A-Za-z])\^\(([^()]*)\)/g, "$1^{$2}")
+    .replace(/([A-Za-z0-9])\^([A-Za-z0-9]+)/g, "$1^{$2}")
+    .replace(/([A-Za-z])_([0-9]+)/g, "$1_{$2}");
+  const groupedFraction = expression.match(/^\((.*)\)\s*\/\s*([A-Za-z0-9{}^()+-]+)$/);
+  if (groupedFraction) return `\\frac{${mathExpressionToLatex(groupedFraction[1])}}{${mathExpressionToLatex(groupedFraction[2])}}`;
+  const simpleFraction = expression.match(/^([^\s]+)\s*\/\s*([^\s]+)$/);
+  if (simpleFraction) return `\\frac{${simpleFraction[1]}}{${simpleFraction[2]}}`;
+  return expression;
+}
+
+function renderMathText(value, options = {}) {
+  const source = String(value || "");
+  if (!source.trim()) return "";
+  const placeholders = [];
+  const math = (latex, display = false) => {
+    const index = placeholders.push(display ? `\\[${latex}\\]` : `\\(${latex}\\)`) - 1;
+    return `\uE000${index}\uE001`;
+  };
+  let text = source
+    .replace(/\\\[([\s\S]*?)\\\]/g, (_, latex) => math(latex, true))
+    .replace(/\\\(([\s\S]*?)\\\)/g, (_, latex) => math(latex, false))
+    .replace(/lim\s*\(\s*([a-zA-Z])\s*(?:→|->|to)\s*([^\s)]+)\s*\)\s*\[([^\]]+)\]/gi, (_, variable, target, expression) => math(`\\lim_{${variable}\\to ${mathExpressionToLatex(target)}}${mathExpressionToLatex(expression)}`, true))
+    .replace(/lim\s*\(\s*([a-zA-Z])\s*(?:→|->|to)\s*([^\s)]+)\s*\)\s*\(([^)]+)\)/gi, (_, variable, target, expression) => math(`\\lim_{${variable}\\to ${mathExpressionToLatex(target)}}${mathExpressionToLatex(expression)}`, true))
+    .replace(/∫\s*(?:\(([^,]+),([^)]+)\)\s*)?([^。；;，,\n]+?\s*dx)/g, (_, lower, upper, expression) => math(`\\int${lower && upper ? `_{${mathExpressionToLatex(lower)}}^{${mathExpressionToLatex(upper)}}` : ""} ${mathExpressionToLatex(expression)}`, true))
+    .replace(/([A-Za-z][A-Za-z0-9]*(?:\^\([^)]*\)|\^[A-Za-z0-9]+)(?:[A-Za-z0-9^()\-+*/=.]*)?)/g, (token) => math(mathExpressionToLatex(token), false));
+  const escaped = escapeHtml(text)
+    .replace(/\uE000(\d+)\uE001/g, (_, index) => placeholders[Number(index)] || "");
+  return options.display ? `<div class="math-text math-display">${escaped}</div>` : escaped;
+}
+
+function renderMathBlock(value) {
+  const latex = mathExpressionToLatex(value);
+  return latex ? `<div class="math-text math-display">\\[${latex}\\]</div>` : "";
+}
+
+function fallbackDetailedSolution(question = {}) {
+  const stem = String(question.stem || question.title || "");
+  const point = question.point || question.subKnowledgePoint || "本题对应知识点";
+  const chapterName = question.chapterName || question.chapter || "本章节";
+  const limitExpansion = stem.match(/e\^\(?([+-]?\d*)x\)?\s*[−-]\s*1\s*[−-]\s*\1x/i);
+  if (limitExpansion && /x(?:\^2|²)/i.test(stem)) {
+    const rawCoefficient = limitExpansion[1] || "1";
+    const coefficient = rawCoefficient === "+" ? "1" : rawCoefficient;
+    return {
+      examFocus: "指数函数的二阶展开与等价无穷小",
+      preAnalysis: "分子中的一次项会与题目中的线性项相消，因此不能只保留一阶等价无穷小，必须展开到 x² 项。",
+      formulas: [`\\[e^{${coefficient}x}=1+${coefficient}x+\\frac{(${coefficient}x)^2}{2!}+o(x^2),\\quad x\\to0\\]`],
+      steps: [
+        { title: "第1步：确定展开阶数", content: "分母是 x²，且分子的一次项会被减去，所以要保留指数函数的二阶项。" },
+        { title: "第2步：展开指数函数", content: `\\[e^{${coefficient}x}=1+${coefficient}x+\\frac{${coefficient}^2}{2}x^2+o(x^2)\\]` },
+        { title: "第3步：处理分子", content: `\\[e^{${coefficient}x}-1-${coefficient}x=\\frac{${coefficient}^2}{2}x^2+o(x^2)\\]` },
+        { title: "第4步：代回原式", content: `\\[\\frac{e^{${coefficient}x}-1-${coefficient}x}{x^2}=\\frac{${coefficient}^2}{2}+o(1)\\]` }
+      ],
+      finalAnswer: question.answer || `\\[\\frac{${coefficient}^2}{2}\\]`,
+      commonPitfall: `不能直接使用 e^{${coefficient}x}-1\\sim ${coefficient}x，因为后面还要减去 ${coefficient}x；这样会把真正决定极限的二阶项一并丢掉。`
+    };
+  }
+  if (/极限|lim/i.test(stem)) {
+    return {
+      examFocus: `${chapterName}中的${point}`,
+      preAnalysis: "先判断极限类型和分子、分母的最低非零阶，再选择等价无穷小、泰勒展开、洛必达法则或恒等变形。",
+      formulas: question.formula ? [question.formula] : ["先确认等价无穷小的适用条件，再进行替换。"],
+      steps: [
+        { title: "第1步：判断未定式", content: "将趋近值代入，确认是否为 0/0、∞/∞ 或其他未定式。" },
+        { title: "第2步：选择方法", content: "优先保留分子、分母的最低非零阶，避免在相减结构中误删同阶项。" },
+        { title: "第3步：化简并求值", content: question.explanation || "逐步约去公共因子，最后再代入趋近值。" }
+      ],
+      finalAnswer: question.answer || "以最后一步化简结果为准。",
+      commonPitfall: question.reason || "相减后低阶项可能消失，不能在未检查相消关系前直接套用一阶等价无穷小。"
+    };
+  }
+  return {
+    examFocus: `${chapterName}中的${point}`,
+    preAnalysis: "先整理已知条件和所求量，明确使用的定义、公式及公式成立条件。",
+    formulas: question.formula ? [question.formula] : ["先写出适用的定义或公式，再进行代入和变形。"],
+    steps: [
+      { title: "第1步：提取条件", content: "列出题目给出的量、关系式和限制条件，避免遗漏定义域或边界条件。" },
+      { title: "第2步：建立方法", content: "根据题型选择对应的定义、公式或解题模型，并说明使用理由。" },
+      { title: "第3步：完成计算", content: question.explanation || "按等式逐步计算，保留关键中间结果并检查符号。" }
+    ],
+    finalAnswer: question.answer || "以最后一步计算结果作答。",
+    commonPitfall: question.reason || "不要跳过关键条件和中间步骤，完成后检查结果是否符合题意。"
+  };
+}
+
+function renderSolutionContent(value) {
+  return String(value ?? "")
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => /^\\\[[\s\S]*\\\]$/.test(line) ? renderMathText(line) : `<p>${renderMathText(line)}</p>`)
+    .join("");
+}
+
+function renderStemHtml(value) {
+  return String(value || "").replace(/<span\s+class=["']math["']>([\s\S]*?)<\/span>/gi, (_, formula) => `<span class="math">\\(${formula}\\)</span>`);
+}
+
+function typesetMath() {
+  const root = $("#view");
+  if (!root || !window.MathJax) return;
+  const render = () => window.MathJax.typesetPromise?.([root]).catch(() => {});
+  if (window.MathJax.startup?.promise) window.MathJax.startup.promise.then(render);
+  else setTimeout(render, 80);
+}
+
+function renderDetailedExplanation(question = {}) {
+  const existingSolution = question.detailedSolution;
+  const hasDetailedSteps = existingSolution && (
+    (Array.isArray(existingSolution.steps) && existingSolution.steps.length > 0)
+    || (Array.isArray(existingSolution.formulas) && existingSolution.formulas.length > 0)
+    || existingSolution.examFocus
+    || existingSolution.preAnalysis
+  );
+  const solution = hasDetailedSteps ? existingSolution : fallbackDetailedSolution(question);
+  const steps = Array.isArray(solution.steps) ? solution.steps : [];
+  const formulas = Array.isArray(solution.formulas)
+    ? solution.formulas
+    : (question.formula ? [question.formula] : []);
+  const sections = [
+    ["题目考查", solution.examFocus || `${question.chapterName || "本章节"}中的${question.point || "核心知识点"}。`],
+    ["题目理解", solution.preAnalysis || "先提取题干中的已知条件、限制条件和所求量，明确题目最终要求。"],
+    ["公式与适用条件", formulas.length ? formulas.join("；") : "先写出定义、公式及其适用条件，再开始变形和计算。"],
+    ["解题步骤", steps.length ? steps.map((step, index) => `${step.title || `步骤${step.order || index + 1}`}：${step.content || ""}`).join("\n") : (question.explanation || "逐行完成代入、变形和化简，不能跳过影响结论的关键等式。")],
+    ["最终结论", solution.finalAnswer || question.answer || "请根据最后一步计算结果作答。"],
+    ["易错提醒", solution.commonPitfall || question.reason || "检查公式条件、符号、定义域和最后一步是否回答了题目所问。"]
+  ];
+  return `<div class="solution-sections">${sections.map(([title, content]) => `<section class="solution-section"><h4>${title}</h4><div class="solution-content">${renderSolutionContent(content)}</div></section>`).join("")}</div>`;
 }
 
 function uiMessage(message, type = "info") {
@@ -346,7 +414,7 @@ function uiMessage(message, type = "info") {
   setTimeout(() => item.remove(), 2600);
 }
 
-window.alert = (message, type = "info") => uiMessage(String(message || ""), type);
+window.alert = (message) => uiMessage(String(message || ""), "info");
 
 function uiConfirm({ title = "确认操作", message = "", confirmText = "确定", cancelText = "取消" } = {}) {
   return new Promise((resolve) => {
@@ -375,8 +443,7 @@ function uiConfirm({ title = "确认操作", message = "", confirmText = "确定
 
 function responseKey() {
   if (!state.student) return "";
-  const chapterKey = state.practiceChapterIds === null ? "all" : selectedPracticeChapterIds().sort().join(",") || "none";
-  return `paperResponses:${state.student.id}:${state.trainingMode}:${chapterKey}:${currentPracticeType()}:${state.questionCount}:${state.difficulty}:${state.sourceType}`;
+  return `paperResponses:${state.student.id}:${state.trainingMode}:${state.chapterId}:${state.questionCount}:${state.difficulty}:${state.sourceType}`;
 }
 
 function persistResponses() {
@@ -393,37 +460,12 @@ function restoreResponses() {
 async function init() {
   const boot = await api("/api/bootstrap");
   state.chapters = boot.chapters;
-  migratePracticeChapterSelection();
   state.pastExamSources = boot.pastExamSources;
   render();
 }
 
-function migratePracticeChapterSelection() {
-  if (!state.student || !Array.isArray(state.practiceChapterIds)) return;
-  if (state.practiceChapterIds.includes("all")) {
-    state.practiceChapterIds = null;
-    savePracticeConfig();
-    return;
-  }
-
-  const available = availablePracticeChapters();
-  const availableIds = new Set(available.map((chapter) => chapter.id));
-  const hasLegacyGroup = state.practiceChapterIds.some((chapterId) => chapterId === "linear" || chapterId === "prob");
-  if (!hasLegacyGroup) {
-    state.practiceChapterIds = state.practiceChapterIds.filter((chapterId) => availableIds.has(chapterId));
-    return;
-  }
-
-  state.practiceChapterIds = Array.from(new Set(state.practiceChapterIds.flatMap((chapterId) => {
-    if (chapterId === "linear") return available.filter((chapter) => chapter.groupId === "linear" || /线性代数/.test(chapter.name || "")).map((chapter) => chapter.id);
-    if (chapterId === "prob") return available.filter((chapter) => chapter.groupId === "prob" || /概率/.test(chapter.name || "")).map((chapter) => chapter.id);
-    return availableIds.has(chapterId) ? [chapterId] : [];
-  })));
-  savePracticeConfig();
-}
-
 function shell(title, body) {
-  document.body.classList.toggle("practice-mode", state.view === "practice" && state.practiceSessionActive);
+  document.body.classList.toggle("practice-mode", state.view === "practice");
   $("#title").textContent = title;
   $("#sub").textContent = state.student
     ? `${state.student.name} · ${state.student.mathType} · ${mode().name}`
@@ -434,6 +476,7 @@ function shell(title, body) {
     : "";
   $("#view").innerHTML = body;
   document.querySelectorAll("[data-view]").forEach((button) => button.onclick = () => setView(button.dataset.view));
+  typesetMath();
 }
 
 function render() {
@@ -532,7 +575,7 @@ function renderLogin() {
     saveStudent(res.student);
     state.view = "mathTypeChooser";
     localStorage.setItem("view", "mathTypeChooser");
-    updateHistory("mathTypeChooser", true);
+    history.replaceState({ view: "mathTypeChooser" }, "", `${APP_BASE_PATH}/math-type`);
     render();
   };
 
@@ -555,7 +598,7 @@ function renderLogin() {
     localStorage.setItem("demoMode", "1");
     state.view = "mathTypeChooser";
     localStorage.setItem("view", "mathTypeChooser");
-    updateHistory("mathTypeChooser", true);
+    history.replaceState({ view: "mathTypeChooser" }, "", `${APP_BASE_PATH}/math-type`);
     render();
   };
 }
@@ -567,7 +610,7 @@ async function renderHome() {
   const report = progress.report || {};
   const attempts = Array.isArray(progress.attempts) ? progress.attempts.filter((item) => item.studentId === state.student.id) : [];
   const completed = Number(report.total ?? attempts.length);
-  const accuracy = Number(report.accuracy ?? (attempts.length ? Math.round(attempts.filter((item) => item.correct === true).length / attempts.length * 100) : 0));
+  const accuracy = Number(report.accuracy ?? (attempts.length ? Math.round(attempts.filter((item) => gradingCorrectOf(item)).length / attempts.length * 100) : 0));
   const weakPoints = loop?.diagnosis?.weakKnowledgePoints || [];
   const chapters = state.chapters.filter((chapter) => chapter.subjects.includes(state.student.mathType));
 
@@ -596,8 +639,9 @@ async function renderHome() {
   document.querySelectorAll("[data-view]").forEach((button) => button.onclick = () => setView(button.dataset.view));
   document.querySelectorAll("[data-chapter]").forEach((button) => {
     button.onclick = async () => {
-      setPracticeChapterSelection([button.dataset.chapter]);
-      await startPracticeRound();
+      state.chapterId = button.dataset.chapter;
+      await loadQuestions(false);
+      setView("practice");
     };
   });
   $("#switchMathType").onclick = () => setView("mathTypeChooser");
@@ -675,116 +719,29 @@ async function renderChapters() {
   });
   document.querySelectorAll("[data-chapter]").forEach((button) => {
     button.onclick = async () => {
-      setPracticeChapterSelection([button.dataset.chapter]);
-      await startPracticeRound();
+      state.chapterId = button.dataset.chapter;
+      await loadQuestions(false);
+      setView("practice");
     };
   });
   $("#switchMathType").onclick = () => setView("mathTypeChooser");
 }
 
-function renderPracticeSetup() {
-  const chapters = availablePracticeChapters();
-  const selectedIds = selectedPracticeChapterIds();
-  const selectedSet = new Set(selectedIds);
-  const allIds = chapters.map((chapter) => chapter.id);
-  const currentType = currentPracticeType();
-  const groups = ["高等数学", "线性代数", "概率论与数理统计"];
-  const chapterGroups = groups.map((group) => {
-    const items = chapters.filter((chapter) => chapterGroup(chapter) === group);
-    if (!items.length) return "";
-    return `<section class="practice-chapter-group"><h3>${group}</h3><div class="practice-chapter-grid">${items.map((chapter) => {
-      const selected = selectedSet.has(chapter.id);
-      return `<button type="button" class="practice-chapter-option ${selected ? "selected" : ""}" data-practice-chapter="${escapeHtml(chapter.id)}" aria-pressed="${selected}">
-        <span><strong>${escapeHtml(chapter.name)}</strong><small>${chapterQuestionCount(chapter)} 道可用题目</small></span><b>${selected ? "已选择" : "选择"}</b>
-      </button>`;
-    }).join("")}</div></section>`;
-  }).join("");
-
-  shell("刷题", `<section class="panel practice-setup-hero">
-    <div class="section-heading"><div><span class="badge">本轮配置</span><h2>选择你想刷的题</h2><p>先选择章节和题目类型，再开始本轮刷题。每轮最多 20 题。</p></div><button class="ghost" data-view="chapters">查看章节学习</button></div>
-    <div class="practice-type-tabs" role="tablist" aria-label="刷题类型">
-      ${Object.entries(practiceTypes).map(([key, item]) => `<button type="button" class="practice-type-card ${currentType === key ? "active" : ""}" data-practice-type="${key}" role="tab" aria-selected="${currentType === key}"><strong>${item.name}</strong><small>${item.description}</small></button>`).join("")}
-    </div>
-  </section>
-  <section class="panel practice-chapter-panel">
-    <div class="section-heading"><div><h2>选择章节</h2><p>可以选择一个或多个章节；混合章节会按题目实际所属章节展示。</p></div><div class="row"><button type="button" class="ghost" id="selectAllPracticeChapters">全选章节</button><button type="button" class="ghost" id="clearPracticeChapters">清空选择</button></div></div>
-    <div class="practice-selection-summary"><strong>已选 ${selectedIds.length} 个章节</strong><span>${escapeHtml(practiceChapterFilterLabel())}</span></div>
-    ${chapters.length ? `<div class="practice-chapter-groups">${chapterGroups}</div>` : `<div class="empty-state"><h3>当前类型暂未配置章节</h3><p>请切换数学类型或联系管理员导入对应题库。</p></div>`}
-  </section>
-  <section class="panel practice-options-panel">
-    <div class="fixed-practice-count"><strong>每轮最多 20 题</strong><span>${escapeHtml(practiceTypes[currentType].description)}符合条件的题目不足时，将按实际可用数量开始。</span><label>训练模式<select id="practiceTrainingMode">${Object.entries(trainingModes).map(([key, item]) => `<option value="${key}">${item.name} · ${item.difficultyLabel}</option>`).join("")}</select></label><label>难度<select id="practiceDifficulty">${difficultyOptions.map(([value, label]) => `<option value="${value}">${label}</option>`).join("")}</select></label><label>题源<select id="practiceSourceType">${sourceOptions.map(([value, label]) => `<option value="${value}">${label}</option>`).join("")}</select></label></div>
-    <div class="practice-start-row"><div><strong>${escapeHtml(practiceTypes[currentType].name)} · ${escapeHtml(practiceChapterFilterLabel())}</strong><p>提交后统一批改，错题会根据最新作答结果自动更新。</p></div><button class="primary" id="startPractice" ${selectedIds.length ? "" : "disabled"}>开始刷题</button></div>
-  </section>`);
-
-  $("#practiceTrainingMode").value = state.trainingMode;
-  $("#practiceDifficulty").value = state.difficulty;
-  $("#practiceSourceType").value = state.sourceType;
-  $("#practiceTrainingMode").onchange = (event) => {
-    selectMode(event.target.value);
-    renderPracticeSetup();
-  };
-  $("#practiceDifficulty").onchange = (event) => {
-    state.difficulty = event.target.value;
-    localStorage.setItem("difficulty", state.difficulty);
-  };
-  $("#practiceSourceType").onchange = (event) => {
-    state.sourceType = event.target.value;
-    localStorage.setItem("sourceType", state.sourceType);
-  };
-  document.querySelectorAll("[data-practice-type]").forEach((button) => {
-    button.onclick = () => {
-      setPracticeType(button.dataset.practiceType);
-      renderPracticeSetup();
-    };
-  });
-  document.querySelectorAll("[data-practice-chapter]").forEach((button) => {
-    button.onclick = () => {
-      const chapterId = button.dataset.practiceChapter;
-      const next = selectedIds.includes(chapterId)
-        ? selectedIds.filter((item) => item !== chapterId)
-        : [...selectedIds, chapterId];
-      setPracticeChapterSelection(next.length === allIds.length ? null : next);
-      renderPracticeSetup();
-    };
-  });
-  $("#selectAllPracticeChapters").onclick = () => {
-    setPracticeChapterSelection(null);
-    renderPracticeSetup();
-  };
-  $("#clearPracticeChapters").onclick = () => {
-    setPracticeChapterSelection([]);
-    renderPracticeSetup();
-  };
-  $("#startPractice").onclick = () => startPracticeRound();
-}
-
 async function loadQuestions(refresh) {
   state.questionCount = FIXED_PRACTICE_COUNT;
-  const previousQuestions = state.questions;
-  const selectedIds = selectedPracticeChapterIds();
   const params = new URLSearchParams({
     studentId: state.student.id,
-    chapterIds: state.practiceChapterIds === null ? "all" : selectedIds.join(","),
-    practiceType: currentPracticeType(),
+    chapterId: state.chapterId,
     refresh: refresh ? "1" : "0",
     count: String(FIXED_PRACTICE_COUNT),
     difficulty: state.difficulty,
     sourceType: state.sourceType,
     mode: state.trainingMode
   });
-  if (refresh && previousQuestions.length) params.set("excludeIds", previousQuestions.map((question) => question.id).join(","));
   const res = await api(`/api/questions?${params.toString()}`);
-  if (!res.questions.length && refresh && previousQuestions.length) {
-    alert(res.message || "没有更多符合当前条件的新题，本轮暂不更换。", "warn");
-    return false;
-  }
   state.questions = res.questions;
   if (!state.questions.length) {
-    alert(res.message || practiceTypes[currentPracticeType()].emptyMessage || "当前筛选条件下没有题目，请调整筛选条件。", "warn");
-    state.current = 0;
-    state.responses = {};
-    state.practiceSessionActive = false;
-    return false;
+    alert(res.message || "当前筛选条件下没有题目，请调整题量、难度或题源。");
   }
   state.current = 0;
   state.responses = {};
@@ -795,32 +752,6 @@ async function loadQuestions(refresh) {
   }
   state.lastResults = null;
   resetScratch();
-  return true;
-}
-
-async function startPracticeRound() {
-  if (!selectedPracticeChapterIds().length) {
-    if (state.view !== "practice") setView("practice");
-    alert("请至少选择一个章节。", "warn");
-    return false;
-  }
-  state.practiceSessionActive = false;
-  if (state.view !== "practice") setView("practice");
-  let loaded = false;
-  try {
-    loaded = await loadQuestions(false);
-  } catch (error) {
-    renderPracticeSetup();
-    alert(error.message || "题目加载失败，请稍后重试。", "bad");
-    return false;
-  }
-  if (!loaded) {
-    renderPracticeSetup();
-    return false;
-  }
-  state.practiceSessionActive = true;
-  render();
-  return true;
 }
 
 function resetScratch() {
@@ -842,77 +773,50 @@ function difficultyText(value) {
   return difficultyOptions.find(([key]) => key === String(value))?.[1] || "3星 易错";
 }
 
-function safeAssetHref(value) {
-  const raw = String(value || "").trim();
-  if (!raw) return "";
-  try {
-    const url = new URL(raw, document.baseURI);
-    return ["http:", "https:"].includes(url.protocol) ? url.href : "";
-  } catch (error) {
-    return "";
-  }
-}
-
 function questionStem(q) {
   if (q.sourceType === "past_exam") {
-    const sourcePageImage = safeAssetHref(q.sourcePageImage);
-    const stemImage = safeAssetHref(q.stemImage) || (q.practiceStatus === "trial" ? sourcePageImage : "");
-    const showAnswerAnnotation = q.showAnswerAnnotation === true;
-    const hideSourceAnnotations = Boolean(q.stem) && !showAnswerAnnotation;
-    const pendingSourceReview = q.practiceStatus === "trial" || q.practiceMeta?.status === "needs_review";
     const body = q.stemHtml
-      ? `<div class="typeset-stem">${q.stemHtml}</div>`
-      : (hideSourceAnnotations && q.stem
-        ? `<p>${renderMathText(q.stem)}</p>`
-        : (stemImage
-        ? `<figure class="source-page-figure"><img class="stem-image exam" src="${escapeHtml(stemImage)}" alt="${escapeHtml(q.sourcePage ? `真题原页第 ${q.sourcePage} 页` : q.stem)}"><figcaption>原页图片（公式显示以此为准）</figcaption></figure>`
-        : `<p>${renderMathText(q.stem)}</p>`));
-    const sourcePageLink = sourcePageImage
-      ? `<p class="source-page-link"><a class="ghost link-button" href="${escapeHtml(sourcePageImage)}" target="_blank" rel="noopener">查看原页${q.sourcePage ? `（第 ${escapeHtml(q.sourcePage)} 页）` : ""}${hideSourceAnnotations ? "（可能含答案标注）" : ""}</a>${q.stem ? `<button class="ghost link-button" id="toggleSourceAnnotation">${showAnswerAnnotation ? "隐藏原页标注" : "查看带标注原页"}</button>` : ""}</p>`
-      : "";
-    const textLayer = pendingSourceReview && q.stem
-      ? `<details class="exam-text-layer"><summary>OCR 文本层（仅用于搜索和复制）</summary><pre>${escapeHtml(q.stem)}</pre></details>`
-      : "";
+      ? `<div class="typeset-stem">${renderStemHtml(q.stemHtml)}</div>`
+      : (q.stemImage ? `<img class="stem-image exam" src="${escapeHtml(q.stemImage)}" alt="${escapeHtml(q.stem)}">` : `<p>${escapeHtml(q.stem)}</p>`);
     return `<div class="exam-stem">
       <div class="exam-paper">
         ${body}
-        ${textLayer}
-      </div>${sourcePageLink}
+      </div>
     </div>`;
   }
   return `<div class="exam-stem text-mode">
     <div class="exam-paper">
-      <p>${renderMathText(q.stem)}</p>
+      ${renderMathText(q.stem, { display: true })}
     </div>
   </div>`;
 }
 
 function questionAnswerControls(q) {
-  if (q.type === "choice") {
-    const saved = state.responses[q.id] || {};
-    const selected = questionModel.choiceAnswerKey(q, saved.choice || saved.answer || saved.selectedOption || "");
-    return `<div class="practice-choice-list" aria-label="选择答案">${questionModel.choiceOptions(q).map((option) => {
-      const text = option.text || option.raw;
-      return `<button class="practice-choice ${selected === option.key ? "active" : ""}" data-choice-key="${escapeHtml(option.key)}" data-choice-text="${escapeHtml(text)}">${escapeHtml(option.key)}. ${renderMathText(text)}</button>`;
+  const type = questionTypeOf(q);
+  if (["single_choice", "multiple_choice", "true_false"].includes(type)) {
+    const selected = state.responses[q.id]?.selectedOption || "";
+    return `<div class="practice-choice-list" aria-label="选择答案">${(q.options || []).map((option, index) => {
+      const letter = String.fromCharCode(65 + index);
+      return `<button class="practice-choice ${selected === option || selected === letter ? "active" : ""}" data-choice="${escapeHtml(option)}" data-choice-letter="${letter}">${letter}. ${renderMathText(option)}</button>`;
     }).join("")}</div>`;
   }
-  return `<p class="practice-answer-hint">${q.type === "fill" ? "请在做题空间中写出最终答案和必要步骤。" : "请在做题空间中完整写出解题过程和最终答案。"}</p>`;
+  return `<p class="practice-answer-hint">${type === "fill_blank" || type === "numeric" ? "请在做题空间中写出最终答案和必要步骤。" : "请在做题空间中完整写出解题过程和最终答案。"}</p>`;
 }
 
 async function renderPractice() {
-  if (!state.practiceSessionActive || !state.questions.length) {
-    state.practiceSessionActive = false;
-    renderPracticeSetup();
+  state.trainingCanvasQuestion = null;
+  if (!state.questions.length) await loadQuestions(false);
+  if (!state.questions.length) {
+    shell("刷题", `<section class="panel"><h2>当前筛选下没有题目</h2><p>如果你选择了“历年考研数学真题”，需要先导入2000-2026真实真题题库；系统不会用原创题冒充真题。</p><button class="primary" data-view="chapters">返回章节</button></section>`);
     return;
   }
-  state.trainingCanvasQuestion = null;
   const q = state.questions[state.current];
   const chapter = state.chapters.find((item) => item.id === q.chapterId);
   const answeredCount = state.questions.filter((item) => Boolean(state.responses[item.id]?.selectedOption || state.responses[item.id]?.scratchImage || state.responses[item.id]?.strokeCount)).length;
   loadScratchForQuestion(q);
-  shell("刷题", `<div class="practice-simple ${q.type === "choice" ? "practice-choice-mode" : ""}">
+  shell("刷题", `<div class="practice-simple ${["single_choice", "multiple_choice", "true_false"].includes(questionTypeOf(q)) ? "practice-choice-mode" : ""}">
     <section class="question-only">
-      <div class="practice-context"><span>${escapeHtml(state.student.mathType)}</span><span>${escapeHtml(practiceTypes[currentPracticeType()].name)}</span><span>${escapeHtml(chapter?.name || q.chapterName || "当前章节")}</span><span>${escapeHtml(q.point || "本题知识点")}</span><strong>已完成 ${answeredCount} / ${state.questions.length}</strong><button class="ghost" id="configurePractice">重新配置</button><button class="ghost" id="refreshPractice">刷新本轮题目</button></div>
+      <div class="practice-context"><span>${escapeHtml(state.student.mathType)}</span><span>${escapeHtml(chapter?.name || q.chapterName || "当前章节")}</span><span>${escapeHtml(q.point || "本题知识点")}</span><strong>已完成 ${answeredCount} / ${state.questions.length}</strong><button class="ghost" id="refreshPractice">刷新本轮20题</button></div>
       <div class="question-count">第${state.current + 1}题 / 共${state.questions.length}题</div>
       ${questionStem(q)}
       ${questionAnswerControls(q)}
@@ -924,7 +828,7 @@ async function renderPractice() {
 
 function renderWritingPanel(q) {
   const isLast = state.current >= state.questions.length - 1;
-  if (q?.type === "choice") {
+  if (["single_choice", "multiple_choice", "true_false"].includes(questionTypeOf(q))) {
     return `<section class="choice-actions-only">
       <p class="choice-answer-note">请选择一个答案，系统会在整卷提交后统一批改。</p>
       <div class="practice-actions">
@@ -956,22 +860,13 @@ function bindPractice(q) {
   const undoPad = $("#undoPad");
   const redoPad = $("#redoPad");
   const finishRound = $("#finishRound");
-  const configurePractice = $("#configurePractice");
   const refreshPractice = $("#refreshPractice");
-  const toggleSourceAnnotation = $("#toggleSourceAnnotation");
-  document.querySelectorAll("[data-choice-key]").forEach((button) => {
+  document.querySelectorAll("[data-choice]").forEach((button) => {
     button.onclick = () => {
       const saved = state.responses[q.id] || { questionId: q.id };
-      const choice = { key: button.dataset.choiceKey, text: button.dataset.choiceText || "" };
-      state.responses[q.id] = {
-        ...saved,
-        answer: choice.key,
-        selectedOption: choice.key,
-        selectedOptionText: choice.text,
-        choice
-      };
+      state.responses[q.id] = { ...saved, selectedOption: button.dataset.choice, answer: button.dataset.choiceLetter };
       persistResponses();
-      document.querySelectorAll("[data-choice-key]").forEach((item) => item.classList.toggle("active", item === button));
+      document.querySelectorAll("[data-choice]").forEach((item) => item.classList.toggle("active", item === button));
     };
   });
   if (prev) prev.onclick = () => {
@@ -992,21 +887,6 @@ function bindPractice(q) {
     saveCurrentScratch(q);
     await submitRound();
   };
-  if (configurePractice) configurePractice.onclick = async () => {
-    const answered = Object.values(state.responses || {}).filter((item) => item?.selectedOption || item?.scratchImage || item?.strokeCount).length;
-    const confirmed = await uiConfirm({
-      title: "重新配置本轮",
-      message: answered ? `当前已有 ${answered} 题作答，重新配置后将清空本轮答案。是否继续？` : "将离开当前轮次并重新选择章节和题型，是否继续？",
-      confirmText: "重新配置",
-      cancelText: "继续作答"
-    });
-    if (!confirmed) return;
-    localStorage.removeItem(responseKey());
-    state.questions = [];
-    state.responses = {};
-    state.practiceSessionActive = false;
-    renderPracticeSetup();
-  };
   if (refreshPractice) refreshPractice.onclick = async () => {
     const answered = Object.values(state.responses || {}).filter((item) => item?.selectedOption || item?.scratchImage || item?.strokeCount).length;
     const confirmed = await uiConfirm({
@@ -1016,11 +896,7 @@ function bindPractice(q) {
       cancelText: "继续作答"
     });
     if (!confirmed) return;
-    const refreshed = await loadQuestions(true);
-    if (refreshed) renderPractice();
-  };
-  if (toggleSourceAnnotation) toggleSourceAnnotation.onclick = () => {
-    q.showAnswerAnnotation = q.showAnswerAnnotation !== true;
+    await loadQuestions(true);
     renderPractice();
   };
   if (clearPad) clearPad.onclick = () => {
@@ -1125,21 +1001,13 @@ async function submitRound() {
     cancelText: "继续检查"
   });
   if (!ok) return;
-  state.view = "grading";
-  localStorage.setItem("view", "grading");
-  renderGrading();
-  await new Promise((resolve) => setTimeout(resolve, 900));
   try {
-    const selectedChapterIds = selectedPracticeChapterIds();
-    const chapterKey = practiceChapterKey();
     const payload = {
       studentId: state.student.id,
-      examinationId: `${state.trainingMode}_${currentPracticeType()}_${chapterKey}_${Date.now()}`,
-      paperName: `${state.student.mathType} · ${mode().name} · ${practiceTypes[currentPracticeType()].name} · ${new Date().toLocaleString()}`,
+      examinationId: `${state.trainingMode}_${state.chapterId}_${Date.now()}`,
+      paperName: `${state.student.mathType} · ${mode().name} · ${new Date().toLocaleString()}`,
       mode: state.trainingMode,
-      chapterId: chapterKey,
-      chapterIds: selectedChapterIds,
-      practiceType: currentPracticeType(),
+      chapterId: state.chapterId,
       questionIds: state.questions.map((q) => q.id),
       responses: state.questions.map((q, index) => ({
         questionId: q.id,
@@ -1163,13 +1031,10 @@ async function submitRound() {
     localStorage.setItem(`lastSubmittedAt:${state.student.id}`, new Date().toISOString());
     const key = responseKey();
     if (key) localStorage.removeItem(key);
-    state.practiceSessionActive = false;
-    state.responses = {};
     state.view = "paperReport";
     localStorage.setItem("view", "paperReport");
     renderPaperReport();
   } catch (error) {
-    state.practiceSessionActive = true;
     state.view = "practice";
     localStorage.setItem("view", "practice");
     renderPractice();
@@ -1178,21 +1043,7 @@ async function submitRound() {
 }
 
 function renderGrading() {
-  const steps = [
-    "正在读取学生答案",
-    "正在识别做题空间中的手写内容与公式",
-    "正在拆分解题步骤",
-    "正在与标准解法比对",
-    "正在检查步骤之间的逻辑关系",
-    "正在定位错误步骤",
-    "正在诊断知识薄弱点",
-    "正在生成训练计划"
-  ];
-  shell("AI批改中", `<section class="panel ai-grading">
-    <h2>AI 正在批改本轮试卷</h2>
-    <p>系统会先分析答案和做题空间，再生成诊断、针对训练、复测和能力画像。AI分析结果仅作学习辅助，复杂主观题可由教师复核。</p>
-    <div class="grading-steps">${steps.map((step, index) => `<div class="grading-step ${index < 5 ? "active" : ""}"><span>${index + 1}</span><strong>${step}</strong></div>`).join("")}</div>
-  </section>`);
+  return renderPaperReport();
 }
 
 function renderRoundResults() {
@@ -1201,30 +1052,43 @@ function renderRoundResults() {
     shell("本轮结果", `<section class="panel"><h2>暂无本轮交卷结果</h2><button class="primary" data-view="practice">返回刷题</button></section>`);
     return;
   }
-  const graded = results.filter(({ attempt }) => !["pending_recognition", "pending_answer_review", "recognition_error"].includes(attempt.gradingStatus));
-  const correct = graded.filter(({ attempt }) => attempt.correct).length;
+  const graded = results.filter(({ attempt }) => !["EMPTY", "RECOGNITION_FAILED", "NEEDS_MANUAL_REVIEW"].includes(gradingStatusOf(attempt)));
+  const correct = graded.filter(({ attempt }) => gradingCorrectOf(attempt)).length;
   const pending = results.length - graded.length;
+  const renderStepPreview = (steps = []) => (Array.isArray(steps) ? steps : []).map((step) => `<details class="result-step ${stepStatusClass(step.status)}" ${step.status !== "correct" ? "open" : ""}>
+    <summary>步骤 ${step.stepNumber} · ${escapeHtml(step.judgment || "步骤识别")}</summary>
+    <p><strong>识别内容：</strong>${escapeHtml(step.studentContent || "未识别")}</p>
+    <p><strong>判断：</strong>${escapeHtml(step.errorDescription || "")}</p>
+    ${step.relatedKnowledgePoint ? `<p><strong>知识点：</strong>${escapeHtml(step.relatedKnowledgePoint)}</p>` : ""}
+    ${step.correction ? `<p><strong>修正：</strong>${escapeHtml(step.correction)}</p>` : ""}
+  </details>`).join("");
   const cards = results.map(({ question, attempt }, index) => {
-    const judgment = attempt.gradingStatus === "pending_recognition" ? "待识别" : (attempt.correct ? "正确" : "错误");
-    const answerPending = attempt.gradingStatus === "pending_answer_review";
-    const recognitionError = attempt.gradingStatus === "recognition_error";
-    const aiReviewed = attempt.gradingStatus === "ai_reviewed";
-    const badge = attempt.gradingStatus === "pending_recognition" || answerPending || recognitionError ? "warn" : (attempt.correct ? "" : "bad");
-    const label = recognitionError ? "识别失败" : (aiReviewed ? `AI诊断：${judgment}` : (answerPending ? "答案待校对" : judgment));
-    const userAnswer = attempt.studentAnswer || attempt.recognizedAnswer || attempt.answer || "未识别/未作答";
-    const standardAnswer = attempt.standardAnswer || question.answer || "待校对";
+    const gradingStatus = gradingStatusOf(attempt);
+    const questionType = questionTypeOf(question, attempt);
+    const judgment = gradingStatus === "EMPTY" ? "未作答" : gradingStatus === "RECOGNITION_FAILED" || gradingStatus === "NEEDS_MANUAL_REVIEW" ? "待识别/复核" : (gradingCorrectOf(attempt) ? "正确" : "错误");
+    const badge = ["EMPTY", "RECOGNITION_FAILED", "NEEDS_MANUAL_REVIEW"].includes(gradingStatus) ? "warn" : (gradingCorrectOf(attempt) ? "" : "bad");
+    const label = judgment;
+    const userAnswer = attempt.recognizedAnswer || attempt.answer || "未识别/未作答";
+    const standardAnswer = question.answer || "待校对";
     return `<article class="result-card">
       <h3>第 ${index + 1} 题 <span class="badge ${badge}">${label}</span></h3>
-      <p class="stem">${escapeHtml(question.chapterName)} · ${renderMathText(question.point || question.stem)}</p>
+      <p class="stem">${escapeHtml(question.chapterName)} · ${escapeHtml(question.point || question.stem)}</p>
       ${question.stemHtml ? `<div class="exam-paper result-paper"><div class="typeset-stem">${question.stemHtml}</div></div>` : (question.stemImage ? `<div class="exam-paper result-paper"><img class="stem-image exam small" src="${escapeHtml(question.stemImage)}" alt="${escapeHtml(question.stem)}"></div>` : "")}
       <div class="result-grid">
-        <p><span>你的答案</span><strong>${renderMathText(userAnswer)}</strong></p>
-        <p><span>标准答案</span><strong>${renderMathText(standardAnswer)}</strong></p>
+        <p><span>你的答案</span><strong>${escapeHtml(userAnswer)}</strong></p>
+        <p><span>标准答案</span><strong>${escapeHtml(standardAnswer)}</strong></p>
         <p><span>错误点</span><strong>${escapeHtml(attempt.reason)}</strong></p>
         <p><span>建议</span><strong>${escapeHtml(attempt.advice)}</strong></p>
       </div>
       ${attempt.recommendedPractice ? `<p class="explain">追加练习：${escapeHtml(attempt.recommendedPractice)}</p>` : ""}
-      <p class="explain">解析：${escapeHtml(question.explanation || "暂无解析")}</p>
+      ${["single_choice", "multiple_choice", "true_false"].includes(questionType) ? "" : `<div class="handwriting-diagnosis">
+        <p><strong>手写识别结果：</strong>${escapeHtml(attempt.studentAnswer || attempt.recognizedAnswer || "未识别")}</p>
+        <p><strong>第一处错误：</strong>${attempt.firstErrorStep ? `步骤 ${attempt.firstErrorStep}` : "未发现或待确认"}</p>
+        <p><strong>薄弱知识点：</strong>${escapeHtml((attempt.knowledgePoints || []).join("、") || "待识别")}</p>
+        ${renderStepPreview(attempt.steps)}
+        ${gradingNeedsDiagnosisOf(attempt) && question.id ? `<button class="ghost" data-result-training-source="${escapeHtml(question.id)}">针对该知识点开始训练</button>` : ""}
+      </div>`}
+      <div class="result-explanation"><strong>答案解析</strong>${renderDetailedExplanation({ ...question, ...attempt, explanation: question.explanation, answer: question.answer, point: question.point })}</div>
     </article>`;
   }).join("");
   shell("本轮结果", `<section class="panel">
@@ -1243,6 +1107,14 @@ function renderRoundResults() {
     </div>
   </section>
   <section class="panel"><div class="cards">${cards}</div></section>`);
+  document.querySelectorAll("[data-result-training-source]").forEach((button) => {
+    button.onclick = () => {
+      state.trainingSourceQuestionId = button.dataset.resultTrainingSource;
+      localStorage.setItem("trainingSourceQuestionId", state.trainingSourceQuestionId);
+      state.trainingBatch = null;
+      setView("similarTraining");
+    };
+  });
 }
 
 async function ensureLatestSubmission() {
@@ -1291,13 +1163,18 @@ async function renderPaperReport() {
   const questions = (report.questionAnalyses || []).map((item, index) => `<article class="status-card ${item.needsDeepDiagnosis ? "needs-diagnosis" : ""}">
     <h3>第 ${index + 1} 题 · ${escapeHtml(item.typeLabel)}</h3>
     <p>${item.score}/${item.maxScore} 分 · ${item.answerCorrectButProcessIssue ? "结果正确但过程有问题" : item.needsDeepDiagnosis ? "进入深度诊断" : "正确题轻记录"} · ${escapeHtml(item.deductionReason || "")}</p>
+    <p><strong>学生答案：</strong>${escapeHtml(item.studentAnswer || "未作答/未识别")}</p>
+    <p><strong>标准答案：</strong>${escapeHtml(item.standardAnswer || "待校对")}</p>
+    <div class="report-question-stem">${renderMathText(item.title, { display: true })}</div>
+    <div class="result-explanation"><strong>答案解析</strong>${renderDetailedExplanation({ ...item, explanation: item.standardSteps, answer: item.standardAnswer, point: (item.knowledgePoints || []).join("、") })}</div>
+    ${item.needsDeepDiagnosis ? `<p><strong>薄弱知识点：</strong>${escapeHtml((item.knowledgePoints || []).join("、") || "待识别")} · <strong>首个错误：</strong>${item.firstErrorStep ? `步骤 ${item.firstErrorStep}` : "待确认"}</p>` : ""}
     <button class="ghost" data-review-index="${index}">${item.needsDeepDiagnosis ? "查看错题过程诊断" : "查看记录"}</button>
+    ${item.needsDeepDiagnosis && item.questionId ? `<button class="ghost" data-report-training-source="${escapeHtml(item.questionId)}">针对薄弱点训练</button>` : ""}
   </article>`).join("");
   shell("整卷诊断报告", `${loopProgress("diagnosis")}
   <section class="panel product-dashboard">
     <div class="dashboard-head">
       <div>
-        <span class="badge ${submission.status === "diagnosis_complete" ? "" : "warn"}">${escapeHtml(submission.status)}</span>
         <h2>${escapeHtml(summary.paperName || submission.paperName || "本次整卷")}</h2>
         <p>${escapeHtml(summary.comment || "系统已完成整卷统一保存、识别、批改和诊断。")}</p>
       </div>
@@ -1314,7 +1191,6 @@ async function renderPaperReport() {
       <div class="metric"><span>能力等级</span><strong>${escapeHtml(summary.level)}</strong></div>
     </div>
   </section>
-  <section class="panel"><h2>批改状态</h2><div class="grading-steps">${(submission.gradingStatusHistory || []).map((item, index) => `<div class="grading-step active"><span>${index + 1}</span><strong>${escapeHtml(item.status)}</strong></div>`).join("")}</div></section>
   <section class="panel"><h2>各题型得分</h2><div class="cards">${typeRows}</div></section>
   <section class="panel"><h2>各章节掌握度</h2><div class="cards">${chapterRows}</div></section>
   <section class="panel"><h2>知识点掌握度</h2><div class="cards">${knowledgeRows}</div></section>
@@ -1333,6 +1209,14 @@ async function renderPaperReport() {
   document.querySelectorAll("[data-error-training-source]").forEach((button) => {
     button.onclick = () => {
       state.trainingSourceQuestionId = button.dataset.errorTrainingSource;
+      localStorage.setItem("trainingSourceQuestionId", state.trainingSourceQuestionId);
+      state.trainingBatch = null;
+      setView("similarTraining");
+    };
+  });
+  document.querySelectorAll("[data-report-training-source]").forEach((button) => {
+    button.onclick = () => {
+      state.trainingSourceQuestionId = button.dataset.reportTrainingSource;
       localStorage.setItem("trainingSourceQuestionId", state.trainingSourceQuestionId);
       state.trainingBatch = null;
       setView("similarTraining");
@@ -1368,6 +1252,8 @@ async function renderQuestionReview() {
     <summary><span>步骤 ${step.stepNumber}</span><strong>${escapeHtml(step.judgment)}</strong><em>${step.score}/${step.maxScore} 分</em></summary>
     <p>学生步骤：${escapeHtml(step.studentContent || "未识别到有效步骤")}</p>
     <p>标准/归一表达：${escapeHtml(step.normalizedExpression || "")}</p>
+    ${step.conditionCheck ? `<p>公式条件：${escapeHtml(step.conditionCheck)}</p>` : ""}
+    ${step.linkWithPrevious ? `<p>与上一步关系：${escapeHtml(step.linkWithPrevious)}</p>` : ""}
     <p>判断说明：${escapeHtml(step.errorDescription || "")}</p>
     <p>正确修正：${escapeHtml(step.correction || "")}</p>
     <p>涉及知识点：${escapeHtml(step.relatedKnowledgePoint || "")}</p>
@@ -1378,23 +1264,22 @@ async function renderQuestionReview() {
       <h3>第 ${index + 1} 题 · ${escapeHtml(item.typeLabel)}</h3>
       <span class="badge ${item.finalAnswerCorrect ? "" : "bad"}">${item.score}/${item.maxScore} 分</span>
     </div>
-    <article class="exam-paper text-mode"><p>${renderMathText(item.title)}</p></article>
+    <article class="exam-paper text-mode">${renderMathText(item.title, { display: true })}</article>
     <p class="mode-help">${item.needsDeepDiagnosis ? "本题进入错题过程深度诊断：系统优先定位第一处错误步骤、根本原因和后续训练目标。" : "本题答案与过程基本稳定，仅做结果、知识点和用时记录，不生成额外训练。"}</p>
     <div class="result-grid compact">
-      <p><span>学生原始答案</span><strong>${renderMathText(item.studentAnswer || "未作答/未识别")}</strong></p>
+      <p><span>学生原始答案</span><strong>${escapeHtml(item.studentAnswer || "未作答/未识别")}</strong></p>
       <p><span>学生过程</span><strong>${escapeHtml(item.studentSteps || "未识别到可判分过程")}</strong></p>
-      <p><span>标准答案</span><strong>${renderMathText(item.standardAnswer || "待校对")}</strong></p>
+      <p><span>标准答案</span><strong>${escapeHtml(item.standardAnswer || "待校对")}</strong></p>
       <p><span>扣分原因</span><strong>${escapeHtml(item.deductionReason || "无")}</strong></p>
       <p><span>第一处错误</span><strong>${item.firstErrorStep ? `步骤 ${item.firstErrorStep}` : "未发现/待识别"}</strong></p>
       <p><span>知识点</span><strong>${escapeHtml((item.knowledgePoints || []).join("、"))}</strong></p>
       <p><span>相似易错点</span><strong>${escapeHtml((item.errorTypes || []).join("、") || "暂无")}</strong></p>
-      <p><span>批改状态</span><strong>${escapeHtml(item.gradingStatus)}</strong></p>
       <p><span>OCR置信度</span><strong>${item.confidenceScore || 0}%</strong></p>
       <p><span>错误层级</span><strong>${escapeHtml(item.errorTag ? `${item.errorTag.knowledgePoint} / ${item.errorTag.subKnowledgePoint} / ${item.errorTag.errorType} / ${item.errorTag.errorPosition}` : "暂无")}</strong></p>
     </div>
   </section>
   <section class="panel"><h2>步骤对照</h2><div class="step-list">${steps}</div></section>
-  <section class="panel"><h2>标准解题提示</h2><p class="mode-help">${escapeHtml(item.standardSteps || "该题暂无标准步骤，需教研补充。")}</p><div class="row"><button class="primary" data-view="paperReport">返回整卷报告</button><button class="ghost" id="startQuestionTraining">针对本题错误开始专项训练</button><button class="ghost" data-view="originalRetry">原题重做</button></div></section>`);
+  <section class="panel"><h2>详细解析</h2>${renderDetailedExplanation({ ...item, explanation: item.standardSteps, answer: item.standardAnswer, point: (item.knowledgePoints || []).join("、") })}<div class="row"><button class="primary" data-view="paperReport">返回整卷报告</button><button class="ghost" id="startQuestionTraining">针对本题错误开始专项训练</button><button class="ghost" data-view="originalRetry">原题重做</button></div></section>`);
   document.querySelectorAll("[data-question-index]").forEach((button) => {
     button.onclick = () => {
       state.reviewQuestionIndex = Number(button.dataset.questionIndex);
@@ -1521,12 +1406,11 @@ async function renderPastExams() {
   const data = state.pastExamSources || await api("/api/past-exam-sources");
   const trusted = (data.trustedSources || []).flatMap((source) => (source.items || []).map((item) => ({ ...item, site: source.site })));
   const candidates = data.candidateSourcesNeedReview || [];
-  const localSources = data.localSources || [];
   shell("真题库", `<section class="panel">
     <div class="metrics">
       <div class="metric"><span>已登记来源</span><strong>${trusted.length}</strong></div>
       <div class="metric"><span>候选来源</span><strong>${candidates.length}</strong></div>
-      <div class="metric"><span>已导入结构化真题</span><strong>${Number(data.importedQuestionCount || 0)}</strong></div>
+      <div class="metric"><span>已导入真题</span><strong>0</strong></div>
       <div class="metric"><span>状态</span><strong>待OCR校对</strong></div>
     </div>
   </section>
@@ -1541,15 +1425,6 @@ async function renderPastExams() {
         <a class="ghost link-button" href="${escapeHtml(item.url)}" target="_blank">打开来源</a>
       </div>
     </article>`).join("") || "<p>暂无已登记来源。</p>"}</div>
-  </section>
-  <section class="panel">
-    <h2>本地原页资料</h2>
-    <div class="cards">${localSources.map((item) => `<article class="card">
-      <h3>${escapeHtml(item.title)}</h3>
-      <p>来源：${escapeHtml(item.site)}；范围：${escapeHtml(item.year || "")}${item.mathType ? `；${escapeHtml(item.mathType)}` : ""}</p>
-      <p>${escapeHtml(item.description || "原页资料可供浏览，结构化题目需审核后发布。")}</p>
-      <div class="row"><a class="primary link-button" href="${escapeHtml(item.url)}" target="_blank" rel="noopener">打开原页预览</a></div>
-    </article>`).join("") || "<p>暂无本地原页资料。</p>"}</div>
   </section>
   <section class="panel">
     <h2>说明</h2>
@@ -1617,31 +1492,22 @@ async function renderCollection() {
   const loop = await loadLoop();
   state.collectionItems = items.filter((item) => item.question);
   const pending = state.collectionItems.filter(({ attempt }) => ["pending_recognition", "pending_answer_review", "recognition_error"].includes(attempt.gradingStatus)).length;
-  const wrong = state.collectionItems.filter(({ attempt }) => attempt.correct === false).length;
-  const mastered = state.collectionItems.filter(({ attempt }) => attempt.correct === true).length;
+  const wrong = state.collectionItems.filter(({ attempt }) => ["INCORRECT", "PARTIAL"].includes(gradingStatusOf(attempt))).length;
+  const mastered = state.collectionItems.filter(({ attempt }) => gradingCorrectOf(attempt)).length;
   const reasonCounts = {};
   state.collectionItems.forEach(({ attempt }) => {
     if (!["已掌握", "待识别"].includes(attempt.reason)) reasonCounts[attempt.reason] = (reasonCounts[attempt.reason] || 0) + 1;
   });
   const weak = Object.entries(reasonCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || "暂无";
   const rows = state.collectionItems.map(({ question, attempt, times }, index) => {
-    const status = attempt.gradingStatus === "pending_answer_review"
-      ? "答案待校对"
-      : attempt.gradingStatus === "pending_recognition"
-        ? "待识别"
-        : attempt.gradingStatus === "recognition_error"
-          ? "识别失败"
-          : attempt.gradingStatus === "ai_reviewed"
-            ? (attempt.correct ? "AI已掌握" : "AI建议二刷")
-            : attempt.correct
-              ? "已掌握"
-              : "需二刷";
-    const badge = attempt.correct === false ? "bad" : (attempt.correct === true ? "" : "warn");
+    const gradingStatus = gradingStatusOf(attempt);
+    const status = gradingStatus === "EMPTY" ? "未作答" : ["RECOGNITION_FAILED", "NEEDS_MANUAL_REVIEW"].includes(gradingStatus) ? "待识别/复核" : gradingCorrectOf(attempt) ? "已掌握" : "需二刷";
+    const badge = ["INCORRECT", "PARTIAL"].includes(gradingStatus) ? "bad" : (gradingCorrectOf(attempt) ? "" : "warn");
     return `<tr>
       <td>${index + 1}</td>
       <td><span class="badge ${badge}">${status}</span></td>
       <td>${escapeHtml(question.chapterName)}<br><small>${escapeHtml(question.point)}</small></td>
-      <td>${question.stemImage ? `<img class="collection-thumb" src="${escapeHtml(question.stemImage)}" alt="${escapeHtml(question.stem)}">` : renderMathText(question.stem)}</td>
+      <td>${question.stemImage ? `<img class="collection-thumb" src="${escapeHtml(question.stemImage)}" alt="${escapeHtml(question.stem)}">` : escapeHtml(question.stem)}</td>
       <td>${times}刷</td>
       <td>${escapeHtml(attempt.reason)}</td>
     </tr>`;
@@ -1693,13 +1559,9 @@ async function renderCollection() {
   document.querySelectorAll("[data-view]").forEach((button) => button.onclick = () => setView(button.dataset.view));
   if (redo) redo.onclick = () => {
     state.questions = state.collectionItems.map(({ question }) => question);
-    const collectionChapterIds = Array.from(new Set(state.questions.map((question) => question.chapterId).filter(Boolean)));
-    setPracticeChapterSelection(collectionChapterIds);
-    setPracticeType("wrong");
     state.responses = {};
     state.lastResults = null;
     state.current = 0;
-    state.practiceSessionActive = true;
     resetScratch();
     setView("practice");
   };
@@ -1729,10 +1591,10 @@ async function renderDiagnosis() {
       <h3>第 ${index + 1} 题 · ${escapeHtml(item.typeLabel)}</h3>
       <span class="badge ${item.finalAnswerCorrect ? "" : "bad"}">${item.score}/${item.maxScore} 分</span>
     </div>
-    <p class="stem">${renderMathText(item.title)}</p>
+    <p class="stem">${escapeHtml(item.title)}</p>
     <div class="result-grid compact">
-      <p><span>学生答案</span><strong>${renderMathText(item.studentAnswer || "未作答")}</strong></p>
-      <p><span>正确答案</span><strong>${item.finalAnswerCorrect ? renderMathText(item.standardAnswer || "待校对") : "完成复习与相似题训练后解锁"}</strong></p>
+      <p><span>学生答案</span><strong>${escapeHtml(item.studentAnswer || "未作答")}</strong></p>
+      <p><span>正确答案</span><strong>${item.finalAnswerCorrect ? escapeHtml(item.standardAnswer || "待校对") : "完成复习与相似题训练后解锁"}</strong></p>
       <p><span>错误类型</span><strong>${escapeHtml(item.errorTypes.join("、") || "无")}</strong></p>
       <p><span>知识点</span><strong>${escapeHtml(item.knowledgePoints.join("、"))}</strong></p>
     </div>
@@ -1787,7 +1649,7 @@ async function renderKnowledgeReview() {
     <h2>${escapeHtml(review.title)}</h2>
     <p class="mode-help">${escapeHtml(review.relationToMistake)}</p>
     <div class="formula-grid">
-      ${(review.formulas || []).map((item) => `<article class="formula-card"><span>关键公式</span><strong>${renderMathText(item)}</strong></article>`).join("")}
+      ${(review.formulas || []).map((item) => `<article class="formula-card"><span>关键公式</span><strong>${escapeHtml(item)}</strong></article>`).join("")}
     </div>
   </section>
   <section class="panel review-layout">
@@ -1852,7 +1714,7 @@ async function renderSimilarTraining() {
   const levels = training.levels || [];
   const cards = levels.map((item, index) => `<article class="training-task">
     <div><span class="badge">${escapeHtml(item.level || item.type)}</span><h3>${index + 1}. ${escapeHtml(item.title)}</h3></div>
-    <p>${renderMathText(item.stem || item.purpose)}</p>
+    <p>${escapeHtml(item.stem || item.purpose)}</p>
     <p><strong>目标：</strong>${escapeHtml(item.target || item.knowledgePoint)} ${item.hint ? ` · 提示：${escapeHtml(item.hint)}` : ""}</p>
     <p><strong>反馈：</strong>${escapeHtml(item.feedback || "答错时先给分层提示，不立即展示完整答案。")}</p>
     <button class="ghost" data-complete-training="${index}">${done[index] ? "已完成" : "标记本题通过"}</button>
@@ -1889,7 +1751,8 @@ async function renderSimilarTraining() {
 function hasCompleteTrainingBatch(batch) {
   const total = Number(batch?.total || batch?.questionCount || 0);
   return Boolean(batch && total > 0 && Array.isArray(batch.questions) && batch.questions.length === total
-    && batch.questions.every((question) => String(question.stem || "").trim().length >= 2
+    && batch.questions.every((question) => String(question.stem || "").trim().length >= 12
+      && String(question.answer || "").trim()
       && !/静态演示|占位|围绕某错误|题目生成中|请先作答|placeholder/i.test(question.stem)));
 }
 
@@ -1929,80 +1792,94 @@ function trainingOptionValue(option) {
   return String(option || "").replace(/^[A-D][.、]\s*/i, "").trim();
 }
 
-function renderTrainingAnswerControls(question, record, locked = false) {
-  const questionType = question.questionType || question.type;
-  if (questionType === "choice") {
-    const options = questionModel?.choiceOptions
-      ? questionModel.choiceOptions(question)
-      : (question.options || []).map((option, index) => ({ key: String.fromCharCode(65 + index), text: trainingOptionValue(option), raw: option }));
-    const picked = questionModel?.choiceAnswerKey
-      ? questionModel.choiceAnswerKey(question, record.selectedOption || record.answer || "")
-      : String(record.selectedOption || record.answer || "");
-    return `<div class="training-choices ${locked ? "locked" : ""}">${options.map((option) => {
-      const text = option.text || trainingOptionValue(option.raw);
-      return `<button class="training-choice ${picked === option.key ? "active" : ""}" data-training-choice="${escapeHtml(option.key)}" ${locked ? "disabled aria-disabled=\"true\"" : ""}>${escapeHtml(option.key)}. ${renderMathText(text)}</button>`;
+function renderTrainingAnswerControls(question, record) {
+  if (question.questionType === "choice") {
+    const picked = record.selectedOption || record.answer || "";
+    return `<div class="training-choices">${(question.options || []).map((option) => {
+      const value = trainingOptionValue(option);
+      return `<button class="training-choice ${picked === value ? "active" : ""}" data-training-choice="${escapeHtml(value)}">${renderMathText(option)}</button>`;
     }).join("")}</div>`;
-  }
-  if (questionType === "fill") {
-    return `<label class="training-fill">答案<input id="trainingAnswer" value="${escapeHtml(record.answer || "")}" placeholder="填写最终结果" ${locked ? "disabled aria-disabled=\"true\"" : ""}></label>`;
   }
   return `<div class="training-writing">
     <div class="paper-stage"><canvas id="pad" width="1800" height="1120"></canvas></div>
-    <div class="training-pad-actions"><button class="ghost" id="trainingClear" ${locked ? "disabled" : ""}>清空</button><button class="ghost" id="trainingUndo" ${locked ? "disabled" : ""}>撤销</button><button class="ghost" id="trainingRedo" ${locked ? "disabled" : ""}>重做</button></div>
+    <div class="training-pad-actions"><button class="ghost" id="trainingClear">清空</button><button class="ghost" id="trainingUndo">撤销</button><button class="ghost" id="trainingRedo">重做</button></div>
   </div>`;
 }
 
 function trainingFeedback(question, record) {
-  if (!record.submitted && !record.locked) return "";
-  const status = record.correct === true ? "本题正确" : record.correct === false ? "本题需要复盘" : "已提交，主观过程等待 OCR/AI 识别";
-  const cls = record.correct === true ? "good" : record.correct === false ? "bad" : "pending";
-  const reveal = record.reveal || {};
-  const solution = reveal.solution || {};
-  const steps = Array.isArray(solution.steps) ? solution.steps : [];
+  if (!record.submitted) return "";
+  const gradingStatus = gradingStatusOf(record);
+  const correct = gradingCorrectOf(record);
+  const status = correct ? "本题正确" : ["EMPTY", "RECOGNITION_FAILED", "NEEDS_MANUAL_REVIEW"].includes(gradingStatus) ? "已提交，等待识别或复核" : "本题需要复盘";
+  const cls = correct ? "good" : ["EMPTY", "RECOGNITION_FAILED", "NEEDS_MANUAL_REVIEW"].includes(gradingStatus) ? "pending" : "bad";
+  const diagnosis = question.questionType === "choice" ? "" : `<div class="handwriting-diagnosis">
+    <p><strong>手写识别结果：</strong>${escapeHtml(record.recognizedAnswer || "暂未识别出最终答案")}</p>
+    <p><strong>过程判断：</strong>${escapeHtml(record.processIssueReason || (record.processHasIssue ? "步骤存在需要修正的地方" : correct ? "未发现明显过程错误" : "等待识别完整步骤"))}</p>
+    ${record.firstWrongStep ? `<p><strong>第一处错误：</strong>第${record.firstWrongStep}步</p>` : ""}
+    ${record.weakPoint ? `<p><strong>需要巩固：</strong>${escapeHtml(record.weakPoint)}</p>` : ""}
+    ${record.advice ? `<p><strong>改进建议：</strong>${escapeHtml(record.advice)}</p>` : ""}
+  </div>`;
   return `<section class="training-feedback ${cls}">
     <h3>${status}</h3>
-    <p><strong>标准答案：</strong>${renderMathText(reveal.standardAnswer || reveal.answer || "待校对")}</p>
-    <p><strong>考查知识点：</strong>${escapeHtml(reveal.knowledgePoint || question.knowledgePoint || question.subKnowledgePoint || "")}</p>
-    <p><strong>解题思路：</strong>${renderMathText(reveal.explanation || solution.preAnalysis || solution.methodSummary || "")}</p>
-    <div class="training-solution-steps">${steps.map((step) => `<p><strong>${escapeHtml(step.title || `步骤${step.order || ""}`)}：</strong>${renderMathText(step.content || "")}</p>`).join("")}</div>
-    <p><strong>易错点：</strong>${escapeHtml(question.sourceErrorType || "")}</p>
+    ${diagnosis}
+    <p><strong>标准答案：</strong>${renderMathText(question.answer || "待校对", { display: true })}</p>
+    ${renderDetailedExplanation(question)}
   </section>`;
 }
 
 async function submitTrainingQuestion(batch, question) {
-  const currentRecord = trainingRecordFor(question);
-  if (currentRecord.submitted || currentRecord.locked) return;
-  saveTrainingDraft(question, { fields: {}, keepEmpty: true });
+  const submitButton = $("#trainingSubmitQuestion");
+  if (submitButton?.disabled) return;
+  const fields = {};
+  if (question.questionType === "choice") {
+    const selected = document.querySelector(".training-choice.active")?.dataset.trainingChoice || "";
+    fields.selectedOption = selected;
+    fields.answer = selected;
+  }
+  saveTrainingDraft(question, { fields, keepEmpty: true });
   const draft = trainingRecordFor(question);
   const hasAnswer = Boolean(draft.answer || draft.selectedOption || draft.formulaText || draft.stepsText || draft.strokeCount || draft.scratchImage);
   if (!hasAnswer) {
     alert("请先完成本题，再提交本题记录。");
     return;
   }
-  const res = await api("/api/training-records", {
-    method: "POST",
-    body: JSON.stringify({
+  if (submitButton) {
+    submitButton.disabled = true;
+    submitButton.textContent = "提交中...";
+  }
+  try {
+    const res = await api("/api/training-records", {
+      method: "POST",
+      body: JSON.stringify({
+        trainingBatchId: batch.id,
+        trainingQuestionId: question.id,
+        answer: draft.answer || draft.selectedOption || draft.formulaText || "",
+        selectedOption: draft.selectedOption || "",
+        formulaText: draft.formulaText || "",
+        stepsText: draft.stepsText || "",
+        scratchImage: draft.scratchImage || "",
+        strokeCount: draft.strokeCount || 0,
+        durationMs: draft.durationMs || 0,
+        hintLevelUsed: Number(draft.hintLevelUsed || 0)
+      })
+    });
+    if (!res?.record || !res?.batch) throw new Error("提交结果不完整，请重试。");
+    const flow = readFlowState();
+    writeFlowState({
+      trainingRecords: { ...(flow.trainingRecords || {}), [question.id]: { ...draft, submitted: true, correct: res.record.correct, score: res.record.score, gradingResult: res.record.gradingResult, gradingStatus: res.record.gradingStatus, processIssueReason: res.record.processIssueReason, processHasIssue: res.record.processHasIssue, recognizedAnswer: res.record.recognizedAnswer, advice: res.record.advice, weakPoint: res.record.weakPoint } },
       trainingBatchId: batch.id,
-      trainingQuestionId: question.id,
-      answer: draft.answer || draft.selectedOption || draft.formulaText || "",
-      selectedOption: draft.selectedOption || "",
-      formulaText: draft.formulaText || "",
-      stepsText: draft.stepsText || "",
-      scratchImage: draft.scratchImage || "",
-      strokeCount: draft.strokeCount || 0,
-      durationMs: draft.durationMs || 0,
-      hintLevelUsed: Number(draft.hintLevelUsed || 0)
-    })
-  });
-  const flow = readFlowState();
-  writeFlowState({
-    trainingRecords: { ...(flow.trainingRecords || {}), [question.id]: { ...draft, ...res.record, submitted: true, locked: true } },
-    trainingBatchId: batch.id,
-    stage: "TARGETED_TRAINING"
-  });
-  state.trainingBatch = res.batch;
-  if (res.warning) alert(res.warning);
-  renderSimilarTrainingV2();
+      stage: "TARGETED_TRAINING"
+    });
+    state.trainingBatch = res.batch;
+    if (res.warning) alert(res.warning);
+    await renderSimilarTrainingV2();
+  } catch (error) {
+    if (submitButton) {
+      submitButton.disabled = false;
+      submitButton.textContent = "提交本题";
+    }
+    alert(error.message || "本题提交失败，请稍后重试。");
+  }
 }
 
 async function renderSimilarTrainingV2() {
@@ -2035,52 +1912,36 @@ async function renderSimilarTrainingV2() {
   state.trainingBatch = batch;
   const flow = readFlowState();
   if (flow.trainingBatchId !== batch.id) writeFlowState({ trainingBatchId: batch.id, trainingRecords: {}, trainingIndex: 0, trainingCompleted: false });
-  let latestFlow = readFlowState();
-  let records = latestFlow.trainingRecords || {};
-  try {
-    const remote = await api(`/api/training-records?studentId=${encodeURIComponent(state.student.id)}&trainingBatchId=${encodeURIComponent(batch.id)}`);
-    const remoteRecords = Object.fromEntries((remote.records || []).map((record) => [record.trainingQuestionId, record]));
-    records = { ...records, ...remoteRecords };
-    if (Object.keys(remoteRecords).length) writeFlowState({ trainingRecords: records, trainingBatchId: batch.id });
-    latestFlow = readFlowState();
-  } catch (error) {
-    // 本地静态演示或旧服务端没有该接口时，继续使用本地草稿。
-  }
+  const latestFlow = readFlowState();
+  const records = latestFlow.trainingRecords || {};
   const total = Number(batch.total || batch.questionCount);
   const index = Math.max(0, Math.min(total - 1, Number(latestFlow.trainingIndex || 0)));
   const question = batch.questions[index];
   const record = records[question.id] || {};
-  const questionType = question.questionType || question.type;
-  const submitted = Boolean(record.submitted || record.locked);
-  state.trainingCanvasQuestion = questionType === "subjective" || questionType === "solution" ? question : null;
+  state.trainingCanvasQuestion = question.questionType === "subjective" ? question : null;
   loadTrainingScratch(question);
-  const completed = Object.values(records).filter((item) => item.submitted || item.locked).length;
+  const completed = batch.progress?.answered || Object.values(records).filter((item) => item.submitted).length;
   const progress = Math.round(completed / total * 100);
   const isLast = index === total - 1;
   const purpose = question.trainingPurpose || (index < 10 ? "当前最严重错误专项" : "综合巩固");
-  const requestedTotal = Number(batch.requestedCount || total);
-  const shortageNotice = Number(batch.shortage || 0) > 0
-    ? `<div class="notice warning">当前已审核题库提供 ${total}/${requestedTotal} 题，本轮不会用未审核或生成题补足；管理员补齐标注后可重新生成。</div>`
-    : "";
   shell("相似题训练", `<section class="panel similar-training-page">
     <div class="similar-training-head">
-      <div><span class="badge">${escapeHtml(purpose)}</span><h2>第 ${index + 1} 题 / 共 ${total} 题</h2><p>${escapeHtml(question.typeLabel || (questionType === "choice" ? "选择题" : questionType === "fill" ? "填空题" : "解答题"))} · 难度 ${question.difficultyLevel || question.difficulty || ""} · ${escapeHtml(question.knowledgePoint || question.subKnowledgePoint || "")}</p></div>
+      <div><span class="badge">${escapeHtml(purpose)}</span><h2>第 ${index + 1} 题 / 共 ${total} 题</h2><p>${escapeHtml(question.typeLabel || (question.questionType === "choice" ? "选择题" : question.questionType === "fill" ? "填空题" : "解答题"))} · 难度 ${question.difficultyLevel} · ${escapeHtml(question.knowledgePoint || question.subKnowledgePoint || "")}</p></div>
       <div class="training-progress"><strong>${progress}%</strong><span>已提交 ${completed}/${total}</span><i><b style="width:${progress}%"></b></i></div>
     </div>
     <article class="training-question">
       <div class="training-question-number">题目 ${index + 1}</div>
-      <div class="training-stem">${renderMathText(question.stem)}</div>
-      ${question.formula ? `<div class="training-formula">${renderMathText(question.formula)}</div>` : ""}
-      ${renderTrainingAnswerControls(question, record, submitted)}
+      <div class="training-stem">${renderMathText(question.stem, { display: true })}</div>
+      ${question.formula ? renderMathBlock(question.formula) : ""}
+      ${renderTrainingAnswerControls(question, record)}
     </article>
-    ${shortageNotice}
     ${trainingFeedback(question, record)}
     <div class="training-navigation">
       <button class="ghost" id="trainingPrev" ${index === 0 ? "disabled" : ""}>上一题</button>
-      <button class="ghost" id="trainingSave" ${submitted ? "disabled" : ""}>暂存</button>
-      <button class="primary" id="trainingSubmitQuestion" ${submitted ? "disabled" : ""}>${submitted ? "已提交本题" : "提交本题"}</button>
-      <button class="ghost" id="trainingNext" ${isLast || !submitted ? "disabled" : ""}>下一题</button>
-      <button class="primary" id="trainingSubmitBatch" ${completed < total ? "disabled" : ""}>提交本轮训练</button>
+      <button class="ghost" id="trainingSave">暂存</button>
+      <button class="primary" id="trainingSubmitQuestion" ${record.submitted ? "disabled" : ""}>${record.submitted ? "已提交本题" : "提交本题"}</button>
+      <button class="ghost" id="trainingNext" ${isLast ? "disabled" : ""}>下一题</button>
+      <button class="primary" id="trainingSubmitBatch">提交本轮训练</button>
     </div>
   </section>
   <section class="panel training-batch-actions">
@@ -2089,13 +1950,9 @@ async function renderSimilarTrainingV2() {
   </section>`);
 
   const saveCurrent = () => {
-    if (submitted) return;
     const fields = {};
-    if (questionType === "choice") {
-      fields.selectedOption = document.querySelector(".training-choice.active")?.dataset.trainingChoice || "";
-      fields.answer = fields.selectedOption;
-    }
-    if (questionType === "fill") fields.answer = $("#trainingAnswer")?.value.trim() || "";
+    if (question.questionType === "choice") fields.selectedOption = document.querySelector(".training-choice.active")?.dataset.trainingChoice || "";
+    if (question.questionType === "fill") fields.answer = $("#trainingAnswer")?.value.trim() || "";
     saveTrainingDraft(question, { fields, keepEmpty: true });
   };
   document.querySelectorAll("[data-training-choice]").forEach((button) => {
@@ -2105,8 +1962,6 @@ async function renderSimilarTrainingV2() {
       saveTrainingDraft(question, { fields: { selectedOption: button.dataset.trainingChoice, answer: button.dataset.trainingChoice }, keepEmpty: true });
     };
   });
-  const input = $("#trainingAnswer");
-  if (input && !submitted) input.oninput = () => saveTrainingDraft(question, { fields: { answer: input.value }, keepEmpty: true });
   const nextIndex = (next) => { saveCurrent(); writeFlowState({ trainingIndex: next, trainingBatchId: batch.id }); renderSimilarTrainingV2(); };
   const prev = $("#trainingPrev");
   if (prev) prev.onclick = () => nextIndex(index - 1);
@@ -2119,9 +1974,8 @@ async function renderSimilarTrainingV2() {
   const submitBatch = $("#trainingSubmitBatch");
   if (submitBatch) submitBatch.onclick = async () => {
     saveCurrent();
-    const remaining = total - Object.values(readFlowState().trainingRecords || {}).filter((item) => item.submitted || item.locked).length;
-    if (remaining) return;
-    const ok = await uiConfirm({ title: "提交本轮训练", message: "本轮训练已全部提交，确认结束本轮训练？", confirmText: "确认提交", cancelText: "继续作答" });
+    const remaining = total - Object.values(readFlowState().trainingRecords || {}).filter((item) => item.submitted).length;
+    const ok = await uiConfirm({ title: "提交本轮训练", message: remaining ? `还有 ${remaining} 道题未提交，是否仍然提交本轮训练？` : "本轮训练已全部提交，确认结束本轮训练？", confirmText: "确认提交", cancelText: "继续作答" });
     if (ok) { writeFlowState({ trainingCompleted: true, trainingBatchId: batch.id }); alert("本轮训练记录已保存，可进入复测验证掌握情况。"); }
   };
   const clear = $("#trainingClear");
@@ -2130,7 +1984,7 @@ async function renderSimilarTrainingV2() {
   if (undo) undo.onclick = () => { const stroke = state.strokes.pop(); if (stroke) state.redoStrokes.push(stroke); state.strokeCount = state.strokes.length; saveTrainingDraft(question, { keepEmpty: true, skipImage: true }); redrawCanvas(); };
   const redo = $("#trainingRedo");
   if (redo) redo.onclick = () => { const stroke = state.redoStrokes.pop(); if (stroke) state.strokes.push(stroke); state.strokeCount = state.strokes.length; saveTrainingDraft(question, { keepEmpty: true, skipImage: true }); redrawCanvas(); };
-  if ($("#pad") && !submitted) bindCanvas();
+  if ($("#pad")) bindCanvas();
   const createComprehensive = $("#createComprehensive");
   if (createComprehensive) createComprehensive.onclick = async () => {
     const created = await api("/api/training-batches", { method: "POST", body: JSON.stringify({ studentId: state.student.id, submissionId: batch.submissionId, sourceWrongQuestionId: batch.sourceWrongQuestionId, trainingType: "comprehensive" }) });
@@ -2246,7 +2100,7 @@ async function renderRetest() {
   const retest = loop.retest;
   const questions = retest.questions.map((q, index) => `<article class="card retest-card">
     <h3>复测 ${index + 1} · ${escapeHtml(q.typeLabel)} <span class="badge warn">${escapeHtml(q.difficulty)}</span></h3>
-    <p class="stem">${renderMathText(q.stem)}</p>
+    <p class="stem">${escapeHtml(q.stem)}</p>
     <p><strong>复测目标：</strong>${escapeHtml(q.target)}</p>
     <p><strong>AI判断：</strong>${escapeHtml(q.result)}</p>
   </article>`).join("");
