@@ -98,6 +98,7 @@
         generatedFrom: "static-demo-seed"
       });
     }
+
   });
 
   chapters.forEach((chapter) => {
@@ -197,6 +198,7 @@
     const weak = Object.entries(byKnowledge).filter(([, item]) => item.mastery < 70).map(([name]) => name);
     return { summary: { examinationId: submission.examinationId, paperName: submission.paperName, submittedAt: submission.submittedAt, totalScore, totalMax, scoreRate: Math.round(totalScore / totalMax * 100), correctCount, wrongCount: questionAnalyses.filter((item) => ["INCORRECT", "PARTIAL"].includes(item.gradingCanonicalStatus)).length, recognitionFailedCount, unansweredCount, objectiveScore: questionAnalyses.filter((item) => item.type !== "subjective").reduce((sum, item) => sum + item.score, 0), subjectiveScore: questionAnalyses.filter((item) => item.type === "subjective").reduce((sum, item) => sum + item.score, 0), durationMs: submission.durationMs, timeout: false, level: "静态演示诊断", estimatedExamLevel: "演示环境不冒充真实考试预测", comment: weak.length ? `静态演示显示薄弱点集中在 ${weak.slice(0, 3).join("、")}。` : "本卷表现稳定。" }, byType, byChapter, byKnowledge, errorStats, abilityDiagnosis: ["基础计算能力", "公式应用能力", "审题能力", "建模能力", "推理能力", "综合分析能力"].map((name, index) => ({ name, score: Math.max(35, 82 - index * 7), level: "演示评估", evidence: "来自本卷客观题判分与主观题保存状态", questionIds: [], advice: "接入服务端后可基于真实步骤识别更新。" })), questionAnalyses, historyCompare: [], topProblems: Object.entries(errorStats).slice(0, 3).map(([type, item]) => ({ type, ...item })), priorityKnowledge: weak.slice(0, 5), recommendedTasks: weak.slice(0, 4).map((point, index) => ({ id: `task_${index}`, stage: ["复习", "基础巩固题", "同类变式题", "综合应用题"][index] || "复测", knowledgePoint: point, errorType: Object.keys(errorStats)[0] || "待识别", title: `${point}专项补强`, target: "完成复习、训练和复测", status: "pending" })), loop: { current: "诊断完成", stages: ["检测", "诊断", "复习", "训练", "复测", "提升"], nextAction: weak[0] ? `${weak[0]}专项补强` : "综合提升训练" } };
   };
+
 
   const createStaticTrainingBatch = (store, studentId, body = {}) => {
     const latest = (store.submissions || []).filter((item) => item.studentId === studentId).sort((a, b) => String(b.submittedAt).localeCompare(String(a.submittedAt)))[0];
@@ -298,6 +300,7 @@
     return student;
   }
 
+
   function buildReport(studentId) {
     const store = readStore();
     const attempts = store.attempts.filter((a) => a.studentId === studentId);
@@ -398,6 +401,7 @@
         firstError: errorType,
         masteredFeedback: "重做时已经避开原错误，说明该知识点进入基本掌握状态。",
         reinforceFeedback: "仍重复原错误，需要降低训练难度并重新复习。"
+
       },
       retest: { score: 80, independent: true, hintsUsed: 0, passed: true, questions: [{ typeLabel: "变式题", difficulty: "强化", stem: "同知识点变式复测题", target: weakPoint, result: "用于判断迁移能力" }] },
       improvement: { beforeMastery: 45, afterMastery: 78, improvementValue: 33, status: "明显提升", originalError: errorType, trainingResult: "完成知识点复习、理解检查和相似题训练。", nextRisk: "间隔 2 天后需要复刷，防止遗忘。" },
@@ -518,6 +522,7 @@
         durationMs: Number(body.durationMs || 0),
         gradingStatus: grading.legacyGradingStatus,
         correct,
+
         score: grading.score,
         maxScore: grading.maxScore,
         gradingResult: grading,
@@ -618,6 +623,7 @@
     if (method === "GET" && path.startsWith("/api/submissions/")) {
       const submissionId = path.split("/").pop();
       const submission = (store.submissions || []).find((item) => item.id === submissionId || item.submissionId === submissionId);
+
       return submission ? json({ submission, report: submission.report }) : json({ error: "整卷提交不存在" }, 404);
     }
     if (method === "POST" && path === "/api/training-batches") {

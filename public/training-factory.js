@@ -98,6 +98,7 @@
     } else if (chapterId === "diff") {
       const a = (v % 13) + 2;
       if (type === "choice") {
+
         stem = `设 y=ln(1+${a}x)，则 y' 等于（ ）。`;
         formula = `(\ln u)'=u'/u`;
         answer = `${a}/(1+${a}x)`;
@@ -198,6 +199,7 @@
       const p = ((v % 8) + 2) / 10;
       const b = 0.5 + (Math.floor(v / 8) % 4) * 0.1;
       if (type === "choice") {
+
         stem = `事件 A、B 相互独立，P(A)=${p.toFixed(1)}，P(B)=${b.toFixed(1)}，则 P(AB) 等于（ ）。`;
         formula = "P(AB)=P(A)P(B)";
         answer = (p * b).toFixed(2);
@@ -298,6 +300,7 @@
     const detailedSolution = solutionFor({ chapterName, point, errorType, stem, formula, answer, explanation, steps });
     const result = {
       stem,
+
       formula,
       options,
       answer,

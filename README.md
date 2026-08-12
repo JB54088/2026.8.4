@@ -47,6 +47,14 @@ http://localhost:5188
 GET /api/health
 ```
 
+真题原页试运行预览：
+
+```text
+http://localhost:5188/past-exam-preview.html
+```
+
+Node 服务端已发布“真题分类概率”100 页原页图片，并将其中 30 道候选题以试运行状态接入数学一/数学三的概率真题专项。答案和解析仍待人工校对，试运行题提交后不会自动判分。GitHub Pages 版本会发布原页预览和静态来源入口，但不会读取服务端 `data/past-exam-questions.json`；要测试这 30 道结构化试运行题，请使用本地 Node 服务或 Render 后端。完整流程见 [真题导入与预览说明](docs/past-exam-import.md)。
+
 ## 环境变量
 
 复制 `.env.example` 为 `.env`，不要提交真实 `.env`。
@@ -137,6 +145,20 @@ AI 降级方案：
 - `mastery_records`
 - `study_reports`
 
+## 真题导入状态
+
+真题采用“原页图片 + 结构化题目”的双层方式：原页图片负责公式、分式、矩阵和分段函数的最终显示；OCR 文本只用于搜索、复制和人工校对。
+
+当前试运行内容：
+
+- 原页预览：`public/past-exam-preview.html` 和 `public/past-exam-assets/trial-probability/`
+- 页面清单：`public/past-exam-assets/trial-probability/manifest.json`
+- 待校对候选：`data/past-exam-staging/probability-pilot.json`
+- 正式题库文件：`data/past-exam-questions.json`
+- 导入工具：`tools/pdf_to_markdown.py`、`tools/build_past_exam_staging.js`、`tools/publish_past_exam_questions.js`
+
+试运行题使用 `practiceStatus: "trial"`，可以在刷题页选择“历年考研数学真题”进行测试，但 `answerStatus` 保持 `pending_review`。完成题干、选项、答案和解析校对后，再使用普通审核发布流程替换试运行记录。
+
 ## 部署
 
 ### GitHub Pages 演示版
@@ -157,5 +179,6 @@ AI 降级方案：
 
 - 公开 GitHub Pages 版是静态演示，数据保存在访问者浏览器中，不是正式云数据库。
 - 当前题库仍是演示级题库，已经支持题量生成和真题切片样式，但大规模正版题库需要授权资料后通过导入工具进入。
+- 当前真题专项只完成概率分类资料的 100 页原页试运行；数学二不包含概率论，其他章节需要对应资料完成转换和人工校对后才会出现真题。
 - 主观题真实手写识别依赖 `OPENAI_API_KEY` 和模型调用额度。
 - 管理后台已有基础数据查看能力，题库 CRUD、Word/Excel/OCR 批量导入仍需继续产品化。

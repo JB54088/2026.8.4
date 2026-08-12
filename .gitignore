@@ -5,3 +5,5 @@ data/*.checkpoint.json
 inspection-shots/
 node_modules/
 npm-debug.log*
+__pycache__/
+*.pyc

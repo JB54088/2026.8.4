@@ -61,6 +61,19 @@
       "reason": "有2000-2026数学真题列表，但属于第三方整理，需要人工确认来源授权。"
     }
   ],
+  "localSources": [
+    {
+      "sourceId": "classified-probability",
+      "site": "本地真题资料库",
+      "year": "1987-2025",
+      "mathType": "概率专题",
+      "title": "真题分类概率（原页资料）",
+      "url": "past-exam-preview.html",
+      "format": "classified_pages",
+      "importStatus": "trial_questions_imported_pending_answer_review",
+      "description": "100 页原页已发布；当前 30 道题已作为试运行题目进入刷题池，答案和解析仍待人工校对，提交后暂不自动判分。"
+    }
+  ],
   "importPolicy": [
     "只把已确认来源的题目标记为 past_exam。",
     "图片版真题必须 OCR 后人工校对年份、卷种、题号、题干、选项、答案。",

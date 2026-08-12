@@ -70,9 +70,7 @@ function applyQuestionCatalog(store) {
   const byId = new Map(catalog.questions.map((question) => [question.id, question]));
   const merged = store.questions.map((question) => byId.has(question.id) ? { ...question, ...byId.get(question.id) } : question);
   const existingIds = new Set(merged.map((question) => question.id));
-  catalog.questions.forEach((question) => {
-    if (!existingIds.has(question.id)) merged.push(question);
-  });
+  catalog.questions.forEach((question) => { if (!existingIds.has(question.id)) merged.push(question); });
   const catalogVersion = `${catalog.schemaVersion || 1}:${catalog.generatedAt || "unknown"}`;
   const changed = store.meta.questionCatalogVersion !== catalogVersion || merged.length !== store.questions.length;
   store.questions = merged;
@@ -127,6 +125,7 @@ function id(prefix) {
 }
 
 function cleanId(value) {
+
   return String(value || "").replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 48);
 }
 
@@ -227,6 +226,7 @@ function solutionStep(order, title, content) {
 
 function buildDetailedSolution(question) {
   const stem = String(question.stem || "");
+
   const chapter = question.chapterName || "考研数学";
   const point = question.point || chapter;
   const answer = question.answer || "待教研校对";
@@ -327,6 +327,7 @@ function buildDetailedSolution(question) {
     version: 1,
     status: question.answer && question.answerStatus !== "pending_review" ? "ready" : "pending_teacher_review",
     generatedBy: "math-solution-engine-v1",
+
     examFocus,
     preAnalysis,
     formulas,
@@ -427,6 +428,7 @@ function buildSubjectiveQuestions() {
         { label: "表达基础解系含1个向量", score: 2 }
       ],
       sourceType: "teacher_original",
+
       source: "签约教师审核题",
       reviewStatus: "教师已审核",
       qualityTier: "exam_standard"
@@ -528,6 +530,7 @@ function buildGeneratedQuestions() {
       `z=x^2+${k}xy，dz 中 dx 的系数是？`, [`2x+${k}y`, `${k}x`, "2x", `${k}y`], `2x+${k}y`, [], "dz=z_x dx+z_y dy。");
   }
 
+
   for (let k = 1; k <= 10; k += 1) {
     add("ode", "常微分方程", common, "可分离变量", "方法问题", "choice", "基础巩固",
       `微分方程 y'=${k}y 的通解是？`, [`y=Ce^(${k}x)`, `y=C+${k}x`, `y=${k}Cx`, "y=0"], `y=Ce^(${k}x)`, [], "分离变量后积分。");
@@ -627,6 +630,7 @@ function buildGeneratedQuestions() {
     } else {
       const a = n % 7 + 1;
       add("integral", "一元函数积分学", common, "面积应用", "能力问题", "综合提升",
+
         `曲线 y=${a}x 与 y=x^2 在 [0,${a}] 上围成面积应写为？`, [`∫(0,${a})(${a}x-x^2)dx`, `∫(0,${a})(x^2-${a}x)dx`, `∫(0,${a})${a}x^3dx`, "无法判断"], `∫(0,${a})(${a}x-x^2)dx`, [], "面积按上函数减下函数积分。");
     }
   }
@@ -726,6 +730,7 @@ ${questionPromptText(question)}
   "recommendedPractice": "建议追加的练习方向",
   "confidence": 0到100的数字
 }`;
+
 
   const response = await fetch("https://api.openai.com/v1/responses", {
     method: "POST",
@@ -827,6 +832,7 @@ function uniqueByStem(pool) {
   });
 }
 
+
 function diagnose(question, payload, correct) {
   const steps = String(payload.stepsText || "");
   const answer = String(payload.answer || "");
@@ -927,6 +933,7 @@ function publicFile(req, res) {
     ".png": "image/png"
   };
   res.writeHead(200, { "content-type": types[ext] || "application/octet-stream" });
+
   fs.createReadStream(file).pipe(res);
 }
 
@@ -1026,6 +1033,7 @@ async function api(req, res) {
     send(res, 200, { student });
     return;
   }
+
 
   if (req.method === "GET" && url.pathname.startsWith("/api/question-solutions/")) {
     const questionId = decodeURIComponent(url.pathname.slice("/api/question-solutions/".length));
@@ -1141,6 +1149,7 @@ async function api(req, res) {
       diagnosis.mainReason = recognition.errorType || recognition.processIssueReason || "解题过程存在错误";
       diagnosis.advice = recognition.advice || "最终答案不能掩盖过程错误，请从第一处偏差开始重做，并完成对应知识点的变式训练。";
       diagnosis.evidence.push(`过程诊断：${recognition.processIssueReason || "标准答案正确但步骤不完整或不成立"}`);
+
     }
     const attempt = {
       id: id("att"),
@@ -1241,6 +1250,7 @@ async function api(req, res) {
       submittedAt: nowIso(),
       createdAt: nowIso(),
       updatedAt: nowIso(),
+
       report: null
     };
     store.submissions = store.submissions || [];
@@ -1341,6 +1351,7 @@ async function api(req, res) {
         processHasIssue: Boolean(body.processHasIssue),
         processIssueReason: body.processIssueReason || "",
         modelJudgment: Boolean(body.modelJudgment),
+
         isCorrect: typeof body.isCorrect === "boolean" ? body.isCorrect : null,
         status: "CONFIRMED"
       };
@@ -1441,6 +1452,7 @@ async function api(req, res) {
       advice: judged.advice || "",
       recognitionError: judged.recognitionError || "",
       repeatedOriginalError: judged.repeatedOriginalError,
+
       score: judged.score,
       maxScore: judged.gradingResult?.maxScore || 100,
       gradingResult: judged.gradingResult,
@@ -1541,6 +1553,7 @@ async function api(req, res) {
       reports: store.students.map((s) => ({ student: s, report: buildReportFor(store, s.id) }))
     });
     return;
+
   }
 
   send(res, 404, { error: "接口不存在" });
@@ -1641,6 +1654,7 @@ function extractFillAnswerFromWorkSpace(text = "") {
   const equation = last.match(/=\s*([^=]+)$/);
   if (equation?.[1]) return equation[1].replace(/[。；;，,]$/g, "").trim();
   return last.length <= 40 ? last.replace(/[。；;，,]$/g, "").trim() : "";
+
 }
 
 function answerValueForQuestion(question, payload = {}, recognition = {}) {
@@ -1741,6 +1755,7 @@ async function buildAttemptFromResponse(store, student, question, payload, submi
     orderIndex,
     chapterId: question.chapterId,
     answer: finalAnswer,
+
     recognizedAnswer: recognition.recognizedAnswer,
     recognitionConfidence: recognition.confidence,
     ocrResult: {
@@ -1841,6 +1856,7 @@ function buildSubmissionDiagnosis(store, submission) {
   const questions = submission.questionIds.map((qid) => store.questions.find((q) => q.id === qid)).filter(Boolean);
   const attempts = submission.attemptIds.map((aid) => store.attempts.find((a) => a.id === aid)).filter(Boolean);
   const attemptByQuestion = new Map(attempts.map((attempt) => [attempt.questionId, attempt]));
+
   const questionAnalyses = questions.map((question, index) => {
     const attempt = attemptByQuestion.get(question.id);
     const scored = scoreForAttempt(question, attempt);
@@ -1941,6 +1957,7 @@ function buildSubmissionDiagnosis(store, submission) {
   });
   Object.values(errorMap).forEach((item) => {
     item.severity = severityForError(item.count, item.scoreLoss);
+
     item.repeated = item.count >= 2;
   });
   const weakKnowledgePoints = Object.entries(byKnowledge)
@@ -2041,6 +2058,7 @@ function selectSourceError(store, submission, sourceQuestionId = "") {
   const attempt = store.attempts.find((a) => a.submissionId === submission.id && a.questionId === question.id) || {};
   const firstStep = (item?.steps || []).find((step) => step.status !== "correct") || (item?.steps || [])[0] || {};
   return { item, question, attempt, tag: classifyErrorTag(question, attempt, firstStep) };
+
 }
 
 function buildTrainingBatch(store, studentId, { submissionId = "", sourceQuestionId = "", trainingType = "targeted" } = {}) {
@@ -2140,6 +2158,7 @@ async function gradeTrainingQuestion(question, body = {}) {
     recognitionError: recognition.recognitionError || ""
   };
 }
+
 
 function canonicalTrainingResult(batch, record) {
   const question = batch?.questions?.find((item) => item.id === record?.trainingQuestionId) || {};
@@ -2241,6 +2260,7 @@ function buildStructuredStepAnalysis(question, attempt, weakPoint, maxScore) {
     const score = Number.isFinite(Number(step.score))
       ? Math.max(0, Math.min(stepMaxScore, Number(step.score)))
       : defaultScore;
+
     const studentContent = String(step.studentRaw || step.studentContent || "").trim();
     const normalizedExpression = String(step.normalized || step.normalizedExpression || "").trim();
     const conditionCheck = String(step.conditionCheck || "").trim();
@@ -2341,6 +2361,7 @@ function buildDemoLoop() {
       summary: "本轮主要问题不是计算量不足，而是题意中的数量关系没有转成正确模型。AI定位到第一次偏差出现在利润表达式：把单件利润误写为 60+x，导致后续方程和结论全部偏离。",
       questionAnalyses: [{
         typeLabel: "主观题",
+
         score: 6,
         maxScore: 15,
         finalAnswerCorrect: false,
@@ -2441,6 +2462,7 @@ function buildLearningLoopFor(store, studentId, demo = false) {
         { type: "例题拆解", title: "对照标准解法标出第一次偏差位置", purpose: "让学生知道为什么错，而不是只知道答案错", knowledgePoint: primaryWeak, errorType: primaryReason, completed: false },
         { type: "同类训练", title: "完成3道同知识点基础变式题", purpose: "验证能否迁移到新题", knowledgePoint: primaryWeak, errorType: "方法迁移", completed: false },
         { type: "限时巩固", title: "完成2道易错/综合变式题", purpose: "检查速度和稳定性", knowledgePoint: primaryWeak, errorType: "综合应用", completed: false }
+
       ]
     },
     retest: {
@@ -2541,6 +2563,7 @@ function enrichMistakeLoop(loop) {
   loop.recoveryPath = {
     currentStage: "DIAGNOSED",
     nextAction: `先复习 ${reviewModule.title}，通过理解检查后再进入相似题。`,
+
     stages: [
       { key: "DETECTED", label: "检测", status: "已完成", summary: first.finalAnswerCorrect === false ? "发现本题作答错误" : "本题待进一步验证" },
       { key: "DIAGNOSED", label: "诊断", status: "已完成", summary: firstWrongStep.judgment || errorType },

@@ -98,4 +98,5 @@ run()
   })
   .finally(() => {
     if (child) child.kill();
+
   });
