@@ -4,6 +4,7 @@ const path = require("path");
 const crypto = require("crypto");
 const { createTrainingQuestion: createGeneratedTrainingQuestion, validateTrainingQuestion } = require("./public/training-factory.js");
 const { gradeQuestion: runCanonicalGrading, canonicalQuestionType } = require("./public/grading-engine.js");
+const { createOriginalRetryQuestion } = require("./public/retest-question.js");
 
 const ROOT = __dirname;
 const PUBLIC = path.join(ROOT, "public");
@@ -2095,6 +2096,7 @@ function buildTrainingBatch(store, studentId, { submissionId = "", sourceQuestio
     trainingType,
     sourceWrongQuestionId: source.question.id || "",
     sourceQuestionTitle: source.question.stem || source.item?.title || "",
+    sourceQuestion: createOriginalRetryQuestion(source.question),
     sourceKnowledgePoint: source.tag.subKnowledgePoint || source.question.point || "",
     sourceErrorEvidence: source.item?.firstErrorStep ? `第${source.item.firstErrorStep}步：${source.item.deductionReason || source.tag.errorType}` : source.tag.errorType,
     sourceErrorType: questions[0].sourceErrorType || source.tag.errorType,
@@ -2205,17 +2207,31 @@ function detectProcessIssue(question, attempt, steps = []) {
 
 function buildRetestFromBatch(batch) {
   const seed = batch.questions[0] || {};
+  const original = createOriginalRetryQuestion(batch.sourceQuestion || {
+    id: batch.sourceWrongQuestionId,
+    stem: batch.sourceQuestionTitle,
+    type: batch.sourceQuestionType || "subjective",
+    options: batch.sourceQuestionOptions || [],
+    answer: batch.sourceQuestionAnswer || "",
+    detailedSolution: batch.sourceQuestionSolution || {}
+  });
   const make = (index, purpose) => ({
-    id: id("retestq"),
+    id: index === 4 ? original.id : id("retestq"),
     sourceWrongQuestionId: batch.sourceWrongQuestionId,
     sourceErrorType: batch.sourceErrorType,
     knowledgePoint: batch.knowledgePoint,
     subKnowledgePoint: batch.subKnowledgePoint,
-    questionType: index === 4 ? "original_retry" : "subjective",
+    questionType: index === 4 ? original.questionType : "subjective",
+    type: index === 4 ? original.type : "subjective",
+    answerMode: index === 4 ? original.answerMode : "handwriting",
+    originalQuestionId: index === 4 ? original.originalQuestionId : "",
+    isOriginalRetry: index === 4,
+    options: index === 4 ? original.options : [],
     difficultyLevel: index < 2 ? 3 : 4,
-    stem: `${purpose}：围绕 ${batch.subKnowledgePoint}，独立完成，不提供明显提示。`,
-    answer: seed.answer || "以完整推导结果为准",
-    detailedSolution: seed.detailedSolution || {},
+    stem: index === 4 ? original.stem : `${purpose}：围绕 ${batch.subKnowledgePoint}，独立完成，不提供明显提示。`,
+    answer: index === 4 ? original.answer : (seed.answer || "以完整推导结果为准"),
+    aliases: index === 4 ? original.aliases : [],
+    detailedSolution: index === 4 ? original.detailedSolution : (seed.detailedSolution || {}),
     hintPolicy: "retest_no_hint"
   });
   return [make(0, "同错误类型新题1"), make(1, "同错误类型新题2"), make(2, "同知识点变式题"), make(3, "综合迁移题"), make(4, "原错题重新作答")];
@@ -2360,6 +2376,10 @@ function buildDemoLoop() {
       weakKnowledgePoints: ["一元函数应用建模", "利润函数", "方程约束关系"],
       summary: "本轮主要问题不是计算量不足，而是题意中的数量关系没有转成正确模型。AI定位到第一次偏差出现在利润表达式：把单件利润误写为 60+x，导致后续方程和结论全部偏离。",
       questionAnalyses: [{
+        questionId: "subjective_integral_model_001",
+        type: "subjective",
+        questionType: "subjective",
+        options: [],
         typeLabel: "主观题",
 
         score: 6,
@@ -2421,6 +2441,11 @@ function buildLearningLoopFor(store, studentId, demo = false) {
     const reason = reasonForAttempt(question, attempt);
     return {
       typeLabel: typeLabelFor(grading.questionType),
+      questionId: question.id || attempt.questionId || "",
+      type: question.type || question.questionType || "",
+      questionType: question.questionType || question.type || grading.questionType,
+      options: question.options || [],
+      answerMode: createOriginalRetryQuestion(question).answerMode,
       score,
       maxScore,
       finalAnswerCorrect: grading.isCorrect === true,
@@ -2444,7 +2469,9 @@ function buildLearningLoopFor(store, studentId, demo = false) {
   const primaryReason = weakReasons[0] || "稳定性不足";
   const beforeMastery = Math.max(25, Math.min(78, accuracy - 8));
   const afterMastery = Math.max(beforeMastery + 10, Math.min(92, accuracy + 18));
+  const originalQuestion = store.questions.find((question) => question.id === (wrongItems[0]?.questionId || questionAnalyses[0]?.questionId)) || {};
   return {
+    originalQuestion,
     diagnosis: {
       score: `${totalScore}/${totalMax}`,
       accuracy,
@@ -2492,6 +2519,7 @@ function enrichMistakeLoop(loop) {
   const firstWrongStep = first.steps?.find((step) => step.status !== "correct") || first.steps?.[0] || {};
   const knowledgePoint = first.knowledgePoints?.[0] || loop.diagnosis?.weakKnowledgePoints?.[0] || "当前薄弱知识点";
   const errorType = first.errorTypes?.[0] || "知识点应用错误";
+  const originalQuestion = loop.originalQuestion || {};
   const isProfit = /利润|售价|成本|profit/i.test(`${knowledgePoint} ${first.title} ${firstWrongStep.errorDescription}`);
   const reviewModule = isProfit ? {
     title: "利润关系",
@@ -2555,7 +2583,16 @@ function enrichMistakeLoop(loop) {
     ]
   };
   const originalRetry = {
-    stem: first.title || "原错题",
+    ...createOriginalRetryQuestion({
+      ...originalQuestion,
+      id: first.questionId || originalQuestion.id || "",
+      stem: originalQuestion.stem || first.title || "原错题",
+      type: originalQuestion.type || first.type || first.questionType || "subjective",
+      questionType: originalQuestion.questionType || first.questionType || first.type || "subjective",
+      options: originalQuestion.options || first.options || [],
+      answer: originalQuestion.answer || first.standardAnswer || "",
+      detailedSolution: originalQuestion.detailedSolution || first.detailedSolution || {}
+    }),
     firstMistakeSummary: `你第一次在“${firstWrongStep.judgment || errorType}”这一步出现问题，错误类型是 ${errorType}。这里不展示完整正确解法。`,
     acceptedSignals: isProfit ? ["20+x", "60+x-40", "(20+x)(100-2x)"] : [String(first.standardAnswer || ""), knowledgePoint].filter(Boolean),
     durationSecond: 0
