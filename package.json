@@ -5,7 +5,10 @@
   "type": "commonjs",
   "scripts": {
     "start": "node server.js",
-    "build": "node --check server.js && node --check public/app.js",
+    "build": "node --check server.js && node --check public/app.js && node --check public/static-api.js && node --check public/choice-grading.js && node --check public/grading-engine.js",
+    "test": "node tests/choice-grading.test.js && node tests/grading-engine.test.js && node tests/grading-integration.test.js && node tests/solution-catalog.test.js",
+    "catalog:export": "node tools/export-question-catalog.js",
+    "solutions:generate": "node tools/generate-ai-solutions.js",
     "health": "node -e \"fetch('http://localhost:' + (process.env.PORT || 5188) + '/api/health').then(r=>r.json()).then(console.log)\""
   },
   "engines": {

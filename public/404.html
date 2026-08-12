@@ -2,9 +2,18 @@
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8">
+  <base href="/2026.8.4/">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>AI考研数学教练</title>
   <link rel="stylesheet" href="style.css">
+  <script>
+    window.MathJax = {
+      tex: { inlineMath: [["\\(", "\\)"], ["$", "$"]], displayMath: [["\\[", "\\]"], ["$$", "$$"]] },
+      svg: { fontCache: "global" },
+      options: { skipHtmlTags: ["script", "noscript", "style", "textarea", "pre", "code"] }
+    };
+  </script>
+  <script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
 </head>
 <body>
   <main class="app">
@@ -17,12 +26,12 @@
         </div>
       </div>
       <nav id="nav" class="nav"></nav>
-      <a class="admin-link" href="admin.html">管理视图</a>
+      <a class="admin-link" href="admin.html?key=admin2026">管理视图</a>
     </aside>
     <section class="main">
       <header class="top">
         <div>
-          <p id="sub">在线演示数据保存在当前浏览器会话</p>
+          <p id="sub">真实数据会保存到本机服务端</p>
           <h1 id="title">登录</h1>
         </div>
         <button id="logout" class="ghost">退出</button>
@@ -30,8 +39,12 @@
       <section id="view"></section>
     </section>
   </main>
-  <script src="static-api.js"></script>
-  <script src="env.js"></script>
-  <script src="app.js"></script>
+  <script src="chapter-classifier.js?v=20260812-colleague-fix"></script>
+  <script src="question-model.js?v=20260812-colleague-fix"></script>
+  <script src="training-factory.js?v=20260812-colleague-fix"></script>
+  <script src="choice-grading.js?v=20260812-colleague-fix"></script>
+  <script src="grading-engine.js?v=20260812-colleague-fix"></script>
+  <script src="static-api.js?v=20260812-colleague-fix"></script>
+  <script src="app.js?v=20260812-colleague-fix"></script>
 </body>
 </html>

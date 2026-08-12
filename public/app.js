@@ -131,6 +131,26 @@ const difficultyOptions = [
 
 const $ = (selector) => document.querySelector(selector);
 
+function gradingStatusOf(record = {}) {
+  if (record.gradingResult?.status) return record.gradingResult.status;
+  if (record.correct === true) return "CORRECT";
+  if (record.correct === false) return "INCORRECT";
+  if (["pending_recognition", "recognition_error"].includes(record.gradingStatus)) return record.gradingStatus === "recognition_error" ? "RECOGNITION_FAILED" : "RECOGNITION_FAILED";
+  return "EMPTY";
+}
+
+function gradingCorrectOf(record = {}) {
+  return gradingStatusOf(record) === "CORRECT";
+}
+
+function gradingNeedsDiagnosisOf(record = {}) {
+  return Boolean(record.gradingResult?.diagnosisTriggered) || ["INCORRECT", "PARTIAL"].includes(gradingStatusOf(record));
+}
+
+function questionTypeOf(question = {}, record = {}) {
+  return record.gradingResult?.questionType || window.GradingEngine?.canonicalQuestionType?.(question) || question.questionType || question.type || "subjective";
+}
+
 function mode() {
   return trainingModes[state.trainingMode] || trainingModes.reinforce;
 }
@@ -182,7 +202,7 @@ function chapterProgress(progress, chapterId) {
     : [];
   const reportItem = progress?.report?.byChapter?.[chapterId] || progress?.report?.byChapter?.[state.chapters.find((item) => item.id === chapterId)?.name];
   const completed = Number(reportItem?.total ?? attempts.length);
-  const correct = Number(reportItem?.correct ?? attempts.filter((item) => item.correct === true).length);
+  const correct = Number(reportItem?.correct ?? attempts.filter((item) => gradingCorrectOf(item)).length);
   return { completed, accuracy: completed ? Math.round(correct / completed * 100) : 0 };
 }
 
@@ -590,7 +610,7 @@ async function renderHome() {
   const report = progress.report || {};
   const attempts = Array.isArray(progress.attempts) ? progress.attempts.filter((item) => item.studentId === state.student.id) : [];
   const completed = Number(report.total ?? attempts.length);
-  const accuracy = Number(report.accuracy ?? (attempts.length ? Math.round(attempts.filter((item) => item.correct === true).length / attempts.length * 100) : 0));
+  const accuracy = Number(report.accuracy ?? (attempts.length ? Math.round(attempts.filter((item) => gradingCorrectOf(item)).length / attempts.length * 100) : 0));
   const weakPoints = loop?.diagnosis?.weakKnowledgePoints || [];
   const chapters = state.chapters.filter((chapter) => chapter.subjects.includes(state.student.mathType));
 
@@ -772,14 +792,15 @@ function questionStem(q) {
 }
 
 function questionAnswerControls(q) {
-  if (q.type === "choice") {
+  const type = questionTypeOf(q);
+  if (["single_choice", "multiple_choice", "true_false"].includes(type)) {
     const selected = state.responses[q.id]?.selectedOption || "";
     return `<div class="practice-choice-list" aria-label="选择答案">${(q.options || []).map((option, index) => {
       const letter = String.fromCharCode(65 + index);
       return `<button class="practice-choice ${selected === option || selected === letter ? "active" : ""}" data-choice="${escapeHtml(option)}" data-choice-letter="${letter}">${letter}. ${renderMathText(option)}</button>`;
     }).join("")}</div>`;
   }
-  return `<p class="practice-answer-hint">${q.type === "fill" ? "请在做题空间中写出最终答案和必要步骤。" : "请在做题空间中完整写出解题过程和最终答案。"}</p>`;
+  return `<p class="practice-answer-hint">${type === "fill_blank" || type === "numeric" ? "请在做题空间中写出最终答案和必要步骤。" : "请在做题空间中完整写出解题过程和最终答案。"}</p>`;
 }
 
 async function renderPractice() {
@@ -793,7 +814,7 @@ async function renderPractice() {
   const chapter = state.chapters.find((item) => item.id === q.chapterId);
   const answeredCount = state.questions.filter((item) => Boolean(state.responses[item.id]?.selectedOption || state.responses[item.id]?.scratchImage || state.responses[item.id]?.strokeCount)).length;
   loadScratchForQuestion(q);
-  shell("刷题", `<div class="practice-simple ${q.type === "choice" ? "practice-choice-mode" : ""}">
+  shell("刷题", `<div class="practice-simple ${["single_choice", "multiple_choice", "true_false"].includes(questionTypeOf(q)) ? "practice-choice-mode" : ""}">
     <section class="question-only">
       <div class="practice-context"><span>${escapeHtml(state.student.mathType)}</span><span>${escapeHtml(chapter?.name || q.chapterName || "当前章节")}</span><span>${escapeHtml(q.point || "本题知识点")}</span><strong>已完成 ${answeredCount} / ${state.questions.length}</strong><button class="ghost" id="refreshPractice">刷新本轮20题</button></div>
       <div class="question-count">第${state.current + 1}题 / 共${state.questions.length}题</div>
@@ -807,7 +828,7 @@ async function renderPractice() {
 
 function renderWritingPanel(q) {
   const isLast = state.current >= state.questions.length - 1;
-  if (q?.type === "choice") {
+  if (["single_choice", "multiple_choice", "true_false"].includes(questionTypeOf(q))) {
     return `<section class="choice-actions-only">
       <p class="choice-answer-note">请选择一个答案，系统会在整卷提交后统一批改。</p>
       <div class="practice-actions">
@@ -980,10 +1001,6 @@ async function submitRound() {
     cancelText: "继续检查"
   });
   if (!ok) return;
-  state.view = "grading";
-  localStorage.setItem("view", "grading");
-  renderGrading();
-  await new Promise((resolve) => setTimeout(resolve, 900));
   try {
     const payload = {
       studentId: state.student.id,
@@ -1026,21 +1043,7 @@ async function submitRound() {
 }
 
 function renderGrading() {
-  const steps = [
-    "正在读取学生答案",
-    "正在识别做题空间中的手写内容与公式",
-    "正在拆分解题步骤",
-    "正在与标准解法比对",
-    "正在检查步骤之间的逻辑关系",
-    "正在定位错误步骤",
-    "正在诊断知识薄弱点",
-    "正在生成训练计划"
-  ];
-  shell("AI批改中", `<section class="panel ai-grading">
-    <h2>AI 正在批改本轮试卷</h2>
-    <p>系统会先分析答案和做题空间，再生成诊断、针对训练、复测和能力画像。AI分析结果仅作学习辅助，复杂主观题可由教师复核。</p>
-    <div class="grading-steps">${steps.map((step, index) => `<div class="grading-step ${index < 5 ? "active" : ""}"><span>${index + 1}</span><strong>${step}</strong></div>`).join("")}</div>
-  </section>`);
+  return renderPaperReport();
 }
 
 function renderRoundResults() {
@@ -1049,8 +1052,8 @@ function renderRoundResults() {
     shell("本轮结果", `<section class="panel"><h2>暂无本轮交卷结果</h2><button class="primary" data-view="practice">返回刷题</button></section>`);
     return;
   }
-  const graded = results.filter(({ attempt }) => !["pending_recognition", "pending_answer_review", "recognition_error"].includes(attempt.gradingStatus));
-  const correct = graded.filter(({ attempt }) => attempt.correct).length;
+  const graded = results.filter(({ attempt }) => !["EMPTY", "RECOGNITION_FAILED", "NEEDS_MANUAL_REVIEW"].includes(gradingStatusOf(attempt)));
+  const correct = graded.filter(({ attempt }) => gradingCorrectOf(attempt)).length;
   const pending = results.length - graded.length;
   const renderStepPreview = (steps = []) => (Array.isArray(steps) ? steps : []).map((step) => `<details class="result-step ${stepStatusClass(step.status)}" ${step.status !== "correct" ? "open" : ""}>
     <summary>步骤 ${step.stepNumber} · ${escapeHtml(step.judgment || "步骤识别")}</summary>
@@ -1060,12 +1063,11 @@ function renderRoundResults() {
     ${step.correction ? `<p><strong>修正：</strong>${escapeHtml(step.correction)}</p>` : ""}
   </details>`).join("");
   const cards = results.map(({ question, attempt }, index) => {
-    const judgment = attempt.gradingStatus === "pending_recognition" ? "待识别" : (attempt.correct ? "正确" : "错误");
-    const answerPending = attempt.gradingStatus === "pending_answer_review";
-    const recognitionError = attempt.gradingStatus === "recognition_error";
-    const aiReviewed = attempt.gradingStatus === "ai_reviewed";
-    const badge = attempt.gradingStatus === "pending_recognition" || answerPending || recognitionError ? "warn" : (attempt.correct ? "" : "bad");
-    const label = recognitionError ? "识别失败" : (aiReviewed ? `AI诊断：${judgment}` : (answerPending ? "答案待校对" : judgment));
+    const gradingStatus = gradingStatusOf(attempt);
+    const questionType = questionTypeOf(question, attempt);
+    const judgment = gradingStatus === "EMPTY" ? "未作答" : gradingStatus === "RECOGNITION_FAILED" || gradingStatus === "NEEDS_MANUAL_REVIEW" ? "待识别/复核" : (gradingCorrectOf(attempt) ? "正确" : "错误");
+    const badge = ["EMPTY", "RECOGNITION_FAILED", "NEEDS_MANUAL_REVIEW"].includes(gradingStatus) ? "warn" : (gradingCorrectOf(attempt) ? "" : "bad");
+    const label = judgment;
     const userAnswer = attempt.recognizedAnswer || attempt.answer || "未识别/未作答";
     const standardAnswer = question.answer || "待校对";
     return `<article class="result-card">
@@ -1079,12 +1081,12 @@ function renderRoundResults() {
         <p><span>建议</span><strong>${escapeHtml(attempt.advice)}</strong></p>
       </div>
       ${attempt.recommendedPractice ? `<p class="explain">追加练习：${escapeHtml(attempt.recommendedPractice)}</p>` : ""}
-      ${question.type === "choice" ? "" : `<div class="handwriting-diagnosis">
+      ${["single_choice", "multiple_choice", "true_false"].includes(questionType) ? "" : `<div class="handwriting-diagnosis">
         <p><strong>手写识别结果：</strong>${escapeHtml(attempt.studentAnswer || attempt.recognizedAnswer || "未识别")}</p>
         <p><strong>第一处错误：</strong>${attempt.firstErrorStep ? `步骤 ${attempt.firstErrorStep}` : "未发现或待确认"}</p>
         <p><strong>薄弱知识点：</strong>${escapeHtml((attempt.knowledgePoints || []).join("、") || "待识别")}</p>
         ${renderStepPreview(attempt.steps)}
-        ${attempt.needsDeepDiagnosis && question.id ? `<button class="ghost" data-result-training-source="${escapeHtml(question.id)}">针对该知识点开始训练</button>` : ""}
+        ${gradingNeedsDiagnosisOf(attempt) && question.id ? `<button class="ghost" data-result-training-source="${escapeHtml(question.id)}">针对该知识点开始训练</button>` : ""}
       </div>`}
       <div class="result-explanation"><strong>答案解析</strong>${renderDetailedExplanation({ ...question, ...attempt, explanation: question.explanation, answer: question.answer, point: question.point })}</div>
     </article>`;
@@ -1173,7 +1175,6 @@ async function renderPaperReport() {
   <section class="panel product-dashboard">
     <div class="dashboard-head">
       <div>
-        <span class="badge ${submission.status === "diagnosis_complete" ? "" : "warn"}">${escapeHtml(submission.status)}</span>
         <h2>${escapeHtml(summary.paperName || submission.paperName || "本次整卷")}</h2>
         <p>${escapeHtml(summary.comment || "系统已完成整卷统一保存、识别、批改和诊断。")}</p>
       </div>
@@ -1190,7 +1191,6 @@ async function renderPaperReport() {
       <div class="metric"><span>能力等级</span><strong>${escapeHtml(summary.level)}</strong></div>
     </div>
   </section>
-  <section class="panel"><h2>批改状态</h2><div class="grading-steps">${(submission.gradingStatusHistory || []).map((item, index) => `<div class="grading-step active"><span>${index + 1}</span><strong>${escapeHtml(item.status)}</strong></div>`).join("")}</div></section>
   <section class="panel"><h2>各题型得分</h2><div class="cards">${typeRows}</div></section>
   <section class="panel"><h2>各章节掌握度</h2><div class="cards">${chapterRows}</div></section>
   <section class="panel"><h2>知识点掌握度</h2><div class="cards">${knowledgeRows}</div></section>
@@ -1274,7 +1274,6 @@ async function renderQuestionReview() {
       <p><span>第一处错误</span><strong>${item.firstErrorStep ? `步骤 ${item.firstErrorStep}` : "未发现/待识别"}</strong></p>
       <p><span>知识点</span><strong>${escapeHtml((item.knowledgePoints || []).join("、"))}</strong></p>
       <p><span>相似易错点</span><strong>${escapeHtml((item.errorTypes || []).join("、") || "暂无")}</strong></p>
-      <p><span>批改状态</span><strong>${escapeHtml(item.gradingStatus)}</strong></p>
       <p><span>OCR置信度</span><strong>${item.confidenceScore || 0}%</strong></p>
       <p><span>错误层级</span><strong>${escapeHtml(item.errorTag ? `${item.errorTag.knowledgePoint} / ${item.errorTag.subKnowledgePoint} / ${item.errorTag.errorType} / ${item.errorTag.errorPosition}` : "暂无")}</strong></p>
     </div>
@@ -1493,26 +1492,17 @@ async function renderCollection() {
   const loop = await loadLoop();
   state.collectionItems = items.filter((item) => item.question);
   const pending = state.collectionItems.filter(({ attempt }) => ["pending_recognition", "pending_answer_review", "recognition_error"].includes(attempt.gradingStatus)).length;
-  const wrong = state.collectionItems.filter(({ attempt }) => attempt.correct === false).length;
-  const mastered = state.collectionItems.filter(({ attempt }) => attempt.correct === true).length;
+  const wrong = state.collectionItems.filter(({ attempt }) => ["INCORRECT", "PARTIAL"].includes(gradingStatusOf(attempt))).length;
+  const mastered = state.collectionItems.filter(({ attempt }) => gradingCorrectOf(attempt)).length;
   const reasonCounts = {};
   state.collectionItems.forEach(({ attempt }) => {
     if (!["已掌握", "待识别"].includes(attempt.reason)) reasonCounts[attempt.reason] = (reasonCounts[attempt.reason] || 0) + 1;
   });
   const weak = Object.entries(reasonCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || "暂无";
   const rows = state.collectionItems.map(({ question, attempt, times }, index) => {
-    const status = attempt.gradingStatus === "pending_answer_review"
-      ? "答案待校对"
-      : attempt.gradingStatus === "pending_recognition"
-        ? "待识别"
-        : attempt.gradingStatus === "recognition_error"
-          ? "识别失败"
-          : attempt.gradingStatus === "ai_reviewed"
-            ? (attempt.correct ? "AI已掌握" : "AI建议二刷")
-            : attempt.correct
-              ? "已掌握"
-              : "需二刷";
-    const badge = attempt.correct === false ? "bad" : (attempt.correct === true ? "" : "warn");
+    const gradingStatus = gradingStatusOf(attempt);
+    const status = gradingStatus === "EMPTY" ? "未作答" : ["RECOGNITION_FAILED", "NEEDS_MANUAL_REVIEW"].includes(gradingStatus) ? "待识别/复核" : gradingCorrectOf(attempt) ? "已掌握" : "需二刷";
+    const badge = ["INCORRECT", "PARTIAL"].includes(gradingStatus) ? "bad" : (gradingCorrectOf(attempt) ? "" : "warn");
     return `<tr>
       <td>${index + 1}</td>
       <td><span class="badge ${badge}">${status}</span></td>
@@ -1818,11 +1808,13 @@ function renderTrainingAnswerControls(question, record) {
 
 function trainingFeedback(question, record) {
   if (!record.submitted) return "";
-  const status = record.correct === true ? "本题正确" : record.correct === false ? "本题需要复盘" : "已提交，主观过程等待 OCR/AI 识别";
-  const cls = record.correct === true ? "good" : record.correct === false ? "bad" : "pending";
+  const gradingStatus = gradingStatusOf(record);
+  const correct = gradingCorrectOf(record);
+  const status = correct ? "本题正确" : ["EMPTY", "RECOGNITION_FAILED", "NEEDS_MANUAL_REVIEW"].includes(gradingStatus) ? "已提交，等待识别或复核" : "本题需要复盘";
+  const cls = correct ? "good" : ["EMPTY", "RECOGNITION_FAILED", "NEEDS_MANUAL_REVIEW"].includes(gradingStatus) ? "pending" : "bad";
   const diagnosis = question.questionType === "choice" ? "" : `<div class="handwriting-diagnosis">
     <p><strong>手写识别结果：</strong>${escapeHtml(record.recognizedAnswer || "暂未识别出最终答案")}</p>
-    <p><strong>过程判断：</strong>${escapeHtml(record.processIssueReason || (record.processHasIssue ? "步骤存在需要修正的地方" : record.correct === true ? "未发现明显过程错误" : "等待识别完整步骤"))}</p>
+    <p><strong>过程判断：</strong>${escapeHtml(record.processIssueReason || (record.processHasIssue ? "步骤存在需要修正的地方" : correct ? "未发现明显过程错误" : "等待识别完整步骤"))}</p>
     ${record.firstWrongStep ? `<p><strong>第一处错误：</strong>第${record.firstWrongStep}步</p>` : ""}
     ${record.weakPoint ? `<p><strong>需要巩固：</strong>${escapeHtml(record.weakPoint)}</p>` : ""}
     ${record.advice ? `<p><strong>改进建议：</strong>${escapeHtml(record.advice)}</p>` : ""}
@@ -1874,7 +1866,7 @@ async function submitTrainingQuestion(batch, question) {
     if (!res?.record || !res?.batch) throw new Error("提交结果不完整，请重试。");
     const flow = readFlowState();
     writeFlowState({
-      trainingRecords: { ...(flow.trainingRecords || {}), [question.id]: { ...draft, submitted: true, correct: res.record.correct, score: res.record.score } },
+      trainingRecords: { ...(flow.trainingRecords || {}), [question.id]: { ...draft, submitted: true, correct: res.record.correct, score: res.record.score, gradingResult: res.record.gradingResult, gradingStatus: res.record.gradingStatus, processIssueReason: res.record.processIssueReason, processHasIssue: res.record.processHasIssue, recognizedAnswer: res.record.recognizedAnswer, advice: res.record.advice, weakPoint: res.record.weakPoint } },
       trainingBatchId: batch.id,
       stage: "TARGETED_TRAINING"
     });

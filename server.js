@@ -3,10 +3,13 @@ const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
 const { createTrainingQuestion: createGeneratedTrainingQuestion, validateTrainingQuestion } = require("./public/training-factory.js");
+const { gradeQuestion: runCanonicalGrading, canonicalQuestionType } = require("./public/grading-engine.js");
 
 const ROOT = __dirname;
 const PUBLIC = path.join(ROOT, "public");
 const DB_FILE = path.join(ROOT, "data", "db.json");
+const QUESTION_CATALOG_FILE = path.join(ROOT, "data", "question-catalog.json");
+let questionCatalogCache = null;
 
 function loadEnvFile() {
   const file = path.join(ROOT, ".env");
@@ -52,6 +55,32 @@ function writeJson(file, value) {
   fs.writeFileSync(file, JSON.stringify(value, null, 2), "utf8");
 }
 
+function readQuestionCatalog() {
+  if (!fs.existsSync(QUESTION_CATALOG_FILE)) return null;
+  const stat = fs.statSync(QUESTION_CATALOG_FILE);
+  if (questionCatalogCache && questionCatalogCache.mtimeMs === stat.mtimeMs) return questionCatalogCache.value;
+  const value = readJson(QUESTION_CATALOG_FILE);
+  questionCatalogCache = { mtimeMs: stat.mtimeMs, value };
+  return value;
+}
+
+function applyQuestionCatalog(store) {
+  const catalog = readQuestionCatalog();
+  if (!catalog || !Array.isArray(catalog.questions) || !catalog.questions.length) return false;
+  const byId = new Map(catalog.questions.map((question) => [question.id, question]));
+  const merged = store.questions.map((question) => byId.has(question.id) ? { ...question, ...byId.get(question.id) } : question);
+  const existingIds = new Set(merged.map((question) => question.id));
+  catalog.questions.forEach((question) => {
+    if (!existingIds.has(question.id)) merged.push(question);
+  });
+  const catalogVersion = `${catalog.schemaVersion || 1}:${catalog.generatedAt || "unknown"}`;
+  const changed = store.meta.questionCatalogVersion !== catalogVersion || merged.length !== store.questions.length;
+  store.questions = merged;
+  store.meta.questionCatalogVersion = catalogVersion;
+  store.meta.questionCatalogCount = merged.length;
+  return changed;
+}
+
 function db() {
   if (!fs.existsSync(DB_FILE)) writeJson(DB_FILE, seedDb());
   const store = readJson(DB_FILE);
@@ -66,6 +95,7 @@ function db() {
       saveDb(store);
     }
   }
+  if (applyQuestionCatalog(store)) saveDb(store);
   if (!Array.isArray(store.submissions)) {
     store.submissions = [];
     saveDb(store);
@@ -636,36 +666,6 @@ function normalizeAnswer(value) {
     .toLowerCase();
 }
 
-function numericValue(value) {
-  const raw = normalizeAnswer(value).replace(/^答案[:：]?/, "").replace(/[。；;]$/g, "");
-  if (!raw) return null;
-  if (/^[+-]?\d+(\.\d+)?$/.test(raw)) return Number(raw);
-  const fraction = raw.match(/^([+-]?\d+(?:\.\d+)?)\/([+-]?\d+(?:\.\d+)?)$/);
-  if (fraction && Number(fraction[2]) !== 0) return Number(fraction[1]) / Number(fraction[2]);
-  return null;
-}
-
-function equivalentAnswer(expected, actual) {
-  const left = normalizeAnswer(expected)
-    .replace(/（/g, "(").replace(/）/g, ")").replace(/，/g, ",")
-    .replace(/＋/g, "+").replace(/－/g, "-").replace(/×/g, "*").replace(/÷/g, "/");
-  const right = normalizeAnswer(actual)
-    .replace(/（/g, "(").replace(/）/g, ")").replace(/，/g, ",")
-    .replace(/＋/g, "+").replace(/－/g, "-").replace(/×/g, "*").replace(/÷/g, "/");
-  if (!left || !right) return false;
-  if (left === right) return true;
-  const leftNum = numericValue(left);
-  const rightNum = numericValue(right);
-  if (leftNum !== null && rightNum !== null) return Math.abs(leftNum - rightNum) < 1e-8;
-  const compact = (value) => value.replace(/\*/g, "").replace(/\^1(?!\d)/g, "").replace(/\+c$/i, "+c").replace(/c$/i, "c");
-  return compact(left) === compact(right);
-}
-
-function grade(question, answer) {
-  const accepted = [question.answer, ...(question.aliases || [])];
-  return accepted.some((item) => equivalentAnswer(item, answer));
-}
-
 function extractJson(text) {
   const raw = String(text || "").trim();
   try { return JSON.parse(raw); } catch {}
@@ -848,7 +848,7 @@ function diagnose(question, payload, correct) {
     mainReason = "过程缺失";
     advice = "建议写出关键步骤。否则系统只能判断最终答案，无法定位第一处错误。";
   }
-  if (correct === false && answer && answer.length <= 2 && question.type === "fill") {
+  if (correct === false && answer && answer.length <= 2 && canonicalQuestionType(question) === "fill_blank") {
     mainReason = "表达问题";
     advice = "最终结论过短，检查是否漏写常数、区间、条件或完整表达。";
   }
@@ -1027,6 +1027,20 @@ async function api(req, res) {
     return;
   }
 
+  if (req.method === "GET" && url.pathname.startsWith("/api/question-solutions/")) {
+    const questionId = decodeURIComponent(url.pathname.slice("/api/question-solutions/".length));
+    const question = store.questions.find((item) => item.id === questionId);
+    if (!question) return send(res, 404, { error: "题目不存在" });
+    send(res, 200, {
+      questionId: question.id,
+      solutionStatus: question.solutionStatus || question.detailedSolution?.status || "pending_teacher_review",
+      solutionVersion: question.solutionVersion || question.detailedSolution?.version || 0,
+      solutionSource: question.detailedSolution?.generatedBy || "unknown",
+      detailedSolution: question.detailedSolution || null
+    });
+    return;
+  }
+
   if (req.method === "POST" && url.pathname === "/api/demo/reset") {
     const body = await parseBody(req);
     const studentId = cleanId(body.studentId);
@@ -1091,14 +1105,16 @@ async function api(req, res) {
       pool = basePool;
     }
     const refresh = url.searchParams.get("refresh") === "1";
-    const distinctPool = uniqueByStem(pool);
-    // A chapter can contain many approved variants with the same normalized stem.
-    // Do not shrink a fixed 20-question round below 20 just because of de-duplication.
-    if (distinctPool.length >= count) pool = distinctPool;
+    // Deduplicate before sampling and never silently fall back to attempted questions.
+    pool = uniqueByStem(pool);
     const unseen = pool.filter((q) => !attemptedIds.has(q.id));
-    const source = unseen.length >= count ? unseen : pool;
+    const source = unseen;
+    if (!source.length) {
+      send(res, 200, { questions: [], chapterId, count: 0, requestedCount: count, difficulty, sourceType, mode, availableCount: 0, message: "当前筛选条件下暂无未重复题目，请切换章节或难度。" });
+      return;
+    }
     const selected = sampleQuestions(source, count, refresh ? Date.now() : `${student.id}-${chapterId}-${difficulty}-${sourceType}-${mode}-${count}-${attempts.length}`);
-    send(res, 200, { questions: selected, chapterId, count, difficulty, sourceType, mode });
+    send(res, 200, { questions: selected, chapterId, count: selected.length, requestedCount: count, difficulty, sourceType, mode, availableCount: source.length, message: selected.length < count ? `当前筛选条件下仅有 ${selected.length} 道未重复题目，已全部返回。` : "" });
     return;
   }
 
@@ -1107,29 +1123,21 @@ async function api(req, res) {
     const student = store.students.find((s) => s.id === body.studentId);
     const question = store.questions.find((q) => q.id === body.questionId);
     if (!student || !question) return send(res, 404, { error: "学生或题目不存在" });
-    const recognition = await recognizeScratch(question, body);
-    const finalAnswer = answerValueForQuestion(question, body, recognition);
-    const hasReviewedAnswer = Boolean(question.answer) && question.answerStatus !== "pending_review";
-    const correct = recognition.modelJudgment && typeof recognition.isCorrect === "boolean"
-      ? recognition.isCorrect
-      : (finalAnswer && hasReviewedAnswer ? grade(question, finalAnswer) : null);
-    const gradingStatus = recognition.recognitionError
-      ? "recognition_error"
-      : recognition.modelJudgment
-      ? "ai_reviewed"
-      : (!hasReviewedAnswer ? "pending_answer_review" : (finalAnswer ? "graded" : "pending_recognition"));
-    const diagnosis = diagnose(question, { ...body, answer: finalAnswer }, correct);
-    if (recognition.recognitionError) {
+    const { recognition, finalAnswer, grading } = await evaluateQuestionSubmission(question, body);
+    const correct = grading.isCorrect;
+    const gradingStatus = grading.legacyGradingStatus;
+    const diagnosis = diagnosisForGrading(question, { ...body, answer: finalAnswer }, grading);
+    if (grading.status === "RECOGNITION_FAILED") {
       diagnosis.mainReason = "识别服务不可用";
       diagnosis.advice = recognition.recognitionError.includes("no credits")
         ? "OpenAI API 账户没有可用额度。请到 OpenAI Platform 的 Billing 页面充值/绑定付款方式后再提交草稿，系统才能识别步骤并判断薄弱点。"
         : `手写识别服务调用失败：${recognition.recognitionError}`;
       diagnosis.evidence.push(`识别错误：${recognition.recognitionError}`);
     }
-    if (recognition.modelJudgment && recognition.weakPoint) diagnosis.mainReason = recognition.weakPoint;
-    if (recognition.modelJudgment && recognition.advice) diagnosis.advice = recognition.advice;
-    if (recognition.modelJudgment && recognition.firstError) diagnosis.evidence.push(`第一处错误：${recognition.firstError}`);
-    if (recognition.modelJudgment && recognition.processHasIssue) {
+    if (grading.diagnosisTriggered && recognition.weakPoint) diagnosis.mainReason = recognition.weakPoint;
+    if (grading.diagnosisTriggered && recognition.advice) diagnosis.advice = recognition.advice;
+    if (grading.diagnosisTriggered && recognition.firstError) diagnosis.evidence.push(`第一处错误：${recognition.firstError}`);
+    if (grading.diagnosisTriggered && recognition.processHasIssue) {
       diagnosis.mainReason = recognition.errorType || recognition.processIssueReason || "解题过程存在错误";
       diagnosis.advice = recognition.advice || "最终答案不能掩盖过程错误，请从第一处偏差开始重做，并完成对应知识点的变式训练。";
       diagnosis.evidence.push(`过程诊断：${recognition.processIssueReason || "标准答案正确但步骤不完整或不成立"}`);
@@ -1167,6 +1175,10 @@ async function api(req, res) {
       durationMs: Number(body.durationMs || 0),
       gradingStatus,
       correct,
+      score: grading.score,
+      maxScore: grading.maxScore,
+      gradingResult: grading,
+      gradingTrace: { ...grading, diagnosisTriggered: Boolean(grading.diagnosisTriggered) },
       reason: diagnosis.mainReason,
       advice: diagnosis.advice,
       recommendedPractice: recognition.recommendedPractice || "",
@@ -1315,12 +1327,36 @@ async function api(req, res) {
     const body = await parseBody(req);
     const attempt = store.attempts.find((a) => a.id === body.attemptId);
     if (!attempt) return send(res, 404, { error: "作答记录不存在" });
+    const question = store.questions.find((item) => item.id === attempt.questionId);
     attempt.recognizedAnswer = body.recognizedAnswer || attempt.recognizedAnswer || "";
     attempt.recognizedSteps = body.structuredSteps || body.recognizedSteps || attempt.recognizedSteps || "";
     attempt.recognitionConfidence = Number(body.confidenceScore || attempt.recognitionConfidence || 100);
     attempt.uncertainRegions = Array.isArray(body.uncertainRegions) ? body.uncertainRegions : [];
     attempt.studentConfirmedOcr = true;
-    attempt.gradingStatus = "ocr_confirmed";
+    if (question) {
+      const recognition = {
+        recognizedAnswer: attempt.recognizedAnswer,
+        structuredSteps: Array.isArray(body.structuredSteps) ? body.structuredSteps : [],
+        confidence: attempt.recognitionConfidence,
+        processHasIssue: Boolean(body.processHasIssue),
+        processIssueReason: body.processIssueReason || "",
+        modelJudgment: Boolean(body.modelJudgment),
+        isCorrect: typeof body.isCorrect === "boolean" ? body.isCorrect : null,
+        status: "CONFIRMED"
+      };
+      const grading = runCanonicalGrading(question, { ...attempt, answer: attempt.recognizedAnswer, recognizedAnswer: attempt.recognizedAnswer }, { recognition });
+      attempt.gradingResult = grading;
+      attempt.gradingTrace = { ...grading, source: "ocr_confirm", diagnosisTriggered: Boolean(grading.diagnosisTriggered) };
+      attempt.correct = grading.isCorrect;
+      attempt.score = grading.score;
+      attempt.maxScore = grading.maxScore;
+      attempt.gradingStatus = grading.legacyGradingStatus;
+      const diagnosis = diagnosisForGrading(question, { ...attempt, answer: attempt.recognizedAnswer }, grading);
+      attempt.reason = diagnosis.mainReason;
+      attempt.advice = diagnosis.advice;
+      const submission = (store.submissions || []).find((item) => item.id === attempt.submissionId);
+      if (submission) submission.report = buildSubmissionDiagnosis(store, submission);
+    }
     attempt.updatedAt = nowIso();
     saveDb(store);
     send(res, 200, { attempt });
@@ -1406,6 +1442,9 @@ async function api(req, res) {
       recognitionError: judged.recognitionError || "",
       repeatedOriginalError: judged.repeatedOriginalError,
       score: judged.score,
+      maxScore: judged.gradingResult?.maxScore || 100,
+      gradingResult: judged.gradingResult,
+      gradingTrace: judged.gradingResult ? { ...judged.gradingResult, diagnosisTriggered: Boolean(judged.gradingResult.diagnosisTriggered) } : null,
       createdAt: nowIso()
     };
     const existingRecordIndex = store.trainingRecords.findIndex((item) => item.trainingBatchId === batch.id && item.trainingQuestionId === question.id);
@@ -1413,7 +1452,7 @@ async function api(req, res) {
     else store.trainingRecords.push(record);
     const records = store.trainingRecords.filter((item) => item.trainingBatchId === batch.id);
     batch.progress.answered = records.length;
-    batch.progress.correct = records.filter((item) => item.correct).length;
+    batch.progress.correct = records.filter((item) => canonicalTrainingResult(batch, item).status === "CORRECT").length;
     batch.progress.accuracy = records.length ? Math.round(batch.progress.correct / records.length * 100) : 0;
     batch.progress.hintsUsed = records.reduce((sum, item) => sum + Number(item.hintLevelUsed || 0), 0);
     batch.progress.repeatedOriginalError = records.some((item) => item.repeatedOriginalError);
@@ -1526,20 +1565,22 @@ function chapterSummary(questions) {
 function buildReportFor(store, studentId) {
   const attempts = store.attempts.filter((a) => a.studentId === studentId);
   const total = attempts.length;
-  const pending = attempts.filter((a) => a.correct === null || a.gradingStatus === "pending_recognition").length;
-  const gradableTotal = attempts.filter((a) => a.correct !== null && a.gradingStatus !== "pending_recognition").length;
-  const correct = attempts.filter((a) => a.correct).length;
+  const gradedAttempts = attempts.map((attempt) => ({ attempt, grading: canonicalResultForAttempt(store.questions.find((q) => q.id === attempt.questionId) || {}, attempt) }));
+  const pending = gradedAttempts.filter(({ grading }) => ["EMPTY", "RECOGNITION_FAILED", "NEEDS_MANUAL_REVIEW"].includes(grading.status)).length;
+  const gradableTotal = gradedAttempts.filter(({ grading }) => !["EMPTY", "RECOGNITION_FAILED", "NEEDS_MANUAL_REVIEW"].includes(grading.status)).length;
+  const correct = gradedAttempts.filter(({ grading }) => grading.status === "CORRECT").length;
   const accuracy = gradableTotal ? Math.round(correct / gradableTotal * 100) : 0;
   const byReason = {};
   const byChapter = {};
-  attempts.forEach((a) => {
-    byReason[a.reason] = (byReason[a.reason] || 0) + 1;
+  gradedAttempts.forEach(({ attempt: a, grading }) => {
+    const reason = grading.status === "CORRECT" ? "已掌握" : grading.status === "EMPTY" ? "未作答" : grading.status === "RECOGNITION_FAILED" ? "手写识别失败" : a.reason || grading.reason;
+    byReason[reason] = (byReason[reason] || 0) + 1;
     byChapter[a.chapterId] = byChapter[a.chapterId] || { total: 0, correct: 0 };
     byChapter[a.chapterId].total += 1;
-    if (a.correct) byChapter[a.chapterId].correct += 1;
+    if (grading.status === "CORRECT") byChapter[a.chapterId].correct += 1;
   });
   const weakReasons = Object.entries(byReason)
-    .filter(([reason]) => !["已掌握", "待识别"].includes(reason))
+    .filter(([reason]) => !["已掌握", "未作答"].includes(reason))
     .sort((a, b) => b[1] - a[1])
     .slice(0, 3)
     .map(([reason, count]) => ({ reason, count, advice: adviceFor(reason) }));
@@ -1547,15 +1588,27 @@ function buildReportFor(store, studentId) {
 }
 
 function typeLabelFor(type) {
-  return type === "choice" ? "选择题" : type === "fill" ? "填空题" : "主观题";
+  return ["choice", "single_choice"].includes(type) ? "选择题"
+    : type === "multiple_choice" ? "多选题"
+    : type === "true_false" ? "判断题"
+    : ["fill", "fill_blank", "numeric"].includes(type) ? "填空题"
+    : "主观题";
 }
 
 function scoreForAttempt(question, attempt) {
-  const maxScore = question?.type === "choice" ? 5 : question?.type === "fill" ? 5 : 10;
-  if (!attempt || attempt.correct === null || attempt.gradingStatus === "pending_recognition") return { score: 0, maxScore };
-  if (attempt.correct) return { score: maxScore, maxScore };
-  const hasProcess = Number(attempt.strokeCount || 0) > 2 || Number(attempt.strokePointCount || 0) > 20 || String(attempt.stepsText || "").trim();
-  return { score: hasProcess ? Math.max(1, Math.floor(maxScore * 0.35)) : 0, maxScore };
+  const grading = canonicalResultForAttempt(question, attempt);
+  return { score: grading.score, maxScore: grading.maxScore, grading };
+}
+
+function canonicalResultForAttempt(question, attempt) {
+  if (attempt?.gradingResult?.status) return attempt.gradingResult;
+  const hasLegacyGrade = typeof attempt?.correct === "boolean" && ["graded", "ai_reviewed", "pending_answer_review"].includes(attempt?.gradingStatus);
+  const recognition = attempt?.gradingStatus === "recognition_error"
+    ? { recognitionError: attempt.reason || "历史记录识别失败", confidence: Number(attempt.recognitionConfidence || 0) }
+    : { recognizedAnswer: attempt?.recognizedAnswer || "", modelJudgment: attempt?.gradingStatus === "ai_reviewed" && typeof attempt.correct === "boolean", isCorrect: attempt?.correct };
+  const result = runCanonicalGrading(question, attempt || {}, { recognition, legacyCorrect: hasLegacyGrade ? attempt.correct : undefined });
+  if (!result.gradingTrace) result.gradingTrace = { ...result, diagnosisTriggered: Boolean(result.diagnosisTriggered) };
+  return result;
 }
 
 function answerValueFrom(payload = {}, recognition = {}) {
@@ -1597,6 +1650,25 @@ function answerValueForQuestion(question, payload = {}, recognition = {}) {
   return "";
 }
 
+async function evaluateQuestionSubmission(question, payload = {}) {
+  const recognition = await recognizeScratch(question, payload);
+  const finalAnswer = answerValueForQuestion(question, payload, recognition);
+  const grading = runCanonicalGrading(question, {
+    ...payload,
+    answer: finalAnswer,
+    recognizedAnswer: recognition.recognizedAnswer || payload.recognizedAnswer || ""
+  }, { recognition });
+  return { recognition, finalAnswer, grading };
+}
+
+function diagnosisForGrading(question, payload, grading) {
+  if (grading.status === "CORRECT") return { mainReason: "已掌握", advice: "本题表现稳定，可在做题集中安排间隔复刷。", evidence: [grading.reason] };
+  if (grading.status === "EMPTY") return { mainReason: "未作答", advice: "该题没有检测到答案、过程或草稿内容，建议补全作答。", evidence: [grading.reason] };
+  if (grading.status === "RECOGNITION_FAILED") return { mainReason: "手写识别失败", advice: "检测到作答痕迹，但当前无法可靠识别答案；请重新上传或手动确认。", evidence: [grading.reason] };
+  if (grading.status === "NEEDS_MANUAL_REVIEW") return { mainReason: "待人工复核", advice: "当前答案证据不足，暂不归类为普通错题。", evidence: [grading.reason] };
+  return diagnose(question, payload, grading.isCorrect);
+}
+
 function responseHasContent(payload = {}) {
   return Boolean(
     String(payload.answer || payload.selectedOption || payload.formulaText || payload.stepsText || "").trim()
@@ -1622,10 +1694,11 @@ function inspectPaperCompleteness(questions, responses) {
       issues.push({ questionId: question.id, type: "unanswered", severity: "warn", message: `${label}未作答` });
       return;
     }
-    if (question.type !== "choice" && !String(payload.stepsText || "").trim() && !payload.scratchImage && !payload.answerImage) {
+    const questionType = canonicalQuestionType(question);
+    if (questionType === "subjective" && !String(payload.stepsText || "").trim() && !payload.scratchImage && !payload.answerImage) {
       issues.push({ questionId: question.id, type: "missing_process", severity: "warn", message: `${label}缺少可分析的解题过程` });
     }
-    if (question.type !== "choice" && (payload.answer || payload.formulaText) && !String(payload.stepsText || "").trim() && !payload.scratchImage) {
+    if (questionType === "subjective" && (payload.answer || payload.formulaText) && !String(payload.stepsText || "").trim() && !payload.scratchImage) {
       issues.push({ questionId: question.id, type: "answer_without_process", severity: "warn", message: `${label}只有答案，缺少过程` });
     }
     if (payload.uploadError) {
@@ -1636,33 +1709,25 @@ function inspectPaperCompleteness(questions, responses) {
 }
 
 async function buildAttemptFromResponse(store, student, question, payload, submissionId, orderIndex) {
-  const recognition = await recognizeScratch(question, payload);
-  const finalAnswer = answerValueForQuestion(question, payload, recognition);
-  const hasReviewedAnswer = Boolean(question.answer) && question.answerStatus !== "pending_review";
-  const correct = recognition.modelJudgment && typeof recognition.isCorrect === "boolean"
-    ? recognition.isCorrect
-    : (finalAnswer && hasReviewedAnswer ? grade(question, finalAnswer) : null);
-  const gradingStatus = recognition.recognitionError
-    ? "recognition_error"
-    : recognition.modelJudgment
-      ? "ai_reviewed"
-      : (!hasReviewedAnswer ? "pending_answer_review" : (finalAnswer ? "graded" : "pending_recognition"));
-  const diagnosis = diagnose(question, { ...payload, answer: finalAnswer }, correct);
-  if (recognition.recognitionError) {
+  const { recognition, finalAnswer, grading } = await evaluateQuestionSubmission(question, payload);
+  const correct = grading.isCorrect;
+  const gradingStatus = grading.legacyGradingStatus;
+  const diagnosis = diagnosisForGrading(question, { ...payload, answer: finalAnswer }, grading);
+  if (grading.status === "RECOGNITION_FAILED") {
     diagnosis.mainReason = "识别服务不可用";
     diagnosis.advice = recognition.recognitionError.includes("no credits")
       ? "OpenAI API 账户没有可用额度。系统已保存整卷答卷，客观题继续批改，主观题标记为需复核。"
       : `手写识别服务调用失败：${recognition.recognitionError}`;
     diagnosis.evidence.push(`识别错误：${recognition.recognitionError}`);
   }
-  if (!responseHasContent(payload)) {
+  if (grading.status === "EMPTY") {
     diagnosis.mainReason = "未作答";
     diagnosis.advice = "该题没有检测到答案、过程或草稿内容，建议在原题重做中补全。";
   }
-  if (recognition.modelJudgment && recognition.weakPoint) diagnosis.mainReason = recognition.weakPoint;
-  if (recognition.modelJudgment && recognition.advice) diagnosis.advice = recognition.advice;
-  if (recognition.modelJudgment && recognition.firstError) diagnosis.evidence.push(`第一处错误：${recognition.firstError}`);
-  if (recognition.modelJudgment && recognition.processHasIssue) {
+  if (grading.diagnosisTriggered && recognition.weakPoint) diagnosis.mainReason = recognition.weakPoint;
+  if (grading.diagnosisTriggered && recognition.advice) diagnosis.advice = recognition.advice;
+  if (grading.diagnosisTriggered && recognition.firstError) diagnosis.evidence.push(`第一处错误：${recognition.firstError}`);
+  if (grading.diagnosisTriggered && recognition.processHasIssue) {
     diagnosis.mainReason = recognition.errorType || recognition.processIssueReason || "解题过程存在错误";
     diagnosis.advice = recognition.advice || "最终答案不能掩盖过程错误，请从第一处偏差开始重做，并完成对应知识点的变式训练。";
     diagnosis.evidence.push(`过程诊断：${recognition.processIssueReason || "标准答案正确但步骤不完整或不成立"}`);
@@ -1710,6 +1775,10 @@ async function buildAttemptFromResponse(store, student, question, payload, submi
     durationMs: Number(payload.durationMs || 0),
     gradingStatus,
     correct,
+    score: grading.score,
+    maxScore: grading.maxScore,
+    gradingResult: grading,
+    gradingTrace: { ...grading, diagnosisTriggered: Boolean(grading.diagnosisTriggered) },
     reason: diagnosis.mainReason,
     advice: diagnosis.advice,
     recommendedPractice: recognition.recommendedPractice || "",
@@ -1742,6 +1811,7 @@ function severityForError(count, scoreLoss) {
 function abilityEvidenceFor(name, attempts, questions) {
   const related = attempts.filter((attempt) => {
     const question = questions.find((item) => item.id === attempt.questionId) || {};
+    const grading = canonicalResultForAttempt(question, attempt);
     const text = `${question.point || ""} ${question.reason || ""} ${attempt.reason || ""}`;
     if (name === "基础计算能力") return /计算|化简|积分|导数|行列式/.test(text);
     if (name === "公式应用能力") return /公式|换元|分部|概率|极限/.test(text);
@@ -1749,13 +1819,13 @@ function abilityEvidenceFor(name, attempts, questions) {
     if (name === "建模能力") return /建模|应用|利润|函数应用/.test(text);
     if (name === "推理能力") return /推理|证明|步骤|逻辑/.test(text);
     if (name === "综合分析能力") return Number(question.difficulty || 0) >= 4;
-    if (name === "解题规范性") return attempt.gradingStatus === "pending_recognition" || /书写|过程|步骤/.test(text);
+    if (name === "解题规范性") return ["RECOGNITION_FAILED", "NEEDS_MANUAL_REVIEW"].includes(grading.status) || /书写|过程|步骤/.test(text);
     if (name === "时间管理能力") return Number(attempt.durationMs || 0) > 180000;
     if (name === "难题处理能力") return Number(question.difficulty || 0) >= 4;
-    return attempt.flagged || attempt.correct === false;
+    return attempt.flagged || ["INCORRECT", "PARTIAL"].includes(grading.status);
   });
   const total = related.length || attempts.length || 1;
-  const good = related.filter((attempt) => attempt.correct === true).length;
+  const good = related.filter((attempt) => canonicalResultForAttempt(questions.find((item) => item.id === attempt.questionId) || {}, attempt).status === "CORRECT").length;
   const score = Math.round(good / total * 100);
   return {
     name,
@@ -1774,18 +1844,19 @@ function buildSubmissionDiagnosis(store, submission) {
   const questionAnalyses = questions.map((question, index) => {
     const attempt = attemptByQuestion.get(question.id);
     const scored = scoreForAttempt(question, attempt);
+    const grading = scored.grading;
     const reason = reasonForAttempt(question, attempt);
     const steps = buildStepAnalysis(question, attempt);
     const firstWrong = steps.find((step) => step.status !== "correct") || null;
     const lastCorrect = [...steps].reverse().find((step) => step.status === "correct") || null;
     const processIssue = detectProcessIssue(question, attempt, steps);
-    const needsDeepDiagnosis = attempt?.correct !== true || processIssue.hasIssue;
+    const needsDeepDiagnosis = Boolean(grading.diagnosisTriggered);
     const errorTag = classifyErrorTag(question, attempt, firstWrong || {});
     return {
       questionId: question.id,
       orderIndex: index,
-      type: question.type,
-      typeLabel: typeLabelFor(question.type),
+      type: grading.questionType,
+      typeLabel: typeLabelFor(grading.questionType),
       chapterId: question.chapterId,
       chapterName: question.chapterName,
       knowledgePoints: [normalizeWeakPoint(question, attempt)],
@@ -1803,15 +1874,18 @@ function buildSubmissionDiagnosis(store, submission) {
       standardSteps: question.detailedSolution || question.explanation || "",
       score: scored.score,
       maxScore: scored.maxScore,
-      finalAnswerCorrect: attempt?.correct === true,
-      processCorrect: attempt?.correct === true && !processIssue.hasIssue,
-      answerCorrectButProcessIssue: attempt?.correct === true && processIssue.hasIssue,
+      finalAnswerCorrect: grading.isCorrect === true,
+      processCorrect: grading.isCorrect === true && !processIssue.hasIssue,
+      answerCorrectButProcessIssue: grading.status === "PARTIAL" || (grading.isCorrect === true && processIssue.hasIssue),
       needsDeepDiagnosis,
       analysisDepth: needsDeepDiagnosis ? "deep" : "light",
       processIssue,
-      gradingStatus: attempt?.gradingStatus || "missing",
+      gradingCanonicalStatus: grading.status,
+      gradingStatus: grading.legacyGradingStatus || attempt?.gradingStatus || "missing",
+      gradingResult: grading,
+      gradingTrace: attempt?.gradingTrace || { ...grading, diagnosisTriggered: Boolean(grading.diagnosisTriggered) },
       errorTypes: needsDeepDiagnosis ? [processIssue.reason || reason] : [],
-      deductionReason: needsDeepDiagnosis ? (processIssue.reason || reason) : "正确题仅记录结果",
+      deductionReason: needsDeepDiagnosis ? (processIssue.reason || reason) : grading.status === "CORRECT" ? "正确题仅记录结果" : grading.reason,
       firstErrorStep: firstWrong?.stepNumber || null,
       lastCorrectStep: lastCorrect?.stepNumber || null,
       errorTag,
@@ -1821,10 +1895,12 @@ function buildSubmissionDiagnosis(store, submission) {
   });
   const totalScore = questionAnalyses.reduce((sum, item) => sum + item.score, 0);
   const totalMax = Math.max(1, questionAnalyses.reduce((sum, item) => sum + item.maxScore, 0));
-  const correctCount = questionAnalyses.filter((item) => item.finalAnswerCorrect).length;
-  const unansweredCount = attempts.filter((attempt) => attempt.abandoned).length + Math.max(0, questions.length - attempts.length);
-  const objectiveScore = questionAnalyses.filter((item) => ["choice", "fill"].includes(item.type)).reduce((sum, item) => sum + item.score, 0);
-  const subjectiveScore = questionAnalyses.filter((item) => !["choice", "fill"].includes(item.type)).reduce((sum, item) => sum + item.score, 0);
+  const correctCount = questionAnalyses.filter((item) => item.gradingCanonicalStatus === "CORRECT").length;
+  const unansweredCount = questionAnalyses.filter((item) => item.gradingCanonicalStatus === "EMPTY").length;
+  const recognitionFailedCount = questionAnalyses.filter((item) => ["RECOGNITION_FAILED", "NEEDS_MANUAL_REVIEW"].includes(item.gradingCanonicalStatus)).length;
+  const objectiveTypes = ["single_choice", "multiple_choice", "true_false", "fill_blank", "numeric"];
+  const objectiveScore = questionAnalyses.filter((item) => objectiveTypes.includes(item.type)).reduce((sum, item) => sum + item.score, 0);
+  const subjectiveScore = questionAnalyses.filter((item) => !objectiveTypes.includes(item.type)).reduce((sum, item) => sum + item.score, 0);
   const byType = {};
   const byChapter = {};
   const byKnowledge = {};
@@ -1833,18 +1909,18 @@ function buildSubmissionDiagnosis(store, submission) {
     byType[item.typeLabel].score += item.score;
     byType[item.typeLabel].maxScore += item.maxScore;
     byType[item.typeLabel].total += 1;
-    if (item.finalAnswerCorrect) byType[item.typeLabel].correct += 1;
+      if (item.gradingCanonicalStatus === "CORRECT") byType[item.typeLabel].correct += 1;
     byChapter[item.chapterName] = byChapter[item.chapterName] || { score: 0, maxScore: 0, total: 0, correct: 0 };
     byChapter[item.chapterName].score += item.score;
     byChapter[item.chapterName].maxScore += item.maxScore;
     byChapter[item.chapterName].total += 1;
-    if (item.finalAnswerCorrect) byChapter[item.chapterName].correct += 1;
+    if (item.gradingCanonicalStatus === "CORRECT") byChapter[item.chapterName].correct += 1;
     item.knowledgePoints.forEach((point) => {
       byKnowledge[point] = byKnowledge[point] || { score: 0, maxScore: 0, total: 0, correct: 0, status: "" };
       byKnowledge[point].score += item.score;
       byKnowledge[point].maxScore += item.maxScore;
       byKnowledge[point].total += 1;
-      if (item.finalAnswerCorrect) byKnowledge[point].correct += 1;
+      if (item.gradingCanonicalStatus === "CORRECT") byKnowledge[point].correct += 1;
     });
   });
   Object.values(byKnowledge).forEach((item) => {
@@ -1896,7 +1972,8 @@ function buildSubmissionDiagnosis(store, submission) {
       totalMax,
       scoreRate: percent,
       correctCount,
-      wrongCount: questionAnalyses.filter((item) => !item.finalAnswerCorrect).length,
+      wrongCount: questionAnalyses.filter((item) => ["INCORRECT", "PARTIAL"].includes(item.gradingCanonicalStatus)).length,
+      recognitionFailedCount,
       deepDiagnosisCount: questionAnalyses.filter((item) => item.needsDeepDiagnosis).length,
       lightRecordCount: questionAnalyses.filter((item) => !item.needsDeepDiagnosis).length,
       unansweredCount,
@@ -2031,61 +2108,61 @@ function isTrainingBatchReady(batch) {
 
 async function gradeTrainingQuestion(question, body = {}) {
   const answer = body.answer || body.selectedOption || body.formulaText || "";
-  if (question.questionType !== "choice") {
-    const sourceQuestion = {
-      ...question,
-      id: question.sourceWrongQuestionId || question.id,
-      type: question.questionType,
-      point: question.knowledgePoint || question.subKnowledgePoint,
-      chapterName: question.chapterName || "考研数学",
-      detailedSolution: question.detailedSolution || null,
-      explanation: question.detailedSolution?.methodSummary || question.explanation || ""
-    };
-    const recognition = await recognizeScratch(sourceQuestion, body);
-    const recognizedAnswer = recognition.recognizedAnswer || answer;
-    const correct = recognition.modelJudgment && typeof recognition.isCorrect === "boolean"
-      ? recognition.isCorrect
-      : (recognizedAnswer ? equivalentAnswer(question.answer, recognizedAnswer) : null);
-    const usedHints = Number(body.hintLevelUsed || 0);
-    return {
-      correct,
-      repeatedOriginalError: correct === false && `${body.stepsText || recognizedAnswer} `.includes(question.sourceErrorType || ""),
-      score: correct === true ? (usedHints >= 3 ? 70 : usedHints ? 85 : 100) : 0,
-      gradingStatus: recognition.recognitionError ? "recognition_error" : recognition.modelJudgment ? "ai_reviewed" : "pending_recognition",
-      recognizedAnswer,
-      recognizedSteps: recognition.stepsSummary || "",
-      structuredSteps: recognition.structuredSteps || [],
-      firstWrongStep: Number(recognition.firstWrongStep || 0),
-      processHasIssue: Boolean(recognition.processHasIssue),
-      processIssueReason: recognition.processIssueReason || "",
-      errorType: recognition.errorType || "",
-      weakPoint: recognition.weakPoint || question.knowledgePoint || "",
-      advice: recognition.advice || "",
-      recognitionConfidence: Number(recognition.confidence || 0),
-      recognitionEngine: recognition.engine || "scratch-recognition-not-connected",
-      recognitionError: recognition.recognitionError || ""
-    };
-  }
-  const selectedAnswer = body.selectedOption || answer;
-  const correct = selectedAnswer ? equivalentAnswer(question.answer, selectedAnswer) : null;
+  const sourceQuestion = {
+    ...question,
+    id: question.sourceWrongQuestionId || question.id,
+    type: question.questionType,
+    point: question.knowledgePoint || question.subKnowledgePoint,
+    chapterName: question.chapterName || "考研数学",
+    detailedSolution: question.detailedSolution || null,
+    explanation: question.detailedSolution?.methodSummary || question.explanation || ""
+  };
+  const { recognition, finalAnswer, grading } = await evaluateQuestionSubmission(sourceQuestion, body);
+  const recognizedAnswer = recognition.recognizedAnswer || finalAnswer || answer;
   const usedHints = Number(body.hintLevelUsed || 0);
   return {
-    correct,
-    repeatedOriginalError: correct === false && String(body.stepsText || selectedAnswer).includes(question.sourceErrorType),
-    score: correct === true ? (usedHints >= 3 ? 70 : usedHints ? 85 : 100) : 0,
-    gradingStatus: correct === null ? "pending_recognition" : "graded"
+    correct: grading.isCorrect,
+    repeatedOriginalError: grading.status === "INCORRECT" && String(body.stepsText || recognizedAnswer).includes(question.sourceErrorType || ""),
+    score: grading.isCorrect === true ? (usedHints >= 3 ? 70 : usedHints ? 85 : grading.score) : grading.score,
+    gradingStatus: grading.legacyGradingStatus,
+    gradingResult: grading,
+    recognizedAnswer,
+    recognizedSteps: recognition.stepsSummary || "",
+    structuredSteps: recognition.structuredSteps || [],
+    firstWrongStep: Number(recognition.firstWrongStep || 0),
+    processHasIssue: Boolean(recognition.processHasIssue),
+    processIssueReason: recognition.processIssueReason || "",
+    errorType: recognition.errorType || "",
+    weakPoint: recognition.weakPoint || question.knowledgePoint || "",
+    advice: recognition.advice || "",
+    recognitionConfidence: Number(recognition.confidence || 0),
+    recognitionEngine: recognition.engine || "scratch-recognition-not-connected",
+    recognitionError: recognition.recognitionError || ""
   };
+}
+
+function canonicalTrainingResult(batch, record) {
+  const question = batch?.questions?.find((item) => item.id === record?.trainingQuestionId) || {};
+  if (record?.gradingResult?.status) return record.gradingResult;
+  return runCanonicalGrading(question, record || {}, { legacyCorrect: typeof record?.correct === "boolean" ? record.correct : undefined });
 }
 
 function detectProcessIssue(question, attempt, steps = []) {
   if (!attempt) {
     return { hasIssue: true, reason: "未检测到作答记录", severity: "high" };
   }
-  if (attempt.gradingStatus === "recognition_error") {
-    return { hasIssue: true, reason: "手写内容识别不确定", severity: "medium" };
+  const grading = canonicalResultForAttempt(question, attempt);
+  if (["RECOGNITION_FAILED", "EMPTY", "NEEDS_MANUAL_REVIEW"].includes(grading.status)) {
+    return { hasIssue: false, reason: "", severity: "none" };
   }
-  if (attempt.correct !== true) {
+  if (attempt.gradingStatus === "recognition_error") {
+    return { hasIssue: false, reason: "", severity: "none" };
+  }
+  if (grading.status === "INCORRECT") {
     return { hasIssue: true, reason: reasonForAttempt(question, attempt), severity: "high" };
+  }
+  if (grading.status === "PARTIAL") {
+    return { hasIssue: true, reason: attempt.processIssueReason || "结果正确但过程存在问题", severity: "medium" };
   }
   if (attempt.processHasIssue) {
     return { hasIssue: true, reason: attempt.processIssueReason || "结果正确但过程存在问题", severity: "medium" };
@@ -2095,7 +2172,7 @@ function detectProcessIssue(question, attempt, steps = []) {
     || attempt.scratchImageStored
     || attempt.answerImageStored
     || (Array.isArray(attempt.structuredSteps) && attempt.structuredSteps.length);
-  if (!["choice", "fill"].includes(question?.type) && !hasStudentProcess) {
+  if (grading.questionType === "subjective" && !hasStudentProcess) {
     return { hasIssue: true, reason: "结果正确但主观题缺少可复核过程", severity: "medium" };
   }
   if (Number(attempt.recognitionConfidence || 0) > 0 && Number(attempt.recognitionConfidence || 0) < 70) {
@@ -2134,8 +2211,9 @@ function normalizeWeakPoint(question, attempt) {
 
 function reasonForAttempt(question, attempt) {
   const raw = String(attempt?.reason || "").trim();
-  if (!attempt || attempt.correct === null || attempt.gradingStatus === "pending_recognition") return "过程识别不足";
-  if (attempt.correct) return "已掌握";
+  const grading = canonicalResultForAttempt(question, attempt);
+  if (!attempt || ["EMPTY", "RECOGNITION_FAILED", "NEEDS_MANUAL_REVIEW"].includes(grading.status)) return grading.status === "EMPTY" ? "未作答" : "过程识别不足";
+  if (grading.status === "CORRECT") return "已掌握";
   return raw && !["已掌握", "待识别"].includes(raw) ? raw : (question?.reason || "解题方法选择错误");
 }
 
@@ -2193,10 +2271,11 @@ function buildStructuredStepAnalysis(question, attempt, weakPoint, maxScore) {
 function buildStepAnalysis(question, attempt) {
   const weakPoint = normalizeWeakPoint(question, attempt);
   const reason = reasonForAttempt(question, attempt);
+  const grading = canonicalResultForAttempt(question, attempt);
   const { maxScore } = scoreForAttempt(question, attempt);
   const structuredSteps = buildStructuredStepAnalysis(question, attempt, weakPoint, maxScore);
   if (structuredSteps.length) return structuredSteps;
-  if (!attempt || attempt.correct === null || attempt.gradingStatus === "pending_recognition") {
+  if (!attempt || ["EMPTY", "RECOGNITION_FAILED", "NEEDS_MANUAL_REVIEW"].includes(grading.status)) {
     return [{
       stepNumber: 1,
       status: "blank",
@@ -2210,7 +2289,7 @@ function buildStepAnalysis(question, attempt) {
       relatedKnowledgePoint: weakPoint
     }];
   }
-  if (attempt.correct) {
+  if (grading.status === "CORRECT") {
     return [{
       stepNumber: 1,
       status: "correct",
@@ -2224,7 +2303,7 @@ function buildStepAnalysis(question, attempt) {
       relatedKnowledgePoint: weakPoint
     }];
   }
-  const partial = scoreForAttempt(question, attempt).score;
+  const partial = grading.score;
   return [
     {
       stepNumber: 1,
@@ -2317,24 +2396,26 @@ function buildLearningLoopFor(store, studentId, demo = false) {
   if (!attempts.length) return buildDemoLoop();
   const questionAnalyses = attempts.map((attempt) => {
     const question = store.questions.find((q) => q.id === attempt.questionId) || {};
-    const { score, maxScore } = scoreForAttempt(question, attempt);
+    const { score, maxScore, grading } = scoreForAttempt(question, attempt);
     const reason = reasonForAttempt(question, attempt);
     return {
-      typeLabel: typeLabelFor(question.type),
+      typeLabel: typeLabelFor(grading.questionType),
       score,
       maxScore,
-      finalAnswerCorrect: attempt.correct === true,
+      finalAnswerCorrect: grading.isCorrect === true,
       title: question.stem || question.point || question.chapterName || "未命名题目",
       studentAnswer: attempt.recognizedAnswer || attempt.answer || attempt.selectedOption || "",
       standardAnswer: question.answer || "待校对",
-      errorTypes: attempt.correct ? [] : [reason],
+      errorTypes: grading.diagnosisTriggered ? [reason] : [],
+      gradingCanonicalStatus: grading.status,
+      gradingResult: grading,
       knowledgePoints: [normalizeWeakPoint(question, attempt)],
       steps: buildStepAnalysis(question, attempt)
     };
   });
   const totalScore = questionAnalyses.reduce((sum, item) => sum + item.score, 0);
   const totalMax = Math.max(1, questionAnalyses.reduce((sum, item) => sum + item.maxScore, 0));
-  const wrongItems = questionAnalyses.filter((item) => !item.finalAnswerCorrect);
+  const wrongItems = questionAnalyses.filter((item) => ["INCORRECT", "PARTIAL"].includes(item.gradingCanonicalStatus));
   const weakKnowledgePoints = Array.from(new Set(wrongItems.flatMap((item) => item.knowledgePoints))).slice(0, 5);
   const weakReasons = Array.from(new Set(wrongItems.flatMap((item) => item.errorTypes))).slice(0, 5);
   const accuracy = Math.round(totalScore / totalMax * 100);
@@ -2385,7 +2466,7 @@ function buildLearningLoopFor(store, studentId, demo = false) {
 }
 
 function enrichMistakeLoop(loop) {
-  const first = loop.diagnosis?.questionAnalyses?.find((item) => !item.finalAnswerCorrect) || loop.diagnosis?.questionAnalyses?.[0] || {};
+  const first = loop.diagnosis?.questionAnalyses?.find((item) => ["INCORRECT", "PARTIAL"].includes(item.gradingCanonicalStatus)) || loop.diagnosis?.questionAnalyses?.[0] || {};
   const firstWrongStep = first.steps?.find((step) => step.status !== "correct") || first.steps?.[0] || {};
   const knowledgePoint = first.knowledgePoints?.[0] || loop.diagnosis?.weakKnowledgePoints?.[0] || "当前薄弱知识点";
   const errorType = first.errorTypes?.[0] || "知识点应用错误";
