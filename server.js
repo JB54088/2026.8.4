@@ -10,6 +10,7 @@ const ROOT = __dirname;
 const PUBLIC = path.join(ROOT, "public");
 const DB_FILE = path.join(ROOT, "data", "db.json");
 const QUESTION_CATALOG_FILE = path.join(ROOT, "data", "question-catalog.json");
+const IMPORTED_SOURCE_TYPE = "past_exam";
 let questionCatalogCache = null;
 
 function loadEnvFile() {
@@ -94,7 +95,7 @@ function db() {
       saveDb(store);
     }
   }
-  if (applyQuestionCatalog(store)) saveDb(store);
+  if (applyQuestionCatalog(store) || applyImportedQuestions(store)) saveDb(store);
   if (!Array.isArray(store.submissions)) {
     store.submissions = [];
     saveDb(store);
@@ -119,6 +120,20 @@ function readPastExamQuestions() {
   const file = path.join(ROOT, "data", "past-exam-questions.json");
   if (!fs.existsSync(file)) return [];
   return readJson(file);
+}
+
+function applyImportedQuestions(store) {
+  const imported = readPastExamQuestions().filter((question) => question.sourceType === IMPORTED_SOURCE_TYPE);
+  if (!imported.length) return false;
+  const existingIds = new Set(store.questions.map((question) => question.id));
+  let changed = false;
+  imported.forEach((question) => {
+    if (existingIds.has(question.id)) return;
+    store.questions.push(question);
+    existingIds.add(question.id);
+    changed = true;
+  });
+  return changed;
 }
 
 function id(prefix) {
@@ -965,7 +980,7 @@ async function api(req, res) {
 
   if (req.method === "GET" && url.pathname === "/api/bootstrap") {
     send(res, 200, {
-      chapters: chapterSummary(store.questions),
+      chapters: chapterSummary(store.questions.filter((question) => question.sourceType === IMPORTED_SOURCE_TYPE)),
       inviteCodes: store.students.map((s) => s.inviteCode),
       pastExamSources: readPastExamSources(),
       aiStatus: {
@@ -1070,25 +1085,16 @@ async function api(req, res) {
     const chapterId = url.searchParams.get("chapterId") || "integral";
     const count = 20;
     const difficulty = url.searchParams.get("difficulty") || "all";
-    const sourceType = url.searchParams.get("sourceType") || "all";
+    const sourceType = IMPORTED_SOURCE_TYPE;
     const mode = url.searchParams.get("mode") || "reinforce";
     const attempts = store.attempts.filter((a) => a.studentId === student.id);
     const attemptedIds = new Set(attempts.map((a) => a.questionId));
     const mathType = student.mathType || "数学二";
-    let pool = store.questions.filter((q) => q.subjects.includes(mathType) && (chapterId === "all" || q.chapterId === chapterId));
-    if (!pool.length && chapterId === "all") pool = store.questions.filter((q) => q.subjects.includes(mathType));
-    if (sourceType !== "past_exam") {
-      const standardPool = pool.filter((q) => q.qualityTier === "exam_standard");
-      if (standardPool.length >= Math.min(count, 10)) {
-        pool = standardPool;
-      } else if (standardPool.length) {
-        const supplements = pool.filter((q) => q.qualityTier !== "exam_standard");
-        pool = [...standardPool, ...supplements];
-      }
-    }
+    let pool = store.questions.filter((q) => q.sourceType === IMPORTED_SOURCE_TYPE && q.subjects.includes(mathType) && (chapterId === "all" || q.chapterId === chapterId));
+    if (!pool.length && chapterId === "all") pool = store.questions.filter((q) => q.sourceType === IMPORTED_SOURCE_TYPE && q.subjects.includes(mathType));
     const basePool = pool;
-    const sourcePool = sourceType !== "all" ? basePool.filter((q) => q.sourceType === sourceType) : basePool;
-    if (sourceType === "past_exam" && !sourcePool.length) {
+    const sourcePool = basePool;
+    if (!sourcePool.length) {
       return send(res, 200, {
         questions: [],
         chapterId,

@@ -19,7 +19,8 @@
   const sessionId = localStorage.getItem("demoSessionId") || crypto.randomUUID();
   localStorage.setItem("demoSessionId", sessionId);
 
-  const chapters = [
+  const IMPORTED_SOURCE_TYPE = "past_exam";
+  let chapters = [
     { id: "limit", name: "函数、极限与连续", subjects: ["数学一", "数学二", "数学三"], count: 24 },
     { id: "diff", name: "一元函数微分学", subjects: ["数学一", "数学二", "数学三"], count: 28 },
     { id: "integral", name: "一元函数积分学", subjects: ["数学一", "数学二", "数学三"], count: 30 },
@@ -58,6 +59,10 @@
     q("past_2012_math2_q01", ["数学二"], "past_exam_2012_math2", "2012 数学二真题", "选择题第1题", "真题切片练习", "choice", "历年真题", 4, "2012年考研数学二第1题", ["A", "B", "C", "D"], "A", "演示版保留真题切片样式，正式答案可由教研校对后启用。", { sourceType: "past_exam", source: "2012 数学二真题", qualityTier: "past_exam_image", stemImage: "past-exam-slices/2012-math2/q01.jpg" }),
     q("past_2012_math2_q02", ["数学二"], "past_exam_2012_math2", "2012 数学二真题", "选择题第2题", "真题切片练习", "choice", "历年真题", 4, "2012年考研数学二第2题", ["A", "B", "C", "D"], "B", "演示版保留真题切片样式，正式答案可由教研校对后启用。", { sourceType: "past_exam", source: "2012 数学二真题", qualityTier: "past_exam_image", stemImage: "past-exam-slices/2012-math2/q02.jpg" })
   ];
+
+  // The public demo exposes only the colleague-imported question set.
+  questions = questions.filter((item) => item.sourceType === IMPORTED_SOURCE_TYPE);
+  chapters = chapters.filter((chapter) => questions.some((item) => item.chapterId === chapter.id));
 
   // The public demo has no server-side database. Expand each chapter from reviewed
   // seed questions so the fixed 20-question flow is still usable and refreshable.
@@ -430,12 +435,25 @@
   const originalFetch = window.fetch.bind(window);
   let questionCatalogReady = Promise.resolve();
   if (isStaticHost) {
-    const catalogUrl = `${window.__APP_BASE_PATH__ || ""}/question-catalog.json?v=20260812-solutions`;
+    const catalogUrl = `${window.__APP_BASE_PATH__ || ""}/imported-question-catalog.json?v=20260813-imported-only`;
     questionCatalogReady = originalFetch(catalogUrl)
       .then((response) => response.ok ? response.json() : null)
       .then((catalog) => {
         if (!catalog || !Array.isArray(catalog.questions) || !catalog.questions.length) return;
-        questions = catalog.questions;
+        questions = catalog.questions.filter((item) => item.sourceType === IMPORTED_SOURCE_TYPE);
+        const importedChapters = new Map();
+        questions.forEach((item) => {
+          if (!importedChapters.has(item.chapterId)) {
+            importedChapters.set(item.chapterId, {
+              id: item.chapterId,
+              name: item.chapterName || item.chapterId,
+              subjects: item.subjects || [],
+              count: 0
+            });
+          }
+          importedChapters.get(item.chapterId).count += 1;
+        });
+        chapters = Array.from(importedChapters.values());
         chapters.forEach((chapter) => {
           const available = questions.filter((item) => item.chapterId === chapter.id);
           chapter.count = available.length;
@@ -458,7 +476,6 @@
     // downloads in the background. Catalog-backed endpoints still wait for it.
     const catalogFreePaths = new Set([
       "/api/health",
-      "/api/bootstrap",
       "/api/past-exam-sources",
       "/api/login",
       "/api/demo/reset"
@@ -488,12 +505,11 @@
       const chapterId = url.searchParams.get("chapterId") || "integral";
       const count = 20;
       const difficulty = url.searchParams.get("difficulty") || "all";
-      const sourceType = url.searchParams.get("sourceType") || "all";
+      const sourceType = IMPORTED_SOURCE_TYPE;
       const mode = url.searchParams.get("mode") || "reinforce";
-      let pool = questions.filter((item) => item.subjects.includes(student.mathType) && (chapterId === "all" || item.chapterId === chapterId));
-      if (sourceType !== "all") pool = pool.filter((item) => item.sourceType === sourceType);
+      let pool = questions.filter((item) => item.sourceType === IMPORTED_SOURCE_TYPE && item.subjects.includes(student.mathType) && (chapterId === "all" || item.chapterId === chapterId));
       if (!["all", "mode"].includes(difficulty)) pool = pool.filter((item) => String(item.difficulty) === String(difficulty));
-      if (!pool.length && chapterId === "all") pool = questions.filter((item) => item.subjects.includes(student.mathType));
+      if (!pool.length && chapterId === "all") pool = questions.filter((item) => item.sourceType === IMPORTED_SOURCE_TYPE && item.subjects.includes(student.mathType));
       const modeDifficulty = { foundation: ["1", "2"], reinforce: ["3", "4"], mock: ["1", "2", "3", "4", "5"] }[mode] || ["3", "4"];
       const modePool = ["all", "mode"].includes(difficulty) ? pool.filter((item) => modeDifficulty.includes(String(item.difficulty))) : pool;
       const candidates = uniqueQuestions(modePool.length >= count ? modePool : pool);
