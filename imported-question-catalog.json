@@ -1,0 +1,2599 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-08-13T00:59:22.075Z",
+  "source": "colleague-imported-questions",
+  "questionCount": 53,
+  "questions": [
+    {
+      "id": "past_2012_math2_q01",
+      "subjects": [
+        "数学二"
+      ],
+      "chapterId": "past_exam_2012_math2",
+      "chapterName": "2012 数学二真题",
+      "point": "选择题第1题",
+      "reason": "真题待校对",
+      "type": "choice",
+      "level": "历年真题",
+      "difficulty": 4,
+      "stem": "2012年考研数学二第1题",
+      "stemImage": "/past-exam-slices/2012-math2/q01.jpg",
+      "options": [
+        "A",
+        "B",
+        "C",
+        "D"
+      ],
+      "answer": "",
+      "answerStatus": "pending_review",
+      "aliases": [],
+      "explanation": "来源图片已切成单题卡，标准答案待人工校对后启用自动判分。",
+      "sourceType": "past_exam",
+      "source": "2012 数学二真题",
+      "reviewStatus": "题干图片已切片，答案待校对",
+      "qualityTier": "past_exam_image",
+      "detailedSolution": {
+        "version": 1,
+        "status": "pending_teacher_review",
+        "generatedBy": "math-solution-engine-v1",
+        "examFocus": "本题考查2012 数学二真题中的选择题第1题。先把题干条件翻译成数学关系，再选择公式并逐步计算。",
+        "preAnalysis": "读题时先标出已知量、所求量、定义域和限制条件，确认每一步变形都在题目允许的范围内。",
+        "formulas": [
+          "先写出定义、公式和适用条件",
+          "每一步保留等号或等价号的依据",
+          "最后检查定义域、符号、范围和题目问法"
+        ],
+        "conditions": "使用公式前必须满足题目给出的定义域、连续性、可导性、独立性、矩阵维数或收敛判别条件。",
+        "steps": [
+          {
+            "order": 1,
+            "title": "第1步：提取条件",
+            "content": "明确题目给出的量、关系式和最终所求，不能只看最后一个空。"
+          },
+          {
+            "order": 2,
+            "title": "第2步：选择方法",
+            "content": "根据选择题第1题选择对应定义或公式，并先确认公式的适用条件。"
+          },
+          {
+            "order": 3,
+            "title": "第3步：逐步推导",
+            "content": "来源图片已切成单题卡，标准答案待人工校对后启用自动判分。"
+          },
+          {
+            "order": 4,
+            "title": "第4步：检查结论",
+            "content": "得到待教研校对。回代原条件，检查符号、定义域、单位和结论是否真正回答了题目。"
+          }
+        ],
+        "finalAnswer": "待教研校对",
+        "commonPitfall": "本题容易在真题待校对处出错。不要跳过关键中间步骤，做完后再次核对最后一步。",
+        "methodSummary": "来源图片已切成单题卡，标准答案待人工校对后启用自动判分。",
+        "sourceExplanation": "来源图片已切成单题卡，标准答案待人工校对后启用自动判分。"
+      },
+      "solutionVersion": 1,
+      "solutionStatus": "pending_teacher_review"
+    },
+    {
+      "id": "past_2012_math2_q02",
+      "subjects": [
+        "数学二"
+      ],
+      "chapterId": "past_exam_2012_math2",
+      "chapterName": "2012 数学二真题",
+      "point": "选择题第2题",
+      "reason": "真题待校对",
+      "type": "choice",
+      "level": "历年真题",
+      "difficulty": 4,
+      "stem": "2012年考研数学二第2题",
+      "stemImage": "/past-exam-slices/2012-math2/q02.jpg",
+      "options": [
+        "A",
+        "B",
+        "C",
+        "D"
+      ],
+      "answer": "",
+      "answerStatus": "pending_review",
+      "aliases": [],
+      "explanation": "来源图片已切成单题卡，标准答案待人工校对后启用自动判分。",
+      "sourceType": "past_exam",
+      "source": "2012 数学二真题",
+      "reviewStatus": "题干图片已切片，答案待校对",
+      "qualityTier": "past_exam_image",
+      "detailedSolution": {
+        "version": 1,
+        "status": "pending_teacher_review",
+        "generatedBy": "math-solution-engine-v1",
+        "examFocus": "本题考查2012 数学二真题中的选择题第2题。先把题干条件翻译成数学关系，再选择公式并逐步计算。",
+        "preAnalysis": "读题时先标出已知量、所求量、定义域和限制条件，确认每一步变形都在题目允许的范围内。",
+        "formulas": [
+          "先写出定义、公式和适用条件",
+          "每一步保留等号或等价号的依据",
+          "最后检查定义域、符号、范围和题目问法"
+        ],
+        "conditions": "使用公式前必须满足题目给出的定义域、连续性、可导性、独立性、矩阵维数或收敛判别条件。",
+        "steps": [
+          {
+            "order": 1,
+            "title": "第1步：提取条件",
+            "content": "明确题目给出的量、关系式和最终所求，不能只看最后一个空。"
+          },
+          {
+            "order": 2,
+            "title": "第2步：选择方法",
+            "content": "根据选择题第2题选择对应定义或公式，并先确认公式的适用条件。"
+          },
+          {
+            "order": 3,
+            "title": "第3步：逐步推导",
+            "content": "来源图片已切成单题卡，标准答案待人工校对后启用自动判分。"
+          },
+          {
+            "order": 4,
+            "title": "第4步：检查结论",
+            "content": "得到待教研校对。回代原条件，检查符号、定义域、单位和结论是否真正回答了题目。"
+          }
+        ],
+        "finalAnswer": "待教研校对",
+        "commonPitfall": "本题容易在真题待校对处出错。不要跳过关键中间步骤，做完后再次核对最后一步。",
+        "methodSummary": "来源图片已切成单题卡，标准答案待人工校对后启用自动判分。",
+        "sourceExplanation": "来源图片已切成单题卡，标准答案待人工校对后启用自动判分。"
+      },
+      "solutionVersion": 1,
+      "solutionStatus": "pending_teacher_review"
+    },
+    {
+      "id": "past_2012_math2_q03",
+      "subjects": [
+        "数学二"
+      ],
+      "chapterId": "past_exam_2012_math2",
+      "chapterName": "2012 数学二真题",
+      "point": "选择题第3题",
+      "reason": "真题待校对",
+      "type": "choice",
+      "level": "历年真题",
+      "difficulty": 4,
+      "stem": "2012年考研数学二第3题",
+      "stemImage": "/past-exam-slices/2012-math2/q03.jpg",
+      "options": [
+        "A",
+        "B",
+        "C",
+        "D"
+      ],
+      "answer": "",
+      "answerStatus": "pending_review",
+      "aliases": [],
+      "explanation": "来源图片已切成单题卡，标准答案待人工校对后启用自动判分。",
+      "sourceType": "past_exam",
+      "source": "2012 数学二真题",
+      "reviewStatus": "题干图片已切片，答案待校对",
+      "qualityTier": "past_exam_image",
+      "detailedSolution": {
+        "version": 1,
+        "status": "pending_teacher_review",
+        "generatedBy": "math-solution-engine-v1",
+        "examFocus": "本题考查2012 数学二真题中的选择题第3题。先把题干条件翻译成数学关系，再选择公式并逐步计算。",
+        "preAnalysis": "读题时先标出已知量、所求量、定义域和限制条件，确认每一步变形都在题目允许的范围内。",
+        "formulas": [
+          "先写出定义、公式和适用条件",
+          "每一步保留等号或等价号的依据",
+          "最后检查定义域、符号、范围和题目问法"
+        ],
+        "conditions": "使用公式前必须满足题目给出的定义域、连续性、可导性、独立性、矩阵维数或收敛判别条件。",
+        "steps": [
+          {
+            "order": 1,
+            "title": "第1步：提取条件",
+            "content": "明确题目给出的量、关系式和最终所求，不能只看最后一个空。"
+          },
+          {
+            "order": 2,
+            "title": "第2步：选择方法",
+            "content": "根据选择题第3题选择对应定义或公式，并先确认公式的适用条件。"
+          },
+          {
+            "order": 3,
+            "title": "第3步：逐步推导",
+            "content": "来源图片已切成单题卡，标准答案待人工校对后启用自动判分。"
+          },
+          {
+            "order": 4,
+            "title": "第4步：检查结论",
+            "content": "得到待教研校对。回代原条件，检查符号、定义域、单位和结论是否真正回答了题目。"
+          }
+        ],
+        "finalAnswer": "待教研校对",
+        "commonPitfall": "本题容易在真题待校对处出错。不要跳过关键中间步骤，做完后再次核对最后一步。",
+        "methodSummary": "来源图片已切成单题卡，标准答案待人工校对后启用自动判分。",
+        "sourceExplanation": "来源图片已切成单题卡，标准答案待人工校对后启用自动判分。"
+      },
+      "solutionVersion": 1,
+      "solutionStatus": "pending_teacher_review"
+    },
+    {
+      "id": "past_2012_math2_q04",
+      "subjects": [
+        "数学二"
+      ],
+      "chapterId": "past_exam_2012_math2",
+      "chapterName": "2012 数学二真题",
+      "point": "选择题第4题",
+      "reason": "真题待校对",
+      "type": "choice",
+      "level": "历年真题",
+      "difficulty": 4,
+      "stem": "2012年考研数学二第4题",
+      "stemImage": "/past-exam-slices/2012-math2/q04.jpg",
+      "options": [
+        "A",
+        "B",
+        "C",
+        "D"
+      ],
+      "answer": "",
+      "answerStatus": "pending_review",
+      "aliases": [],
+      "explanation": "来源图片已切成单题卡，标准答案待人工校对后启用自动判分。",
+      "sourceType": "past_exam",
+      "source": "2012 数学二真题",
+      "reviewStatus": "题干图片已切片，答案待校对",
+      "qualityTier": "past_exam_image",
+      "detailedSolution": {
+        "version": 1,
+        "status": "pending_teacher_review",
+        "generatedBy": "math-solution-engine-v1",
+        "examFocus": "本题考查2012 数学二真题中的选择题第4题。先把题干条件翻译成数学关系，再选择公式并逐步计算。",
+        "preAnalysis": "读题时先标出已知量、所求量、定义域和限制条件，确认每一步变形都在题目允许的范围内。",
+        "formulas": [
+          "先写出定义、公式和适用条件",
+          "每一步保留等号或等价号的依据",
+          "最后检查定义域、符号、范围和题目问法"
+        ],
+        "conditions": "使用公式前必须满足题目给出的定义域、连续性、可导性、独立性、矩阵维数或收敛判别条件。",
+        "steps": [
+          {
+            "order": 1,
+            "title": "第1步：提取条件",
+            "content": "明确题目给出的量、关系式和最终所求，不能只看最后一个空。"
+          },
+          {
+            "order": 2,
+            "title": "第2步：选择方法",
+            "content": "根据选择题第4题选择对应定义或公式，并先确认公式的适用条件。"
+          },
+          {
+            "order": 3,
+            "title": "第3步：逐步推导",
+            "content": "来源图片已切成单题卡，标准答案待人工校对后启用自动判分。"
+          },
+          {
+            "order": 4,
+            "title": "第4步：检查结论",
+            "content": "得到待教研校对。回代原条件，检查符号、定义域、单位和结论是否真正回答了题目。"
+          }
+        ],
+        "finalAnswer": "待教研校对",
+        "commonPitfall": "本题容易在真题待校对处出错。不要跳过关键中间步骤，做完后再次核对最后一步。",
+        "methodSummary": "来源图片已切成单题卡，标准答案待人工校对后启用自动判分。",
+        "sourceExplanation": "来源图片已切成单题卡，标准答案待人工校对后启用自动判分。"
+      },
+      "solutionVersion": 1,
+      "solutionStatus": "pending_teacher_review"
+    },
+    {
+      "id": "past_2012_math2_q05",
+      "subjects": [
+        "数学二"
+      ],
+      "chapterId": "past_exam_2012_math2",
+      "chapterName": "2012 数学二真题",
+      "point": "选择题第5题",
+      "reason": "真题待校对",
+      "type": "choice",
+      "level": "历年真题",
+      "difficulty": 4,
+      "stem": "2012年考研数学二第5题",
+      "stemImage": "/past-exam-slices/2012-math2/q05.jpg",
+      "options": [
+        "A",
+        "B",
+        "C",
+        "D"
+      ],
+      "answer": "",
+      "answerStatus": "pending_review",
+      "aliases": [],
+      "explanation": "来源图片已切成单题卡，标准答案待人工校对后启用自动判分。",
+      "sourceType": "past_exam",
+      "source": "2012 数学二真题",
+      "reviewStatus": "题干图片已切片，答案待校对",
+      "qualityTier": "past_exam_image",
+      "detailedSolution": {
+        "version": 1,
+        "status": "pending_teacher_review",
+        "generatedBy": "math-solution-engine-v1",
+        "examFocus": "本题考查2012 数学二真题中的选择题第5题。先把题干条件翻译成数学关系，再选择公式并逐步计算。",
+        "preAnalysis": "读题时先标出已知量、所求量、定义域和限制条件，确认每一步变形都在题目允许的范围内。",
+        "formulas": [
+          "先写出定义、公式和适用条件",
+          "每一步保留等号或等价号的依据",
+          "最后检查定义域、符号、范围和题目问法"
+        ],
+        "conditions": "使用公式前必须满足题目给出的定义域、连续性、可导性、独立性、矩阵维数或收敛判别条件。",
+        "steps": [
+          {
+            "order": 1,
+            "title": "第1步：提取条件",
+            "content": "明确题目给出的量、关系式和最终所求，不能只看最后一个空。"
+          },
+          {
+            "order": 2,
+            "title": "第2步：选择方法",
+            "content": "根据选择题第5题选择对应定义或公式，并先确认公式的适用条件。"
+          },
+          {
+            "order": 3,
+            "title": "第3步：逐步推导",
+            "content": "来源图片已切成单题卡，标准答案待人工校对后启用自动判分。"
+          },
+          {
+            "order": 4,
+            "title": "第4步：检查结论",
+            "content": "得到待教研校对。回代原条件，检查符号、定义域、单位和结论是否真正回答了题目。"
+          }
+        ],
+        "finalAnswer": "待教研校对",
+        "commonPitfall": "本题容易在真题待校对处出错。不要跳过关键中间步骤，做完后再次核对最后一步。",
+        "methodSummary": "来源图片已切成单题卡，标准答案待人工校对后启用自动判分。",
+        "sourceExplanation": "来源图片已切成单题卡，标准答案待人工校对后启用自动判分。"
+      },
+      "solutionVersion": 1,
+      "solutionStatus": "pending_teacher_review"
+    },
+    {
+      "id": "past_2012_math2_q06",
+      "subjects": [
+        "数学二"
+      ],
+      "chapterId": "past_exam_2012_math2",
+      "chapterName": "2012 数学二真题",
+      "point": "选择题第6题",
+      "reason": "真题待校对",
+      "type": "choice",
+      "level": "历年真题",
+      "difficulty": 4,
+      "stem": "2012年考研数学二第6题",
+      "stemImage": "/past-exam-slices/2012-math2/q06.jpg",
+      "options": [
+        "A",
+        "B",
+        "C",
+        "D"
+      ],
+      "answer": "",
+      "answerStatus": "pending_review",
+      "aliases": [],
+      "explanation": "来源图片已切成单题卡，标准答案待人工校对后启用自动判分。",
+      "sourceType": "past_exam",
+      "source": "2012 数学二真题",
+      "reviewStatus": "题干图片已切片，答案待校对",
+      "qualityTier": "past_exam_image",
+      "detailedSolution": {
+        "version": 1,
+        "status": "pending_teacher_review",
+        "generatedBy": "math-solution-engine-v1",
+        "examFocus": "本题考查2012 数学二真题中的选择题第6题。先把题干条件翻译成数学关系，再选择公式并逐步计算。",
+        "preAnalysis": "读题时先标出已知量、所求量、定义域和限制条件，确认每一步变形都在题目允许的范围内。",
+        "formulas": [
+          "先写出定义、公式和适用条件",
+          "每一步保留等号或等价号的依据",
+          "最后检查定义域、符号、范围和题目问法"
+        ],
+        "conditions": "使用公式前必须满足题目给出的定义域、连续性、可导性、独立性、矩阵维数或收敛判别条件。",
+        "steps": [
+          {
+            "order": 1,
+            "title": "第1步：提取条件",
+            "content": "明确题目给出的量、关系式和最终所求，不能只看最后一个空。"
+          },
+          {
+            "order": 2,
+            "title": "第2步：选择方法",
+            "content": "根据选择题第6题选择对应定义或公式，并先确认公式的适用条件。"
+          },
+          {
+            "order": 3,
+            "title": "第3步：逐步推导",
+            "content": "来源图片已切成单题卡，标准答案待人工校对后启用自动判分。"
+          },
+          {
+            "order": 4,
+            "title": "第4步：检查结论",
+            "content": "得到待教研校对。回代原条件，检查符号、定义域、单位和结论是否真正回答了题目。"
+          }
+        ],
+        "finalAnswer": "待教研校对",
+        "commonPitfall": "本题容易在真题待校对处出错。不要跳过关键中间步骤，做完后再次核对最后一步。",
+        "methodSummary": "来源图片已切成单题卡，标准答案待人工校对后启用自动判分。",
+        "sourceExplanation": "来源图片已切成单题卡，标准答案待人工校对后启用自动判分。"
+      },
+      "solutionVersion": 1,
+      "solutionStatus": "pending_teacher_review"
+    },
+    {
+      "id": "past_2012_math2_q07",
+      "subjects": [
+        "数学二"
+      ],
+      "chapterId": "past_exam_2012_math2",
+      "chapterName": "2012 数学二真题",
+      "point": "选择题第7题",
+      "reason": "真题待校对",
+      "type": "choice",
+      "level": "历年真题",
+      "difficulty": 4,
+      "stem": "2012年考研数学二第7题",
+      "stemImage": "/past-exam-slices/2012-math2/q07.jpg",
+      "options": [
+        "A",
+        "B",
+        "C",
+        "D"
+      ],
+      "answer": "",
+      "answerStatus": "pending_review",
+      "aliases": [],
+      "explanation": "来源图片已切成单题卡，标准答案待人工校对后启用自动判分。",
+      "sourceType": "past_exam",
+      "source": "2012 数学二真题",
+      "reviewStatus": "题干图片已切片，答案待校对",
+      "qualityTier": "past_exam_image",
+      "detailedSolution": {
+        "version": 1,
+        "status": "pending_teacher_review",
+        "generatedBy": "math-solution-engine-v1",
+        "examFocus": "本题考查2012 数学二真题中的选择题第7题。先把题干条件翻译成数学关系，再选择公式并逐步计算。",
+        "preAnalysis": "读题时先标出已知量、所求量、定义域和限制条件，确认每一步变形都在题目允许的范围内。",
+        "formulas": [
+          "先写出定义、公式和适用条件",
+          "每一步保留等号或等价号的依据",
+          "最后检查定义域、符号、范围和题目问法"
+        ],
+        "conditions": "使用公式前必须满足题目给出的定义域、连续性、可导性、独立性、矩阵维数或收敛判别条件。",
+        "steps": [
+          {
+            "order": 1,
+            "title": "第1步：提取条件",
+            "content": "明确题目给出的量、关系式和最终所求，不能只看最后一个空。"
+          },
+          {
+            "order": 2,
+            "title": "第2步：选择方法",
+            "content": "根据选择题第7题选择对应定义或公式，并先确认公式的适用条件。"
+          },
+          {
+            "order": 3,
+            "title": "第3步：逐步推导",
+            "content": "来源图片已切成单题卡，标准答案待人工校对后启用自动判分。"
+          },
+          {
+            "order": 4,
+            "title": "第4步：检查结论",
+            "content": "得到待教研校对。回代原条件，检查符号、定义域、单位和结论是否真正回答了题目。"
+          }
+        ],
+        "finalAnswer": "待教研校对",
+        "commonPitfall": "本题容易在真题待校对处出错。不要跳过关键中间步骤，做完后再次核对最后一步。",
+        "methodSummary": "来源图片已切成单题卡，标准答案待人工校对后启用自动判分。",
+        "sourceExplanation": "来源图片已切成单题卡，标准答案待人工校对后启用自动判分。"
+      },
+      "solutionVersion": 1,
+      "solutionStatus": "pending_teacher_review"
+    },
+    {
+      "id": "past_2012_math2_q08",
+      "subjects": [
+        "数学二"
+      ],
+      "chapterId": "past_exam_2012_math2",
+      "chapterName": "2012 数学二真题",
+      "point": "选择题第8题",
+      "reason": "真题题意",
+      "type": "choice",
+      "level": "历年真题",
+      "difficulty": 4,
+      "stem": "2012年考研数学二第8题",
+      "stemImage": "/past-exam-slices/2012-math2/q08.jpg",
+      "options": [
+        "A",
+        "B",
+        "C",
+        "D"
+      ],
+      "answer": "B",
+      "answerStatus": "reviewed_from_source_image",
+      "aliases": [],
+      "explanation": "切片图下方可见本题答案标注为 B。",
+      "sourceType": "past_exam",
+      "source": "2012 数学二真题",
+      "reviewStatus": "题干图片已切片，答案已据图校对",
+      "qualityTier": "past_exam_image",
+      "detailedSolution": {
+        "version": 1,
+        "status": "ready",
+        "generatedBy": "math-solution-engine-v1",
+        "examFocus": "本题考查2012 数学二真题中的选择题第8题。先把题干条件翻译成数学关系，再选择公式并逐步计算。",
+        "preAnalysis": "读题时先标出已知量、所求量、定义域和限制条件，确认每一步变形都在题目允许的范围内。",
+        "formulas": [
+          "先写出定义、公式和适用条件",
+          "每一步保留等号或等价号的依据",
+          "最后检查定义域、符号、范围和题目问法"
+        ],
+        "conditions": "使用公式前必须满足题目给出的定义域、连续性、可导性、独立性、矩阵维数或收敛判别条件。",
+        "steps": [
+          {
+            "order": 1,
+            "title": "第1步：提取条件",
+            "content": "明确题目给出的量、关系式和最终所求，不能只看最后一个空。"
+          },
+          {
+            "order": 2,
+            "title": "第2步：选择方法",
+            "content": "根据选择题第8题选择对应定义或公式，并先确认公式的适用条件。"
+          },
+          {
+            "order": 3,
+            "title": "第3步：逐步推导",
+            "content": "切片图下方可见本题答案标注为 B。"
+          },
+          {
+            "order": 4,
+            "title": "第4步：检查结论",
+            "content": "得到B。回代原条件，检查符号、定义域、单位和结论是否真正回答了题目。"
+          }
+        ],
+        "finalAnswer": "B",
+        "commonPitfall": "本题容易在真题题意处出错。不要跳过关键中间步骤，做完后再次核对最后一步。",
+        "methodSummary": "切片图下方可见本题答案标注为 B。",
+        "sourceExplanation": "切片图下方可见本题答案标注为 B。"
+      },
+      "solutionVersion": 1,
+      "solutionStatus": "ready"
+    },
+    {
+      "id": "past_2012_math2_q09",
+      "subjects": [
+        "数学二"
+      ],
+      "chapterId": "past_exam_2012_math2",
+      "chapterName": "2012 数学二真题",
+      "point": "填空题第9题",
+      "reason": "真题待校对",
+      "type": "fill",
+      "level": "历年真题",
+      "difficulty": 4,
+      "stem": "2012年考研数学二第9题",
+      "stemImage": "/past-exam-slices/2012-math2/q09.jpg",
+      "options": [],
+      "answer": "",
+      "answerStatus": "pending_review",
+      "aliases": [],
+      "explanation": "来源图片已切成单题卡，标准答案待人工校对后启用自动判分。",
+      "sourceType": "past_exam",
+      "source": "2012 数学二真题",
+      "reviewStatus": "题干图片已切片，答案待校对",
+      "qualityTier": "past_exam_image",
+      "detailedSolution": {
+        "version": 1,
+        "status": "pending_teacher_review",
+        "generatedBy": "math-solution-engine-v1",
+        "examFocus": "本题考查2012 数学二真题中的填空题第9题。先把题干条件翻译成数学关系，再选择公式并逐步计算。",
+        "preAnalysis": "读题时先标出已知量、所求量、定义域和限制条件，确认每一步变形都在题目允许的范围内。",
+        "formulas": [
+          "先写出定义、公式和适用条件",
+          "每一步保留等号或等价号的依据",
+          "最后检查定义域、符号、范围和题目问法"
+        ],
+        "conditions": "使用公式前必须满足题目给出的定义域、连续性、可导性、独立性、矩阵维数或收敛判别条件。",
+        "steps": [
+          {
+            "order": 1,
+            "title": "第1步：提取条件",
+            "content": "明确题目给出的量、关系式和最终所求，不能只看最后一个空。"
+          },
+          {
+            "order": 2,
+            "title": "第2步：选择方法",
+            "content": "根据填空题第9题选择对应定义或公式，并先确认公式的适用条件。"
+          },
+          {
+            "order": 3,
+            "title": "第3步：逐步推导",
+            "content": "来源图片已切成单题卡，标准答案待人工校对后启用自动判分。"
+          },
+          {
+            "order": 4,
+            "title": "第4步：检查结论",
+            "content": "得到待教研校对。回代原条件，检查符号、定义域、单位和结论是否真正回答了题目。"
+          }
+        ],
+        "finalAnswer": "待教研校对",
+        "commonPitfall": "本题容易在真题待校对处出错。不要跳过关键中间步骤，做完后再次核对最后一步。",
+        "methodSummary": "来源图片已切成单题卡，标准答案待人工校对后启用自动判分。",
+        "sourceExplanation": "来源图片已切成单题卡，标准答案待人工校对后启用自动判分。"
+      },
+      "solutionVersion": 1,
+      "solutionStatus": "pending_teacher_review"
+    },
+    {
+      "id": "past_2012_math2_q10",
+      "subjects": [
+        "数学二"
+      ],
+      "chapterId": "past_exam_2012_math2",
+      "chapterName": "2012 数学二真题",
+      "point": "填空题第10题",
+      "reason": "真题待校对",
+      "type": "fill",
+      "level": "历年真题",
+      "difficulty": 4,
+      "stem": "2012年考研数学二第10题",
+      "stemImage": "/past-exam-slices/2012-math2/q10.jpg",
+      "options": [],
+      "answer": "",
+      "answerStatus": "pending_review",
+      "aliases": [],
+      "explanation": "来源图片已切成单题卡，标准答案待人工校对后启用自动判分。",
+      "sourceType": "past_exam",
+      "source": "2012 数学二真题",
+      "reviewStatus": "题干图片已切片，答案待校对",
+      "qualityTier": "past_exam_image",
+      "detailedSolution": {
+        "version": 1,
+        "status": "pending_teacher_review",
+        "generatedBy": "math-solution-engine-v1",
+        "examFocus": "本题考查2012 数学二真题中的填空题第10题。先把题干条件翻译成数学关系，再选择公式并逐步计算。",
+        "preAnalysis": "读题时先标出已知量、所求量、定义域和限制条件，确认每一步变形都在题目允许的范围内。",
+        "formulas": [
+          "先写出定义、公式和适用条件",
+          "每一步保留等号或等价号的依据",
+          "最后检查定义域、符号、范围和题目问法"
+        ],
+        "conditions": "使用公式前必须满足题目给出的定义域、连续性、可导性、独立性、矩阵维数或收敛判别条件。",
+        "steps": [
+          {
+            "order": 1,
+            "title": "第1步：提取条件",
+            "content": "明确题目给出的量、关系式和最终所求，不能只看最后一个空。"
+          },
+          {
+            "order": 2,
+            "title": "第2步：选择方法",
+            "content": "根据填空题第10题选择对应定义或公式，并先确认公式的适用条件。"
+          },
+          {
+            "order": 3,
+            "title": "第3步：逐步推导",
+            "content": "来源图片已切成单题卡，标准答案待人工校对后启用自动判分。"
+          },
+          {
+            "order": 4,
+            "title": "第4步：检查结论",
+            "content": "得到待教研校对。回代原条件，检查符号、定义域、单位和结论是否真正回答了题目。"
+          }
+        ],
+        "finalAnswer": "待教研校对",
+        "commonPitfall": "本题容易在真题待校对处出错。不要跳过关键中间步骤，做完后再次核对最后一步。",
+        "methodSummary": "来源图片已切成单题卡，标准答案待人工校对后启用自动判分。",
+        "sourceExplanation": "来源图片已切成单题卡，标准答案待人工校对后启用自动判分。"
+      },
+      "solutionVersion": 1,
+      "solutionStatus": "pending_teacher_review"
+    },
+    {
+      "id": "past_2012_math2_q11",
+      "subjects": [
+        "数学二"
+      ],
+      "chapterId": "past_exam_2012_math2",
+      "chapterName": "2012 数学二真题",
+      "point": "填空题第11题",
+      "reason": "真题待校对",
+      "type": "fill",
+      "level": "历年真题",
+      "difficulty": 4,
+      "stem": "2012年考研数学二第11题",
+      "stemHtml": "<p>（11）设 <span class=\"math\">z=f\\left(\\ln x+\\frac{1}{y}\\right)</span>，其中函数 <span class=\"math\">f(u)</span> 可微，则 <span class=\"math\">x\\frac{\\partial z}{\\partial x}+y^2\\frac{\\partial z}{\\partial y}=</span> ______。</p>",
+      "stemImage": "/past-exam-slices/2012-math2/q11.jpg",
+      "options": [],
+      "answer": "",
+      "answerStatus": "pending_review",
+      "aliases": [],
+      "explanation": "来源图片已切成单题卡，标准答案待人工校对后启用自动判分。",
+      "sourceType": "past_exam",
+      "source": "2012 数学二真题",
+      "reviewStatus": "题干图片已切片，答案待校对",
+      "qualityTier": "past_exam_image",
+      "detailedSolution": {
+        "version": 1,
+        "status": "pending_teacher_review",
+        "generatedBy": "math-solution-engine-v1",
+        "examFocus": "本题考查2012 数学二真题中的填空题第11题。先把题干条件翻译成数学关系，再选择公式并逐步计算。",
+        "preAnalysis": "读题时先标出已知量、所求量、定义域和限制条件，确认每一步变形都在题目允许的范围内。",
+        "formulas": [
+          "先写出定义、公式和适用条件",
+          "每一步保留等号或等价号的依据",
+          "最后检查定义域、符号、范围和题目问法"
+        ],
+        "conditions": "使用公式前必须满足题目给出的定义域、连续性、可导性、独立性、矩阵维数或收敛判别条件。",
+        "steps": [
+          {
+            "order": 1,
+            "title": "第1步：提取条件",
+            "content": "明确题目给出的量、关系式和最终所求，不能只看最后一个空。"
+          },
+          {
+            "order": 2,
+            "title": "第2步：选择方法",
+            "content": "根据填空题第11题选择对应定义或公式，并先确认公式的适用条件。"
+          },
+          {
+            "order": 3,
+            "title": "第3步：逐步推导",
+            "content": "来源图片已切成单题卡，标准答案待人工校对后启用自动判分。"
+          },
+          {
+            "order": 4,
+            "title": "第4步：检查结论",
+            "content": "得到待教研校对。回代原条件，检查符号、定义域、单位和结论是否真正回答了题目。"
+          }
+        ],
+        "finalAnswer": "待教研校对",
+        "commonPitfall": "本题容易在真题待校对处出错。不要跳过关键中间步骤，做完后再次核对最后一步。",
+        "methodSummary": "来源图片已切成单题卡，标准答案待人工校对后启用自动判分。",
+        "sourceExplanation": "来源图片已切成单题卡，标准答案待人工校对后启用自动判分。"
+      },
+      "solutionVersion": 1,
+      "solutionStatus": "pending_teacher_review"
+    },
+    {
+      "id": "past_2012_math2_q12",
+      "subjects": [
+        "数学二"
+      ],
+      "chapterId": "past_exam_2012_math2",
+      "chapterName": "2012 数学二真题",
+      "point": "填空题第12题",
+      "reason": "真题待校对",
+      "type": "fill",
+      "level": "历年真题",
+      "difficulty": 4,
+      "stem": "2012年考研数学二第12题",
+      "stemImage": "/past-exam-slices/2012-math2/q12.jpg",
+      "options": [],
+      "answer": "",
+      "answerStatus": "pending_review",
+      "aliases": [],
+      "explanation": "来源图片已切成单题卡，标准答案待人工校对后启用自动判分。",
+      "sourceType": "past_exam",
+      "source": "2012 数学二真题",
+      "reviewStatus": "题干图片已切片，答案待校对",
+      "qualityTier": "past_exam_image",
+      "detailedSolution": {
+        "version": 1,
+        "status": "pending_teacher_review",
+        "generatedBy": "math-solution-engine-v1",
+        "examFocus": "本题考查2012 数学二真题中的填空题第12题。先把题干条件翻译成数学关系，再选择公式并逐步计算。",
+        "preAnalysis": "读题时先标出已知量、所求量、定义域和限制条件，确认每一步变形都在题目允许的范围内。",
+        "formulas": [
+          "先写出定义、公式和适用条件",
+          "每一步保留等号或等价号的依据",
+          "最后检查定义域、符号、范围和题目问法"
+        ],
+        "conditions": "使用公式前必须满足题目给出的定义域、连续性、可导性、独立性、矩阵维数或收敛判别条件。",
+        "steps": [
+          {
+            "order": 1,
+            "title": "第1步：提取条件",
+            "content": "明确题目给出的量、关系式和最终所求，不能只看最后一个空。"
+          },
+          {
+            "order": 2,
+            "title": "第2步：选择方法",
+            "content": "根据填空题第12题选择对应定义或公式，并先确认公式的适用条件。"
+          },
+          {
+            "order": 3,
+            "title": "第3步：逐步推导",
+            "content": "来源图片已切成单题卡，标准答案待人工校对后启用自动判分。"
+          },
+          {
+            "order": 4,
+            "title": "第4步：检查结论",
+            "content": "得到待教研校对。回代原条件，检查符号、定义域、单位和结论是否真正回答了题目。"
+          }
+        ],
+        "finalAnswer": "待教研校对",
+        "commonPitfall": "本题容易在真题待校对处出错。不要跳过关键中间步骤，做完后再次核对最后一步。",
+        "methodSummary": "来源图片已切成单题卡，标准答案待人工校对后启用自动判分。",
+        "sourceExplanation": "来源图片已切成单题卡，标准答案待人工校对后启用自动判分。"
+      },
+      "solutionVersion": 1,
+      "solutionStatus": "pending_teacher_review"
+    },
+    {
+      "id": "past_2012_math2_q13",
+      "subjects": [
+        "数学二"
+      ],
+      "chapterId": "past_exam_2012_math2",
+      "chapterName": "2012 数学二真题",
+      "point": "填空题第13题",
+      "reason": "真题待校对",
+      "type": "fill",
+      "level": "历年真题",
+      "difficulty": 4,
+      "stem": "2012年考研数学二第13题",
+      "stemImage": "/past-exam-slices/2012-math2/q13.jpg",
+      "options": [],
+      "answer": "",
+      "answerStatus": "pending_review",
+      "aliases": [],
+      "explanation": "来源图片已切成单题卡，标准答案待人工校对后启用自动判分。",
+      "sourceType": "past_exam",
+      "source": "2012 数学二真题",
+      "reviewStatus": "题干图片已切片，答案待校对",
+      "qualityTier": "past_exam_image",
+      "detailedSolution": {
+        "version": 1,
+        "status": "pending_teacher_review",
+        "generatedBy": "math-solution-engine-v1",
+        "examFocus": "本题考查2012 数学二真题中的填空题第13题。先把题干条件翻译成数学关系，再选择公式并逐步计算。",
+        "preAnalysis": "读题时先标出已知量、所求量、定义域和限制条件，确认每一步变形都在题目允许的范围内。",
+        "formulas": [
+          "先写出定义、公式和适用条件",
+          "每一步保留等号或等价号的依据",
+          "最后检查定义域、符号、范围和题目问法"
+        ],
+        "conditions": "使用公式前必须满足题目给出的定义域、连续性、可导性、独立性、矩阵维数或收敛判别条件。",
+        "steps": [
+          {
+            "order": 1,
+            "title": "第1步：提取条件",
+            "content": "明确题目给出的量、关系式和最终所求，不能只看最后一个空。"
+          },
+          {
+            "order": 2,
+            "title": "第2步：选择方法",
+            "content": "根据填空题第13题选择对应定义或公式，并先确认公式的适用条件。"
+          },
+          {
+            "order": 3,
+            "title": "第3步：逐步推导",
+            "content": "来源图片已切成单题卡，标准答案待人工校对后启用自动判分。"
+          },
+          {
+            "order": 4,
+            "title": "第4步：检查结论",
+            "content": "得到待教研校对。回代原条件，检查符号、定义域、单位和结论是否真正回答了题目。"
+          }
+        ],
+        "finalAnswer": "待教研校对",
+        "commonPitfall": "本题容易在真题待校对处出错。不要跳过关键中间步骤，做完后再次核对最后一步。",
+        "methodSummary": "来源图片已切成单题卡，标准答案待人工校对后启用自动判分。",
+        "sourceExplanation": "来源图片已切成单题卡，标准答案待人工校对后启用自动判分。"
+      },
+      "solutionVersion": 1,
+      "solutionStatus": "pending_teacher_review"
+    },
+    {
+      "id": "past_2012_math2_q14",
+      "subjects": [
+        "数学二"
+      ],
+      "chapterId": "past_exam_2012_math2",
+      "chapterName": "2012 数学二真题",
+      "point": "填空题第14题",
+      "reason": "真题待校对",
+      "type": "fill",
+      "level": "历年真题",
+      "difficulty": 4,
+      "stem": "2012年考研数学二第14题",
+      "stemImage": "/past-exam-slices/2012-math2/q14.jpg",
+      "options": [],
+      "answer": "",
+      "answerStatus": "pending_review",
+      "aliases": [],
+      "explanation": "来源图片已切成单题卡，标准答案待人工校对后启用自动判分。",
+      "sourceType": "past_exam",
+      "source": "2012 数学二真题",
+      "reviewStatus": "题干图片已切片，答案待校对",
+      "qualityTier": "past_exam_image",
+      "detailedSolution": {
+        "version": 1,
+        "status": "pending_teacher_review",
+        "generatedBy": "math-solution-engine-v1",
+        "examFocus": "本题考查2012 数学二真题中的填空题第14题。先把题干条件翻译成数学关系，再选择公式并逐步计算。",
+        "preAnalysis": "读题时先标出已知量、所求量、定义域和限制条件，确认每一步变形都在题目允许的范围内。",
+        "formulas": [
+          "先写出定义、公式和适用条件",
+          "每一步保留等号或等价号的依据",
+          "最后检查定义域、符号、范围和题目问法"
+        ],
+        "conditions": "使用公式前必须满足题目给出的定义域、连续性、可导性、独立性、矩阵维数或收敛判别条件。",
+        "steps": [
+          {
+            "order": 1,
+            "title": "第1步：提取条件",
+            "content": "明确题目给出的量、关系式和最终所求，不能只看最后一个空。"
+          },
+          {
+            "order": 2,
+            "title": "第2步：选择方法",
+            "content": "根据填空题第14题选择对应定义或公式，并先确认公式的适用条件。"
+          },
+          {
+            "order": 3,
+            "title": "第3步：逐步推导",
+            "content": "来源图片已切成单题卡，标准答案待人工校对后启用自动判分。"
+          },
+          {
+            "order": 4,
+            "title": "第4步：检查结论",
+            "content": "得到待教研校对。回代原条件，检查符号、定义域、单位和结论是否真正回答了题目。"
+          }
+        ],
+        "finalAnswer": "待教研校对",
+        "commonPitfall": "本题容易在真题待校对处出错。不要跳过关键中间步骤，做完后再次核对最后一步。",
+        "methodSummary": "来源图片已切成单题卡，标准答案待人工校对后启用自动判分。",
+        "sourceExplanation": "来源图片已切成单题卡，标准答案待人工校对后启用自动判分。"
+      },
+      "solutionVersion": 1,
+      "solutionStatus": "pending_teacher_review"
+    },
+    {
+      "id": "past_2012_math2_q15",
+      "subjects": [
+        "数学二"
+      ],
+      "chapterId": "past_exam_2012_math2",
+      "chapterName": "2012 数学二真题",
+      "point": "解答题第15题",
+      "reason": "真题待校对",
+      "type": "solution",
+      "level": "历年真题",
+      "difficulty": 4,
+      "stem": "2012年考研数学二第15题",
+      "stemImage": "/past-exam-slices/2012-math2/q15.jpg",
+      "options": [],
+      "answer": "",
+      "answerStatus": "pending_review",
+      "aliases": [],
+      "explanation": "来源图片已切成单题卡，标准答案待人工校对后启用自动判分。",
+      "sourceType": "past_exam",
+      "source": "2012 数学二真题",
+      "reviewStatus": "题干图片已切片，答案待校对",
+      "qualityTier": "past_exam_image",
+      "detailedSolution": {
+        "version": 1,
+        "status": "pending_teacher_review",
+        "generatedBy": "math-solution-engine-v1",
+        "examFocus": "本题考查2012 数学二真题中的解答题第15题。先把题干条件翻译成数学关系，再选择公式并逐步计算。",
+        "preAnalysis": "读题时先标出已知量、所求量、定义域和限制条件，确认每一步变形都在题目允许的范围内。",
+        "formulas": [
+          "先写出定义、公式和适用条件",
+          "每一步保留等号或等价号的依据",
+          "最后检查定义域、符号、范围和题目问法"
+        ],
+        "conditions": "使用公式前必须满足题目给出的定义域、连续性、可导性、独立性、矩阵维数或收敛判别条件。",
+        "steps": [
+          {
+            "order": 1,
+            "title": "第1步：提取条件",
+            "content": "明确题目给出的量、关系式和最终所求，不能只看最后一个空。"
+          },
+          {
+            "order": 2,
+            "title": "第2步：选择方法",
+            "content": "根据解答题第15题选择对应定义或公式，并先确认公式的适用条件。"
+          },
+          {
+            "order": 3,
+            "title": "第3步：逐步推导",
+            "content": "来源图片已切成单题卡，标准答案待人工校对后启用自动判分。"
+          },
+          {
+            "order": 4,
+            "title": "第4步：检查结论",
+            "content": "得到待教研校对。回代原条件，检查符号、定义域、单位和结论是否真正回答了题目。"
+          }
+        ],
+        "finalAnswer": "待教研校对",
+        "commonPitfall": "本题容易在真题待校对处出错。不要跳过关键中间步骤，做完后再次核对最后一步。",
+        "methodSummary": "来源图片已切成单题卡，标准答案待人工校对后启用自动判分。",
+        "sourceExplanation": "来源图片已切成单题卡，标准答案待人工校对后启用自动判分。"
+      },
+      "solutionVersion": 1,
+      "solutionStatus": "pending_teacher_review"
+    },
+    {
+      "id": "past_2012_math2_q16",
+      "subjects": [
+        "数学二"
+      ],
+      "chapterId": "past_exam_2012_math2",
+      "chapterName": "2012 数学二真题",
+      "point": "解答题第16题",
+      "reason": "真题待校对",
+      "type": "solution",
+      "level": "历年真题",
+      "difficulty": 4,
+      "stem": "2012年考研数学二第16题",
+      "stemImage": "/past-exam-slices/2012-math2/q16.jpg",
+      "options": [],
+      "answer": "",
+      "answerStatus": "pending_review",
+      "aliases": [],
+      "explanation": "来源图片已切成单题卡，标准答案待人工校对后启用自动判分。",
+      "sourceType": "past_exam",
+      "source": "2012 数学二真题",
+      "reviewStatus": "题干图片已切片，答案待校对",
+      "qualityTier": "past_exam_image",
+      "detailedSolution": {
+        "version": 1,
+        "status": "pending_teacher_review",
+        "generatedBy": "math-solution-engine-v1",
+        "examFocus": "本题考查2012 数学二真题中的解答题第16题。先把题干条件翻译成数学关系，再选择公式并逐步计算。",
+        "preAnalysis": "读题时先标出已知量、所求量、定义域和限制条件，确认每一步变形都在题目允许的范围内。",
+        "formulas": [
+          "先写出定义、公式和适用条件",
+          "每一步保留等号或等价号的依据",
+          "最后检查定义域、符号、范围和题目问法"
+        ],
+        "conditions": "使用公式前必须满足题目给出的定义域、连续性、可导性、独立性、矩阵维数或收敛判别条件。",
+        "steps": [
+          {
+            "order": 1,
+            "title": "第1步：提取条件",
+            "content": "明确题目给出的量、关系式和最终所求，不能只看最后一个空。"
+          },
+          {
+            "order": 2,
+            "title": "第2步：选择方法",
+            "content": "根据解答题第16题选择对应定义或公式，并先确认公式的适用条件。"
+          },
+          {
+            "order": 3,
+            "title": "第3步：逐步推导",
+            "content": "来源图片已切成单题卡，标准答案待人工校对后启用自动判分。"
+          },
+          {
+            "order": 4,
+            "title": "第4步：检查结论",
+            "content": "得到待教研校对。回代原条件，检查符号、定义域、单位和结论是否真正回答了题目。"
+          }
+        ],
+        "finalAnswer": "待教研校对",
+        "commonPitfall": "本题容易在真题待校对处出错。不要跳过关键中间步骤，做完后再次核对最后一步。",
+        "methodSummary": "来源图片已切成单题卡，标准答案待人工校对后启用自动判分。",
+        "sourceExplanation": "来源图片已切成单题卡，标准答案待人工校对后启用自动判分。"
+      },
+      "solutionVersion": 1,
+      "solutionStatus": "pending_teacher_review"
+    },
+    {
+      "id": "past_2012_math2_q17",
+      "subjects": [
+        "数学二"
+      ],
+      "chapterId": "past_exam_2012_math2",
+      "chapterName": "2012 数学二真题",
+      "point": "解答题第17题",
+      "reason": "真题待校对",
+      "type": "solution",
+      "level": "历年真题",
+      "difficulty": 4,
+      "stem": "2012年考研数学二第17题",
+      "stemImage": "/past-exam-slices/2012-math2/q17.jpg",
+      "options": [],
+      "answer": "",
+      "answerStatus": "pending_review",
+      "aliases": [],
+      "explanation": "来源图片已切成单题卡，标准答案待人工校对后启用自动判分。",
+      "sourceType": "past_exam",
+      "source": "2012 数学二真题",
+      "reviewStatus": "题干图片已切片，答案待校对",
+      "qualityTier": "past_exam_image",
+      "detailedSolution": {
+        "version": 1,
+        "status": "pending_teacher_review",
+        "generatedBy": "math-solution-engine-v1",
+        "examFocus": "本题考查2012 数学二真题中的解答题第17题。先把题干条件翻译成数学关系，再选择公式并逐步计算。",
+        "preAnalysis": "读题时先标出已知量、所求量、定义域和限制条件，确认每一步变形都在题目允许的范围内。",
+        "formulas": [
+          "先写出定义、公式和适用条件",
+          "每一步保留等号或等价号的依据",
+          "最后检查定义域、符号、范围和题目问法"
+        ],
+        "conditions": "使用公式前必须满足题目给出的定义域、连续性、可导性、独立性、矩阵维数或收敛判别条件。",
+        "steps": [
+          {
+            "order": 1,
+            "title": "第1步：提取条件",
+            "content": "明确题目给出的量、关系式和最终所求，不能只看最后一个空。"
+          },
+          {
+            "order": 2,
+            "title": "第2步：选择方法",
+            "content": "根据解答题第17题选择对应定义或公式，并先确认公式的适用条件。"
+          },
+          {
+            "order": 3,
+            "title": "第3步：逐步推导",
+            "content": "来源图片已切成单题卡，标准答案待人工校对后启用自动判分。"
+          },
+          {
+            "order": 4,
+            "title": "第4步：检查结论",
+            "content": "得到待教研校对。回代原条件，检查符号、定义域、单位和结论是否真正回答了题目。"
+          }
+        ],
+        "finalAnswer": "待教研校对",
+        "commonPitfall": "本题容易在真题待校对处出错。不要跳过关键中间步骤，做完后再次核对最后一步。",
+        "methodSummary": "来源图片已切成单题卡，标准答案待人工校对后启用自动判分。",
+        "sourceExplanation": "来源图片已切成单题卡，标准答案待人工校对后启用自动判分。"
+      },
+      "solutionVersion": 1,
+      "solutionStatus": "pending_teacher_review"
+    },
+    {
+      "id": "past_2012_math2_q18",
+      "subjects": [
+        "数学二"
+      ],
+      "chapterId": "past_exam_2012_math2",
+      "chapterName": "2012 数学二真题",
+      "point": "解答题第18题",
+      "reason": "真题待校对",
+      "type": "solution",
+      "level": "历年真题",
+      "difficulty": 4,
+      "stem": "2012年考研数学二第18题",
+      "stemImage": "/past-exam-slices/2012-math2/q18.jpg",
+      "options": [],
+      "answer": "",
+      "answerStatus": "pending_review",
+      "aliases": [],
+      "explanation": "来源图片已切成单题卡，标准答案待人工校对后启用自动判分。",
+      "sourceType": "past_exam",
+      "source": "2012 数学二真题",
+      "reviewStatus": "题干图片已切片，答案待校对",
+      "qualityTier": "past_exam_image",
+      "detailedSolution": {
+        "version": 1,
+        "status": "pending_teacher_review",
+        "generatedBy": "math-solution-engine-v1",
+        "examFocus": "本题考查2012 数学二真题中的解答题第18题。先把题干条件翻译成数学关系，再选择公式并逐步计算。",
+        "preAnalysis": "读题时先标出已知量、所求量、定义域和限制条件，确认每一步变形都在题目允许的范围内。",
+        "formulas": [
+          "先写出定义、公式和适用条件",
+          "每一步保留等号或等价号的依据",
+          "最后检查定义域、符号、范围和题目问法"
+        ],
+        "conditions": "使用公式前必须满足题目给出的定义域、连续性、可导性、独立性、矩阵维数或收敛判别条件。",
+        "steps": [
+          {
+            "order": 1,
+            "title": "第1步：提取条件",
+            "content": "明确题目给出的量、关系式和最终所求，不能只看最后一个空。"
+          },
+          {
+            "order": 2,
+            "title": "第2步：选择方法",
+            "content": "根据解答题第18题选择对应定义或公式，并先确认公式的适用条件。"
+          },
+          {
+            "order": 3,
+            "title": "第3步：逐步推导",
+            "content": "来源图片已切成单题卡，标准答案待人工校对后启用自动判分。"
+          },
+          {
+            "order": 4,
+            "title": "第4步：检查结论",
+            "content": "得到待教研校对。回代原条件，检查符号、定义域、单位和结论是否真正回答了题目。"
+          }
+        ],
+        "finalAnswer": "待教研校对",
+        "commonPitfall": "本题容易在真题待校对处出错。不要跳过关键中间步骤，做完后再次核对最后一步。",
+        "methodSummary": "来源图片已切成单题卡，标准答案待人工校对后启用自动判分。",
+        "sourceExplanation": "来源图片已切成单题卡，标准答案待人工校对后启用自动判分。"
+      },
+      "solutionVersion": 1,
+      "solutionStatus": "pending_teacher_review"
+    },
+    {
+      "id": "past_2012_math2_q19",
+      "subjects": [
+        "数学二"
+      ],
+      "chapterId": "past_exam_2012_math2",
+      "chapterName": "2012 数学二真题",
+      "point": "解答题第19题",
+      "reason": "真题待校对",
+      "type": "solution",
+      "level": "历年真题",
+      "difficulty": 4,
+      "stem": "2012年考研数学二第19题",
+      "stemImage": "/past-exam-slices/2012-math2/q19.jpg",
+      "options": [],
+      "answer": "",
+      "answerStatus": "pending_review",
+      "aliases": [],
+      "explanation": "来源图片已切成单题卡，标准答案待人工校对后启用自动判分。",
+      "sourceType": "past_exam",
+      "source": "2012 数学二真题",
+      "reviewStatus": "题干图片已切片，答案待校对",
+      "qualityTier": "past_exam_image",
+      "detailedSolution": {
+        "version": 1,
+        "status": "pending_teacher_review",
+        "generatedBy": "math-solution-engine-v1",
+        "examFocus": "本题考查2012 数学二真题中的解答题第19题。先把题干条件翻译成数学关系，再选择公式并逐步计算。",
+        "preAnalysis": "读题时先标出已知量、所求量、定义域和限制条件，确认每一步变形都在题目允许的范围内。",
+        "formulas": [
+          "先写出定义、公式和适用条件",
+          "每一步保留等号或等价号的依据",
+          "最后检查定义域、符号、范围和题目问法"
+        ],
+        "conditions": "使用公式前必须满足题目给出的定义域、连续性、可导性、独立性、矩阵维数或收敛判别条件。",
+        "steps": [
+          {
+            "order": 1,
+            "title": "第1步：提取条件",
+            "content": "明确题目给出的量、关系式和最终所求，不能只看最后一个空。"
+          },
+          {
+            "order": 2,
+            "title": "第2步：选择方法",
+            "content": "根据解答题第19题选择对应定义或公式，并先确认公式的适用条件。"
+          },
+          {
+            "order": 3,
+            "title": "第3步：逐步推导",
+            "content": "来源图片已切成单题卡，标准答案待人工校对后启用自动判分。"
+          },
+          {
+            "order": 4,
+            "title": "第4步：检查结论",
+            "content": "得到待教研校对。回代原条件，检查符号、定义域、单位和结论是否真正回答了题目。"
+          }
+        ],
+        "finalAnswer": "待教研校对",
+        "commonPitfall": "本题容易在真题待校对处出错。不要跳过关键中间步骤，做完后再次核对最后一步。",
+        "methodSummary": "来源图片已切成单题卡，标准答案待人工校对后启用自动判分。",
+        "sourceExplanation": "来源图片已切成单题卡，标准答案待人工校对后启用自动判分。"
+      },
+      "solutionVersion": 1,
+      "solutionStatus": "pending_teacher_review"
+    },
+    {
+      "id": "past_2012_math2_q20",
+      "subjects": [
+        "数学二"
+      ],
+      "chapterId": "past_exam_2012_math2",
+      "chapterName": "2012 数学二真题",
+      "point": "解答题第20题",
+      "reason": "真题待校对",
+      "type": "solution",
+      "level": "历年真题",
+      "difficulty": 4,
+      "stem": "2012年考研数学二第20题",
+      "stemImage": "/past-exam-slices/2012-math2/q20.jpg",
+      "options": [],
+      "answer": "",
+      "answerStatus": "pending_review",
+      "aliases": [],
+      "explanation": "来源图片已切成单题卡，标准答案待人工校对后启用自动判分。",
+      "sourceType": "past_exam",
+      "source": "2012 数学二真题",
+      "reviewStatus": "题干图片已切片，答案待校对",
+      "qualityTier": "past_exam_image",
+      "detailedSolution": {
+        "version": 1,
+        "status": "pending_teacher_review",
+        "generatedBy": "math-solution-engine-v1",
+        "examFocus": "本题考查2012 数学二真题中的解答题第20题。先把题干条件翻译成数学关系，再选择公式并逐步计算。",
+        "preAnalysis": "读题时先标出已知量、所求量、定义域和限制条件，确认每一步变形都在题目允许的范围内。",
+        "formulas": [
+          "先写出定义、公式和适用条件",
+          "每一步保留等号或等价号的依据",
+          "最后检查定义域、符号、范围和题目问法"
+        ],
+        "conditions": "使用公式前必须满足题目给出的定义域、连续性、可导性、独立性、矩阵维数或收敛判别条件。",
+        "steps": [
+          {
+            "order": 1,
+            "title": "第1步：提取条件",
+            "content": "明确题目给出的量、关系式和最终所求，不能只看最后一个空。"
+          },
+          {
+            "order": 2,
+            "title": "第2步：选择方法",
+            "content": "根据解答题第20题选择对应定义或公式，并先确认公式的适用条件。"
+          },
+          {
+            "order": 3,
+            "title": "第3步：逐步推导",
+            "content": "来源图片已切成单题卡，标准答案待人工校对后启用自动判分。"
+          },
+          {
+            "order": 4,
+            "title": "第4步：检查结论",
+            "content": "得到待教研校对。回代原条件，检查符号、定义域、单位和结论是否真正回答了题目。"
+          }
+        ],
+        "finalAnswer": "待教研校对",
+        "commonPitfall": "本题容易在真题待校对处出错。不要跳过关键中间步骤，做完后再次核对最后一步。",
+        "methodSummary": "来源图片已切成单题卡，标准答案待人工校对后启用自动判分。",
+        "sourceExplanation": "来源图片已切成单题卡，标准答案待人工校对后启用自动判分。"
+      },
+      "solutionVersion": 1,
+      "solutionStatus": "pending_teacher_review"
+    },
+    {
+      "id": "past_2012_math2_q21",
+      "subjects": [
+        "数学二"
+      ],
+      "chapterId": "past_exam_2012_math2",
+      "chapterName": "2012 数学二真题",
+      "point": "解答题第21题",
+      "reason": "真题待校对",
+      "type": "solution",
+      "level": "历年真题",
+      "difficulty": 4,
+      "stem": "2012年考研数学二第21题",
+      "stemImage": "/past-exam-slices/2012-math2/q21.jpg",
+      "options": [],
+      "answer": "",
+      "answerStatus": "pending_review",
+      "aliases": [],
+      "explanation": "来源图片已切成单题卡，标准答案待人工校对后启用自动判分。",
+      "sourceType": "past_exam",
+      "source": "2012 数学二真题",
+      "reviewStatus": "题干图片已切片，答案待校对",
+      "qualityTier": "past_exam_image",
+      "detailedSolution": {
+        "version": 1,
+        "status": "pending_teacher_review",
+        "generatedBy": "math-solution-engine-v1",
+        "examFocus": "本题考查2012 数学二真题中的解答题第21题。先把题干条件翻译成数学关系，再选择公式并逐步计算。",
+        "preAnalysis": "读题时先标出已知量、所求量、定义域和限制条件，确认每一步变形都在题目允许的范围内。",
+        "formulas": [
+          "先写出定义、公式和适用条件",
+          "每一步保留等号或等价号的依据",
+          "最后检查定义域、符号、范围和题目问法"
+        ],
+        "conditions": "使用公式前必须满足题目给出的定义域、连续性、可导性、独立性、矩阵维数或收敛判别条件。",
+        "steps": [
+          {
+            "order": 1,
+            "title": "第1步：提取条件",
+            "content": "明确题目给出的量、关系式和最终所求，不能只看最后一个空。"
+          },
+          {
+            "order": 2,
+            "title": "第2步：选择方法",
+            "content": "根据解答题第21题选择对应定义或公式，并先确认公式的适用条件。"
+          },
+          {
+            "order": 3,
+            "title": "第3步：逐步推导",
+            "content": "来源图片已切成单题卡，标准答案待人工校对后启用自动判分。"
+          },
+          {
+            "order": 4,
+            "title": "第4步：检查结论",
+            "content": "得到待教研校对。回代原条件，检查符号、定义域、单位和结论是否真正回答了题目。"
+          }
+        ],
+        "finalAnswer": "待教研校对",
+        "commonPitfall": "本题容易在真题待校对处出错。不要跳过关键中间步骤，做完后再次核对最后一步。",
+        "methodSummary": "来源图片已切成单题卡，标准答案待人工校对后启用自动判分。",
+        "sourceExplanation": "来源图片已切成单题卡，标准答案待人工校对后启用自动判分。"
+      },
+      "solutionVersion": 1,
+      "solutionStatus": "pending_teacher_review"
+    },
+    {
+      "id": "past_2012_math2_q22",
+      "subjects": [
+        "数学二"
+      ],
+      "chapterId": "past_exam_2012_math2",
+      "chapterName": "2012 数学二真题",
+      "point": "解答题第22题",
+      "reason": "真题待校对",
+      "type": "solution",
+      "level": "历年真题",
+      "difficulty": 4,
+      "stem": "2012年考研数学二第22题",
+      "stemImage": "/past-exam-slices/2012-math2/q22.jpg",
+      "options": [],
+      "answer": "",
+      "answerStatus": "pending_review",
+      "aliases": [],
+      "explanation": "来源图片已切成单题卡，标准答案待人工校对后启用自动判分。",
+      "sourceType": "past_exam",
+      "source": "2012 数学二真题",
+      "reviewStatus": "题干图片已切片，答案待校对",
+      "qualityTier": "past_exam_image",
+      "detailedSolution": {
+        "version": 1,
+        "status": "pending_teacher_review",
+        "generatedBy": "math-solution-engine-v1",
+        "examFocus": "本题考查2012 数学二真题中的解答题第22题。先把题干条件翻译成数学关系，再选择公式并逐步计算。",
+        "preAnalysis": "读题时先标出已知量、所求量、定义域和限制条件，确认每一步变形都在题目允许的范围内。",
+        "formulas": [
+          "先写出定义、公式和适用条件",
+          "每一步保留等号或等价号的依据",
+          "最后检查定义域、符号、范围和题目问法"
+        ],
+        "conditions": "使用公式前必须满足题目给出的定义域、连续性、可导性、独立性、矩阵维数或收敛判别条件。",
+        "steps": [
+          {
+            "order": 1,
+            "title": "第1步：提取条件",
+            "content": "明确题目给出的量、关系式和最终所求，不能只看最后一个空。"
+          },
+          {
+            "order": 2,
+            "title": "第2步：选择方法",
+            "content": "根据解答题第22题选择对应定义或公式，并先确认公式的适用条件。"
+          },
+          {
+            "order": 3,
+            "title": "第3步：逐步推导",
+            "content": "来源图片已切成单题卡，标准答案待人工校对后启用自动判分。"
+          },
+          {
+            "order": 4,
+            "title": "第4步：检查结论",
+            "content": "得到待教研校对。回代原条件，检查符号、定义域、单位和结论是否真正回答了题目。"
+          }
+        ],
+        "finalAnswer": "待教研校对",
+        "commonPitfall": "本题容易在真题待校对处出错。不要跳过关键中间步骤，做完后再次核对最后一步。",
+        "methodSummary": "来源图片已切成单题卡，标准答案待人工校对后启用自动判分。",
+        "sourceExplanation": "来源图片已切成单题卡，标准答案待人工校对后启用自动判分。"
+      },
+      "solutionVersion": 1,
+      "solutionStatus": "pending_teacher_review"
+    },
+    {
+      "id": "past_2012_math2_q23",
+      "subjects": [
+        "数学二"
+      ],
+      "chapterId": "past_exam_2012_math2",
+      "chapterName": "2012 数学二真题",
+      "point": "解答题第23题",
+      "reason": "真题待校对",
+      "type": "solution",
+      "level": "历年真题",
+      "difficulty": 4,
+      "stem": "2012年考研数学二第23题",
+      "stemImage": "/past-exam-slices/2012-math2/q23.jpg",
+      "options": [],
+      "answer": "",
+      "answerStatus": "pending_review",
+      "aliases": [],
+      "explanation": "来源图片已切成单题卡，标准答案待人工校对后启用自动判分。",
+      "sourceType": "past_exam",
+      "source": "2012 数学二真题",
+      "reviewStatus": "题干图片已切片，答案待校对",
+      "qualityTier": "past_exam_image",
+      "detailedSolution": {
+        "version": 1,
+        "status": "pending_teacher_review",
+        "generatedBy": "math-solution-engine-v1",
+        "examFocus": "本题考查2012 数学二真题中的解答题第23题。先把题干条件翻译成数学关系，再选择公式并逐步计算。",
+        "preAnalysis": "读题时先标出已知量、所求量、定义域和限制条件，确认每一步变形都在题目允许的范围内。",
+        "formulas": [
+          "先写出定义、公式和适用条件",
+          "每一步保留等号或等价号的依据",
+          "最后检查定义域、符号、范围和题目问法"
+        ],
+        "conditions": "使用公式前必须满足题目给出的定义域、连续性、可导性、独立性、矩阵维数或收敛判别条件。",
+        "steps": [
+          {
+            "order": 1,
+            "title": "第1步：提取条件",
+            "content": "明确题目给出的量、关系式和最终所求，不能只看最后一个空。"
+          },
+          {
+            "order": 2,
+            "title": "第2步：选择方法",
+            "content": "根据解答题第23题选择对应定义或公式，并先确认公式的适用条件。"
+          },
+          {
+            "order": 3,
+            "title": "第3步：逐步推导",
+            "content": "来源图片已切成单题卡，标准答案待人工校对后启用自动判分。"
+          },
+          {
+            "order": 4,
+            "title": "第4步：检查结论",
+            "content": "得到待教研校对。回代原条件，检查符号、定义域、单位和结论是否真正回答了题目。"
+          }
+        ],
+        "finalAnswer": "待教研校对",
+        "commonPitfall": "本题容易在真题待校对处出错。不要跳过关键中间步骤，做完后再次核对最后一步。",
+        "methodSummary": "来源图片已切成单题卡，标准答案待人工校对后启用自动判分。",
+        "sourceExplanation": "来源图片已切成单题卡，标准答案待人工校对后启用自动判分。"
+      },
+      "solutionVersion": 1,
+      "solutionStatus": "pending_teacher_review"
+    },
+    {
+      "id": "classified_probability_candidate_001",
+      "subjects": [
+        "数学一",
+        "数学三"
+      ],
+      "chapterId": "prob_events",
+      "chapterName": "随机事件和概率",
+      "point": "例1811",
+      "reason": "真题专项试运行",
+      "type": "solution",
+      "level": "历年真题（试运行）",
+      "difficulty": 4,
+      "stem": "【例 1811】【1988-45-2 分】判断正误：若事件 A, B, C 满足等式 A        C=B   C ，则\n\nA= B.",
+      "options": [],
+      "answer": "",
+      "answerStatus": "pending_review",
+      "aliases": [],
+      "explanation": "试运行导入：答案和解析尚未人工校对，请通过“查看原页”核对本题。",
+      "sourceType": "past_exam",
+      "source": "真题分类概率",
+      "sourceBook": "真题分类概率",
+      "sourceSection": "随机事件和概率",
+      "sourceYear": 1988,
+      "sourceMathType": "数学一、数学三",
+      "sourceQuestionNo": "例1811",
+      "sourcePage": 7,
+      "sourcePageImage": "past-exam-assets/trial-probability/page-0007.png",
+      "stemImage": "",
+      "reviewStatus": "trial_imported",
+      "publishStatus": "published",
+      "qualityTier": "past_exam_trial",
+      "practiceStatus": "trial"
+    },
+    {
+      "id": "classified_probability_candidate_019",
+      "subjects": [
+        "数学一",
+        "数学三"
+      ],
+      "chapterId": "prob_events",
+      "chapterName": "随机事件和概率",
+      "point": "例1829",
+      "reason": "真题专项试运行",
+      "type": "solution",
+      "level": "历年真题（试运行）",
+      "difficulty": 4,
+      "stem": "【例 1829】【1988-1-2 分】设三次独立实验中，事件 A 出现的概率相等. 若已知 A 至\n\n                    19\n少出现一次的概率等于             ，则事件 A 在一次试验中出现的概率为      .\n                    27",
+      "options": [],
+      "answer": "",
+      "answerStatus": "pending_review",
+      "aliases": [],
+      "explanation": "试运行导入：答案和解析尚未人工校对，请通过“查看原页”核对本题。",
+      "sourceType": "past_exam",
+      "source": "真题分类概率",
+      "sourceBook": "真题分类概率",
+      "sourceSection": "随机事件和概率",
+      "sourceYear": 1988,
+      "sourceMathType": "数学一、数学三",
+      "sourceQuestionNo": "例1829",
+      "sourcePage": 10,
+      "sourcePageImage": "past-exam-assets/trial-probability/page-0010.png",
+      "stemImage": "",
+      "reviewStatus": "trial_imported",
+      "publishStatus": "published",
+      "qualityTier": "past_exam_trial",
+      "practiceStatus": "trial"
+    },
+    {
+      "id": "classified_probability_candidate_037",
+      "subjects": [
+        "数学一",
+        "数学三"
+      ],
+      "chapterId": "prob_events",
+      "chapterName": "随机事件和概率",
+      "point": "例1847",
+      "reason": "真题专项试运行",
+      "type": "choice",
+      "level": "历年真题（试运行）",
+      "difficulty": 4,
+      "stem": "【例 1847】【2003-4-4 分】对于任意二事件 A 和 B ，\n                                  （     ）.\n\n（A）若 AB   ，则 A, B 一定独立\n\n（B）若 AB   ，则 A, B 有可能独立\n\n（C）若 AB =  ，则 A, B 一定独立\n\n（D）若 AB =  ，则 A, B 一定不独立\n\n\n\n\n2.独立性的应用",
+      "options": [
+        "A. 若 AB   ，则 A, B 一定独立",
+        "B. 若 AB   ，则 A, B 有可能独立",
+        "C. 若 AB =  ，则 A, B 一定独立",
+        "D. 若 AB =  ，则 A, B 一定不独立 2.独立性的应用"
+      ],
+      "answer": "",
+      "answerStatus": "pending_review",
+      "aliases": [],
+      "explanation": "试运行导入：答案和解析尚未人工校对，请通过“查看原页”核对本题。",
+      "sourceType": "past_exam",
+      "source": "真题分类概率",
+      "sourceBook": "真题分类概率",
+      "sourceSection": "随机事件和概率",
+      "sourceYear": 2003,
+      "sourceMathType": "数学一、数学三",
+      "sourceQuestionNo": "例1847",
+      "sourcePage": 15,
+      "sourcePageImage": "past-exam-assets/trial-probability/page-0015.png",
+      "stemImage": "",
+      "reviewStatus": "trial_imported",
+      "publishStatus": "published",
+      "qualityTier": "past_exam_trial",
+      "practiceStatus": "trial"
+    },
+    {
+      "id": "classified_probability_candidate_055",
+      "subjects": [
+        "数学一",
+        "数学三"
+      ],
+      "chapterId": "prob_events",
+      "chapterName": "随机事件和概率",
+      "point": "例1865",
+      "reason": "真题专项试运行",
+      "type": "solution",
+      "level": "历年真题（试运行）",
+      "difficulty": 4,
+      "stem": "【例 1865】【1996-1-3 分】设工厂 A 和工厂 B 的产品的次品率分别为 1% 和 2% ，现从\n由 A 和 B 的产品分别占 60% 和 40% 的一批产品中随机抽取一件，发现是次品，则该次\n品是 A 厂生产的概率是           .\n\n\n\n500",
+      "options": [],
+      "answer": "",
+      "answerStatus": "pending_review",
+      "aliases": [],
+      "explanation": "试运行导入：答案和解析尚未人工校对，请通过“查看原页”核对本题。",
+      "sourceType": "past_exam",
+      "source": "真题分类概率",
+      "sourceBook": "真题分类概率",
+      "sourceSection": "随机事件和概率",
+      "sourceYear": 1996,
+      "sourceMathType": "数学一、数学三",
+      "sourceQuestionNo": "例1865",
+      "sourcePage": 18,
+      "sourcePageImage": "past-exam-assets/trial-probability/page-0018.png",
+      "stemImage": "",
+      "reviewStatus": "trial_imported",
+      "publishStatus": "published",
+      "qualityTier": "past_exam_trial",
+      "practiceStatus": "trial"
+    },
+    {
+      "id": "classified_probability_candidate_073",
+      "subjects": [
+        "数学一",
+        "数学三"
+      ],
+      "chapterId": "prob_single",
+      "chapterName": "随机变量及其分布",
+      "point": "例1883",
+      "reason": "真题专项试运行",
+      "type": "solution",
+      "level": "历年真题（试运行）",
+      "difficulty": 4,
+      "stem": "【例 1883】【1991-4-6 分】一汽车沿一街道行驶，需要经过三个均设有红绿信号灯的路\n口，每个信号灯为红或绿与其他信号灯为红或绿相互独立，且红绿两种信号显示的时间\n相等，以 X 表示汽车首次遇到红灯前已通过的路口的个数.求 X 的概率分布.",
+      "options": [],
+      "answer": "",
+      "answerStatus": "pending_review",
+      "aliases": [],
+      "explanation": "试运行导入：答案和解析尚未人工校对，请通过“查看原页”核对本题。",
+      "sourceType": "past_exam",
+      "source": "真题分类概率",
+      "sourceBook": "真题分类概率",
+      "sourceSection": "随机变量及其分布",
+      "sourceYear": 1991,
+      "sourceMathType": "数学一、数学三",
+      "sourceQuestionNo": "例1883",
+      "sourcePage": 23,
+      "sourcePageImage": "past-exam-assets/trial-probability/page-0023.png",
+      "stemImage": "",
+      "reviewStatus": "trial_imported",
+      "publishStatus": "published",
+      "qualityTier": "past_exam_trial",
+      "practiceStatus": "trial"
+    },
+    {
+      "id": "classified_probability_candidate_084",
+      "subjects": [
+        "数学一",
+        "数学三"
+      ],
+      "chapterId": "prob_single",
+      "chapterName": "随机变量及其分布",
+      "point": "例1894",
+      "reason": "真题专项试运行",
+      "type": "choice",
+      "level": "历年真题（试运行）",
+      "difficulty": 4,
+      "stem": "【例 1894】【2010-13-4 分】设 f1 ( x ) 为标准正态分布的概率密度, f 2 ( x ) 为 [ −1,3] 上的\n\n                                          af 1 ( x), x  0，\n均匀分布的概率密度, 若 f ( x) =                                      (a  0, b  0) 为概率密度, 则 a, b 应\n                                         bf 2 ( x), x  0，\n满足（         ）\n\n（A） 2a + 3b = 4\n\n（B） 3a + 2b = 4\n\n（C） a + b = 1\n\n（D） a + b = 2",
+      "options": [
+        "A. 2a + 3b = 4",
+        "B. 3a + 2b = 4",
+        "C. a + b = 1",
+        "D. a + b = 2"
+      ],
+      "answer": "",
+      "answerStatus": "pending_review",
+      "aliases": [],
+      "explanation": "试运行导入：答案和解析尚未人工校对，请通过“查看原页”核对本题。",
+      "sourceType": "past_exam",
+      "source": "真题分类概率",
+      "sourceBook": "真题分类概率",
+      "sourceSection": "随机变量及其分布",
+      "sourceYear": 2010,
+      "sourceMathType": "数学一、数学三",
+      "sourceQuestionNo": "例1894",
+      "sourcePage": 26,
+      "sourcePageImage": "past-exam-assets/trial-probability/page-0026.png",
+      "stemImage": "",
+      "reviewStatus": "trial_imported",
+      "publishStatus": "published",
+      "qualityTier": "past_exam_trial",
+      "practiceStatus": "trial"
+    },
+    {
+      "id": "classified_probability_candidate_095",
+      "subjects": [
+        "数学一",
+        "数学三"
+      ],
+      "chapterId": "prob_single",
+      "chapterName": "随机变量及其分布",
+      "point": "例1905",
+      "reason": "真题专项试运行",
+      "type": "choice",
+      "level": "历年真题（试运行）",
+      "difficulty": 4,
+      "stem": "【例 1905】\n\n                                  1\nY 的概率分布为 P{Y = 0} = P{Y = 1} =      ，记 FZ ( z ) 为随机变量 Z = XY 的分布函数，\n                                  2\n\n则函数 FZ ( z ) 的间断点个数为（         ）\n\n（A） 0             （B） 1                  （C） 2                   （D） 3\n\n\n\n\n三、常见分布\n\n（一）对基本公式的考查",
+      "options": [
+        "A. 0",
+        "B. 1",
+        "C. 2",
+        "D. 3 三、常见分布 （一）对基本公式的考查"
+      ],
+      "answer": "",
+      "answerStatus": "pending_review",
+      "aliases": [],
+      "explanation": "试运行导入：答案和解析尚未人工校对，请通过“查看原页”核对本题。",
+      "sourceType": "past_exam",
+      "source": "真题分类概率",
+      "sourceBook": "真题分类概率",
+      "sourceSection": "随机变量及其分布",
+      "sourceYear": null,
+      "sourceMathType": "数学一、数学三",
+      "sourceQuestionNo": "例1905",
+      "sourcePage": 29,
+      "sourcePageImage": "past-exam-assets/trial-probability/page-0029.png",
+      "stemImage": "",
+      "reviewStatus": "trial_imported",
+      "publishStatus": "published",
+      "qualityTier": "past_exam_trial",
+      "practiceStatus": "trial"
+    },
+    {
+      "id": "classified_probability_candidate_106",
+      "subjects": [
+        "数学一",
+        "数学三"
+      ],
+      "chapterId": "prob_single",
+      "chapterName": "随机变量及其分布",
+      "point": "例1916",
+      "reason": "真题专项试运行",
+      "type": "choice",
+      "level": "历年真题（试运行）",
+      "difficulty": 4,
+      "stem": "【例 1916】【1993-5-3 分】设随机变量 X 与 Y 均服从正态分布， X                                   N (  , 42 ) ，\n\nY       N (  ,52 ) ，记 p1 = P{ X   − 4} ， p2 = P{Y   + 5} ，则（           ）.\n\n（A）对任何实数  ，都有 p1 = p2\n\n（B）对任何实数  ，都有 p1  p2\n\n（C）只对  的个别值，才有 p1 = p2\n\n（D）对任何实数  ，都有 p1  p2",
+      "options": [
+        "A. 对任何实数  ，都有 p1 = p2",
+        "B. 对任何实数  ，都有 p1  p2",
+        "C. 只对  的个别值，才有 p1 = p2",
+        "D. 对任何实数  ，都有 p1  p2"
+      ],
+      "answer": "",
+      "answerStatus": "pending_review",
+      "aliases": [],
+      "explanation": "试运行导入：答案和解析尚未人工校对，请通过“查看原页”核对本题。",
+      "sourceType": "past_exam",
+      "source": "真题分类概率",
+      "sourceBook": "真题分类概率",
+      "sourceSection": "随机变量及其分布",
+      "sourceYear": 1993,
+      "sourceMathType": "数学一、数学三",
+      "sourceQuestionNo": "例1916",
+      "sourcePage": 31,
+      "sourcePageImage": "past-exam-assets/trial-probability/page-0031.png",
+      "stemImage": "",
+      "reviewStatus": "trial_imported",
+      "publishStatus": "published",
+      "qualityTier": "past_exam_trial",
+      "practiceStatus": "trial"
+    },
+    {
+      "id": "classified_probability_candidate_118",
+      "subjects": [
+        "数学一",
+        "数学三"
+      ],
+      "chapterId": "prob_multivariate",
+      "chapterName": "多维随机变量及其分布",
+      "point": "例1928",
+      "reason": "真题专项试运行",
+      "type": "solution",
+      "level": "历年真题（试运行）",
+      "difficulty": 4,
+      "stem": "【例 1928】【1990-5-6 分】甲乙两人独立地各进行两次射击，假设甲的命中率为 0.2 ，\n乙的命中率为 0.5 ，以 X 和 Y 分别表示甲和乙的命中次数，试求 X 和 Y 联合概率分布.",
+      "options": [],
+      "answer": "",
+      "answerStatus": "pending_review",
+      "aliases": [],
+      "explanation": "试运行导入：答案和解析尚未人工校对，请通过“查看原页”核对本题。",
+      "sourceType": "past_exam",
+      "source": "真题分类概率",
+      "sourceBook": "真题分类概率",
+      "sourceSection": "多维随机变量及其分布",
+      "sourceYear": 1990,
+      "sourceMathType": "数学一、数学三",
+      "sourceQuestionNo": "例1928",
+      "sourcePage": 35,
+      "sourcePageImage": "past-exam-assets/trial-probability/page-0035.png",
+      "stemImage": "",
+      "reviewStatus": "trial_imported",
+      "publishStatus": "published",
+      "qualityTier": "past_exam_trial",
+      "practiceStatus": "trial"
+    },
+    {
+      "id": "classified_probability_candidate_133",
+      "subjects": [
+        "数学一",
+        "数学三"
+      ],
+      "chapterId": "prob_multivariate",
+      "chapterName": "多维随机变量及其分布",
+      "point": "例1943",
+      "reason": "真题专项试运行",
+      "type": "solution",
+      "level": "历年真题（试运行）",
+      "difficulty": 4,
+      "stem": "【例 1943】【1990-4-5 分】一电子仪器由两个部件构成，以 X 和 Y 分别表示两个部件\n\n的寿命(单位：千小时)，已知 X 和 Y 的联合分布函数为：\n\n            1 − e−0.5 x − e−0.5 y + e−0.5( x + y ) , x  0, y  0,\nF ( x, y) = \n                            0,                          其他.\n（1）问 X 和 Y 是否独立?\n（2）求两个部件的寿命都超过 100 小时的概率  .\n\n\n\n                                                                       −1 0   1",
+      "options": [],
+      "answer": "",
+      "answerStatus": "pending_review",
+      "aliases": [],
+      "explanation": "试运行导入：答案和解析尚未人工校对，请通过“查看原页”核对本题。",
+      "sourceType": "past_exam",
+      "source": "真题分类概率",
+      "sourceBook": "真题分类概率",
+      "sourceSection": "多维随机变量及其分布",
+      "sourceYear": 1990,
+      "sourceMathType": "数学一、数学三",
+      "sourceQuestionNo": "例1943",
+      "sourcePage": 39,
+      "sourcePageImage": "past-exam-assets/trial-probability/page-0039.png",
+      "stemImage": "",
+      "reviewStatus": "trial_imported",
+      "publishStatus": "published",
+      "qualityTier": "past_exam_trial",
+      "practiceStatus": "trial"
+    },
+    {
+      "id": "classified_probability_candidate_149",
+      "subjects": [
+        "数学一",
+        "数学三"
+      ],
+      "chapterId": "prob_multivariate",
+      "chapterName": "多维随机变量及其分布",
+      "point": "例1959",
+      "reason": "真题专项试运行",
+      "type": "solution",
+      "level": "历年真题（试运行）",
+      "difficulty": 4,
+      "stem": "【例 1959】【1995-1-6 分】设 X 的概率密度为 f X ( x) =               求 Y = e X 的概率密\n                                           0, x   0,\n\n度 fY ( y ) .\n\n\n       【1995-5-7 分】假设随机变量 X 服从参数为 2 的指数分布，证明：Y = 1 − e −2 X",
+      "options": [],
+      "answer": "",
+      "answerStatus": "pending_review",
+      "aliases": [],
+      "explanation": "试运行导入：答案和解析尚未人工校对，请通过“查看原页”核对本题。",
+      "sourceType": "past_exam",
+      "source": "真题分类概率",
+      "sourceBook": "真题分类概率",
+      "sourceSection": "多维随机变量及其分布",
+      "sourceYear": 1995,
+      "sourceMathType": "数学一、数学三",
+      "sourceQuestionNo": "例1959",
+      "sourcePage": 44,
+      "sourcePageImage": "past-exam-assets/trial-probability/page-0044.png",
+      "stemImage": "",
+      "reviewStatus": "trial_imported",
+      "publishStatus": "published",
+      "qualityTier": "past_exam_trial",
+      "practiceStatus": "trial"
+    },
+    {
+      "id": "classified_probability_candidate_165",
+      "subjects": [
+        "数学一",
+        "数学三"
+      ],
+      "chapterId": "prob_multivariate",
+      "chapterName": "多维随机变量及其分布",
+      "point": "例1975",
+      "reason": "真题专项试运行",
+      "type": "solution",
+      "level": "历年真题（试运行）",
+      "difficulty": 4,
+      "stem": "【例 1975】【2005-34-13 分】设二维随机变量 ( X , Y ) 的概率密度为\n\n                                          1, 0  x  1, 0  y  2 x\n                             f ( x, y ) =                           .\n                                          0,         其他\n\n求：（1） ( X , Y ) 的边缘概率密度 f X ( x), f Y ( y ) ；\n\n （2） Z = 2 X − Y 的概率密度 f Z ( z ) ；\n\n             1    1\n （3） P Y      X  。\n             2    2",
+      "options": [],
+      "answer": "",
+      "answerStatus": "pending_review",
+      "aliases": [],
+      "explanation": "试运行导入：答案和解析尚未人工校对，请通过“查看原页”核对本题。",
+      "sourceType": "past_exam",
+      "source": "真题分类概率",
+      "sourceBook": "真题分类概率",
+      "sourceSection": "多维随机变量及其分布",
+      "sourceYear": 2005,
+      "sourceMathType": "数学一、数学三",
+      "sourceQuestionNo": "例1975",
+      "sourcePage": 48,
+      "sourcePageImage": "past-exam-assets/trial-probability/page-0048.png",
+      "stemImage": "",
+      "reviewStatus": "trial_imported",
+      "publishStatus": "published",
+      "qualityTier": "past_exam_trial",
+      "practiceStatus": "trial"
+    },
+    {
+      "id": "classified_probability_candidate_181",
+      "subjects": [
+        "数学一",
+        "数学三"
+      ],
+      "chapterId": "prob_moments",
+      "chapterName": "随机变量的数字特征",
+      "point": "例1991",
+      "reason": "真题专项试运行",
+      "type": "solution",
+      "level": "历年真题（试运行）",
+      "difficulty": 4,
+      "stem": "【例 1991】【1987-5-8 分】已知随机变量 X 的概率分布为\nP{X = 1} = 0.2, P{X = 2} = 0.3, P{X = 3} = 0.5 .试写出 X 的分布函数 F ( x) ，并求 X\n\n的数学期望与方差.",
+      "options": [],
+      "answer": "",
+      "answerStatus": "pending_review",
+      "aliases": [],
+      "explanation": "试运行导入：答案和解析尚未人工校对，请通过“查看原页”核对本题。",
+      "sourceType": "past_exam",
+      "source": "真题分类概率",
+      "sourceBook": "真题分类概率",
+      "sourceSection": "随机变量的数字特征",
+      "sourceYear": 1987,
+      "sourceMathType": "数学一、数学三",
+      "sourceQuestionNo": "例1991",
+      "sourcePage": 53,
+      "sourcePageImage": "past-exam-assets/trial-probability/page-0053.png",
+      "stemImage": "",
+      "reviewStatus": "trial_imported",
+      "publishStatus": "published",
+      "qualityTier": "past_exam_trial",
+      "practiceStatus": "trial"
+    },
+    {
+      "id": "classified_probability_candidate_207",
+      "subjects": [
+        "数学一",
+        "数学三"
+      ],
+      "chapterId": "prob_moments",
+      "chapterName": "随机变量的数字特征",
+      "point": "例2017",
+      "reason": "真题专项试运行",
+      "type": "solution",
+      "level": "历年真题（试运行）",
+      "difficulty": 4,
+      "stem": "【例 2017】【2004-134-9 分】设 A, B 为两个随机事件，且 P( A) =       ， P( B A) = ，\n                                                   4            3\n            1        1, A发生，    1, B发生，\nP( A B) =     ，令 X =         Y =        求\n            2        0, A不发生， 0, B不发生.\n\n（1）二维随机变量（X , Y）的概率分布；\n\n\n\n540",
+      "options": [],
+      "answer": "",
+      "answerStatus": "pending_review",
+      "aliases": [],
+      "explanation": "试运行导入：答案和解析尚未人工校对，请通过“查看原页”核对本题。",
+      "sourceType": "past_exam",
+      "source": "真题分类概率",
+      "sourceBook": "真题分类概率",
+      "sourceSection": "随机变量的数字特征",
+      "sourceYear": 2004,
+      "sourceMathType": "数学一、数学三",
+      "sourceQuestionNo": "例2017",
+      "sourcePage": 58,
+      "sourcePageImage": "past-exam-assets/trial-probability/page-0058.png",
+      "stemImage": "",
+      "reviewStatus": "trial_imported",
+      "publishStatus": "published",
+      "qualityTier": "past_exam_trial",
+      "practiceStatus": "trial"
+    },
+    {
+      "id": "classified_probability_candidate_233",
+      "subjects": [
+        "数学一",
+        "数学三"
+      ],
+      "chapterId": "prob_moments",
+      "chapterName": "随机变量的数字特征",
+      "point": "例2043",
+      "reason": "真题专项试运行",
+      "type": "solution",
+      "level": "历年真题（试运行）",
+      "difficulty": 4,
+      "stem": "【例 2043】【2010-1-4 分】设随机变量 X 的概率分布为 P{ X = k} =          , k = 0,1, 2        ，\n                                                     k!\n\n则 E( X ) =\n       2\n                           .",
+      "options": [],
+      "answer": "",
+      "answerStatus": "pending_review",
+      "aliases": [],
+      "explanation": "试运行导入：答案和解析尚未人工校对，请通过“查看原页”核对本题。",
+      "sourceType": "past_exam",
+      "source": "真题分类概率",
+      "sourceBook": "真题分类概率",
+      "sourceSection": "随机变量的数字特征",
+      "sourceYear": 2010,
+      "sourceMathType": "数学一、数学三",
+      "sourceQuestionNo": "例2043",
+      "sourcePage": 64,
+      "sourcePageImage": "past-exam-assets/trial-probability/page-0064.png",
+      "stemImage": "",
+      "reviewStatus": "trial_imported",
+      "publishStatus": "published",
+      "qualityTier": "past_exam_trial",
+      "practiceStatus": "trial"
+    },
+    {
+      "id": "classified_probability_candidate_259",
+      "subjects": [
+        "数学一",
+        "数学三"
+      ],
+      "chapterId": "prob_moments",
+      "chapterName": "随机变量的数字特征",
+      "point": "例2069",
+      "reason": "真题专项试运行",
+      "type": "solution",
+      "level": "历年真题（试运行）",
+      "difficulty": 4,
+      "stem": "【例 2069】【2012-13-11 分】设二维离散型随机变量 ( X , Y ) 的概率分布为\n\n                               X\n                                     0           1            2\n                       Y\n                                     1                        1\n                           0                     0\n                                     4                       12\n                                                 1\n                           1         0                        0\n                                                 3\n                                     1                        1\n                           2                     0\n                                     4                       12\n   （1）求 P{ X = 2Y } ；（2）求 Cov ( X − Y , Y ) 。\n\n\n\n                                               2x\n                                               2 ,  x  2 ,",
+      "options": [],
+      "answer": "",
+      "answerStatus": "pending_review",
+      "aliases": [],
+      "explanation": "试运行导入：答案和解析尚未人工校对，请通过“查看原页”核对本题。",
+      "sourceType": "past_exam",
+      "source": "真题分类概率",
+      "sourceBook": "真题分类概率",
+      "sourceSection": "随机变量的数字特征",
+      "sourceYear": 2012,
+      "sourceMathType": "数学一、数学三",
+      "sourceQuestionNo": "例2069",
+      "sourcePage": 70,
+      "sourcePageImage": "past-exam-assets/trial-probability/page-0070.png",
+      "stemImage": "",
+      "reviewStatus": "trial_imported",
+      "publishStatus": "published",
+      "qualityTier": "past_exam_trial",
+      "practiceStatus": "trial"
+    },
+    {
+      "id": "classified_probability_candidate_285",
+      "subjects": [
+        "数学一",
+        "数学三"
+      ],
+      "chapterId": "prob_limit",
+      "chapterName": "大数定律和中心极限定理",
+      "point": "例2095",
+      "reason": "真题专项试运行",
+      "type": "solution",
+      "level": "历年真题（试运行）",
+      "difficulty": 4,
+      "stem": "【例 2095】【1989-4-3 分】设随机变量 X 的数学期望 EX =  ，方差 DX =  2 ，则由\n\n切比雪夫不等式，有 P{ X −   3 }                               .",
+      "options": [],
+      "answer": "",
+      "answerStatus": "pending_review",
+      "aliases": [],
+      "explanation": "试运行导入：答案和解析尚未人工校对，请通过“查看原页”核对本题。",
+      "sourceType": "past_exam",
+      "source": "真题分类概率",
+      "sourceBook": "真题分类概率",
+      "sourceSection": "大数定律和中心极限定理",
+      "sourceYear": 1989,
+      "sourceMathType": "数学一、数学三",
+      "sourceQuestionNo": "例2095",
+      "sourcePage": 77,
+      "sourcePageImage": "past-exam-assets/trial-probability/page-0077.png",
+      "stemImage": "",
+      "reviewStatus": "trial_imported",
+      "publishStatus": "published",
+      "qualityTier": "past_exam_trial",
+      "practiceStatus": "trial"
+    },
+    {
+      "id": "classified_probability_candidate_288",
+      "subjects": [
+        "数学一",
+        "数学三"
+      ],
+      "chapterId": "prob_limit",
+      "chapterName": "大数定律和中心极限定理",
+      "point": "例2098",
+      "reason": "真题专项试运行",
+      "type": "solution",
+      "level": "历年真题（试运行）",
+      "difficulty": 4,
+      "stem": "【例 2098】【2001-3-3 分】设随机变量 X 和 Y 的数学期望分别为 −2 和 2 ，方差分别为\n\n1 和 4 ，而相关系数为 −0.5 ，则根据切比雪夫不等式 P{ X + Y  6}                                           .\n\n\n       【2022-1-5 分】设 X 1 , X 2 ,",
+      "options": [],
+      "answer": "",
+      "answerStatus": "pending_review",
+      "aliases": [],
+      "explanation": "试运行导入：答案和解析尚未人工校对，请通过“查看原页”核对本题。",
+      "sourceType": "past_exam",
+      "source": "真题分类概率",
+      "sourceBook": "真题分类概率",
+      "sourceSection": "大数定律和中心极限定理",
+      "sourceYear": 2001,
+      "sourceMathType": "数学一、数学三",
+      "sourceQuestionNo": "例2098",
+      "sourcePage": 77,
+      "sourcePageImage": "past-exam-assets/trial-probability/page-0077.png",
+      "stemImage": "",
+      "reviewStatus": "trial_imported",
+      "publishStatus": "published",
+      "qualityTier": "past_exam_trial",
+      "practiceStatus": "trial"
+    },
+    {
+      "id": "classified_probability_candidate_291",
+      "subjects": [
+        "数学一",
+        "数学三"
+      ],
+      "chapterId": "prob_limit",
+      "chapterName": "大数定律和中心极限定理",
+      "point": "例2101",
+      "reason": "真题专项试运行",
+      "type": "choice",
+      "level": "历年真题（试运行）",
+      "difficulty": 4,
+      "stem": "【例 2101】【2022-3-5 分】设随机变量序列 X 1 , X 2 ,            , Xn,   独立同分布，且 X i 的概率\n\n             1 − x ,   x  1,                 1  2\n密度为 f ( x ) =                   则当 n →  时，      X i 依概率收敛于(      ).\n             0,        else                   n i =1\n      1           1              1             1\n(A)         (B)            (C)           (D)\n      8           6              3             2\n\n\n\n\n三、中心极限定理",
+      "options": [
+        "A（请对照原页）",
+        "B（请对照原页）",
+        "C（请对照原页）",
+        "D（请对照原页）"
+      ],
+      "answer": "",
+      "answerStatus": "pending_review",
+      "aliases": [],
+      "explanation": "试运行导入：答案和解析尚未人工校对，请通过“查看原页”核对本题。",
+      "sourceType": "past_exam",
+      "source": "真题分类概率",
+      "sourceBook": "真题分类概率",
+      "sourceSection": "大数定律和中心极限定理",
+      "sourceYear": 2022,
+      "sourceMathType": "数学一、数学三",
+      "sourceQuestionNo": "例2101",
+      "sourcePage": 78,
+      "sourcePageImage": "past-exam-assets/trial-probability/page-0078.png",
+      "stemImage": "",
+      "reviewStatus": "trial_imported",
+      "publishStatus": "published",
+      "qualityTier": "past_exam_trial",
+      "practiceStatus": "trial"
+    },
+    {
+      "id": "classified_probability_candidate_294",
+      "subjects": [
+        "数学一",
+        "数学三"
+      ],
+      "chapterId": "prob_limit",
+      "chapterName": "大数定律和中心极限定理",
+      "point": "例2104",
+      "reason": "真题专项试运行",
+      "type": "solution",
+      "level": "历年真题（试运行）",
+      "difficulty": 4,
+      "stem": "【例 2104】【2001-34-8 分】一生产线生产的产品成箱包装，每箱的重量是随机的.假设\n\n每箱平均重 50 千克，标准差为 5 千克.若用最大载重量为 5 吨的汽车承运，试利用中心极\n\n限 定 理 说 明 每 辆 车 最 多 可 以 装 多 少 箱 ， 才 能 保 障 不 超 载 的 概 率 大 于 0.977 .\n\n\n\n\n560",
+      "options": [],
+      "answer": "",
+      "answerStatus": "pending_review",
+      "aliases": [],
+      "explanation": "试运行导入：答案和解析尚未人工校对，请通过“查看原页”核对本题。",
+      "sourceType": "past_exam",
+      "source": "真题分类概率",
+      "sourceBook": "真题分类概率",
+      "sourceSection": "大数定律和中心极限定理",
+      "sourceYear": 2001,
+      "sourceMathType": "数学一、数学三",
+      "sourceQuestionNo": "例2104",
+      "sourcePage": 78,
+      "sourcePageImage": "past-exam-assets/trial-probability/page-0078.png",
+      "stemImage": "",
+      "reviewStatus": "trial_imported",
+      "publishStatus": "published",
+      "qualityTier": "past_exam_trial",
+      "practiceStatus": "trial"
+    },
+    {
+      "id": "classified_probability_candidate_298",
+      "subjects": [
+        "数学一",
+        "数学三"
+      ],
+      "chapterId": "prob_statistics",
+      "chapterName": "数理统计的基本概念",
+      "point": "例2108",
+      "reason": "真题专项试运行",
+      "type": "solution",
+      "level": "历年真题（试运行）",
+      "difficulty": 4,
+      "stem": "【例 2108】【1999-3-3 分】在天平上重复称量一重为 a 的物品，假设各次称量结果相互\n\n独立且同服从正态分布 N (a, 0.22 ) .若以 X n 表示 n 次称量结果的算术平均值，则为使\n\n\n                    \nP X n − a  0.1  0.95 ， n 的最小值应不小于自然数                                   .",
+      "options": [],
+      "answer": "",
+      "answerStatus": "pending_review",
+      "aliases": [],
+      "explanation": "试运行导入：答案和解析尚未人工校对，请通过“查看原页”核对本题。",
+      "sourceType": "past_exam",
+      "source": "真题分类概率",
+      "sourceBook": "真题分类概率",
+      "sourceSection": "数理统计的基本概念",
+      "sourceYear": 1999,
+      "sourceMathType": "数学一、数学三",
+      "sourceQuestionNo": "例2108",
+      "sourcePage": 81,
+      "sourcePageImage": "past-exam-assets/trial-probability/page-0081.png",
+      "stemImage": "",
+      "reviewStatus": "trial_imported",
+      "publishStatus": "published",
+      "qualityTier": "past_exam_trial",
+      "practiceStatus": "trial"
+    },
+    {
+      "id": "classified_probability_candidate_304",
+      "subjects": [
+        "数学一",
+        "数学三"
+      ],
+      "chapterId": "prob_statistics",
+      "chapterName": "数理统计的基本概念",
+      "point": "例2114",
+      "reason": "真题专项试运行",
+      "type": "choice",
+      "level": "历年真题（试运行）",
+      "difficulty": 4,
+      "stem": "【 例 2114 】 【 2011-3-4 分 】 设 总 体 X 服 从 参 数 为  (  0) 的 泊 松 分 布 ，\n\n                                                                               1 n\nX1, X 2 ,   , X n (n  2) 为来自该总体的简单随机样本，则对于统计量 T1 =                               Xi 和\n                                                                               n i =1\n\n        1 n −1         1\nT2 =        \n       n − 1 i =1\n                  X i + X n ，有（\n                       n\n                                       ）\n\n\n（A） E (T1 )  E (T2 ) ， D (T1 )  D (T2 )\n\n（B） E (T1 )  E (T2 ) ， D (T1 )  D (T2 ) ，\n\n（C） E (T1 )  E (T2 ) ， D (T1 )  D (T2 )\n\n（D） E (T1 )  E (T2 ) ， D (T1 )  D (T2 )",
+      "options": [
+        "A. E (T1 )  E (T2 ) ， D (T1 )  D (T2 )",
+        "B. E (T1 )  E (T2 ) ， D (T1 )  D (T2 ) ，",
+        "C. E (T1 )  E (T2 ) ， D (T1 )  D (T2 )",
+        "D. E (T1 )  E (T2 ) ， D (T1 )  D (T2 )"
+      ],
+      "answer": "",
+      "answerStatus": "pending_review",
+      "aliases": [],
+      "explanation": "试运行导入：答案和解析尚未人工校对，请通过“查看原页”核对本题。",
+      "sourceType": "past_exam",
+      "source": "真题分类概率",
+      "sourceBook": "真题分类概率",
+      "sourceSection": "数理统计的基本概念",
+      "sourceYear": 2011,
+      "sourceMathType": "数学一、数学三",
+      "sourceQuestionNo": "例2114",
+      "sourcePage": 82,
+      "sourcePageImage": "past-exam-assets/trial-probability/page-0082.png",
+      "stemImage": "",
+      "reviewStatus": "trial_imported",
+      "publishStatus": "published",
+      "qualityTier": "past_exam_trial",
+      "practiceStatus": "trial"
+    },
+    {
+      "id": "classified_probability_candidate_311",
+      "subjects": [
+        "数学一",
+        "数学三"
+      ],
+      "chapterId": "prob_statistics",
+      "chapterName": "数理统计的基本概念",
+      "point": "例2121",
+      "reason": "真题专项试运行",
+      "type": "solution",
+      "level": "历年真题（试运行）",
+      "difficulty": 4,
+      "stem": "【例 2121】【2001-3-3 分】设总体 X 服从正态分布 N (0, 2 2 ) ，而 X 1 , X 2 ,                       , X 15 是来自\n\n                                              X 12 + + X 102\n总体 X 的简单随机样本，则随机变量 Y =                                           服从                分布，参数\n                                            2( X 112 + + X 152 )\n\n为                  .",
+      "options": [],
+      "answer": "",
+      "answerStatus": "pending_review",
+      "aliases": [],
+      "explanation": "试运行导入：答案和解析尚未人工校对，请通过“查看原页”核对本题。",
+      "sourceType": "past_exam",
+      "source": "真题分类概率",
+      "sourceBook": "真题分类概率",
+      "sourceSection": "数理统计的基本概念",
+      "sourceYear": 2001,
+      "sourceMathType": "数学一、数学三",
+      "sourceQuestionNo": "例2121",
+      "sourcePage": 84,
+      "sourcePageImage": "past-exam-assets/trial-probability/page-0084.png",
+      "stemImage": "",
+      "reviewStatus": "trial_imported",
+      "publishStatus": "published",
+      "qualityTier": "past_exam_trial",
+      "practiceStatus": "trial"
+    },
+    {
+      "id": "classified_probability_candidate_317",
+      "subjects": [
+        "数学一",
+        "数学三"
+      ],
+      "chapterId": "prob_statistics",
+      "chapterName": "数理统计的基本概念",
+      "point": "例2127",
+      "reason": "真题专项试运行",
+      "type": "solution",
+      "level": "历年真题（试运行）",
+      "difficulty": 4,
+      "stem": "【例 2127】【2017-13-4 分】设 X 1 , X 2 ,      , X n (n  2) 为来自总体 N (  ,1) 的简单随机\n\n              1 n\n样本，记 X =         X i ，则下列结论中不正确的是（ ）\n              n i =1\n\n\n\n                                                                         567",
+      "options": [],
+      "answer": "",
+      "answerStatus": "pending_review",
+      "aliases": [],
+      "explanation": "试运行导入：答案和解析尚未人工校对，请通过“查看原页”核对本题。",
+      "sourceType": "past_exam",
+      "source": "真题分类概率",
+      "sourceBook": "真题分类概率",
+      "sourceSection": "数理统计的基本概念",
+      "sourceYear": 2017,
+      "sourceMathType": "数学一、数学三",
+      "sourceQuestionNo": "例2127",
+      "sourcePage": 85,
+      "sourcePageImage": "past-exam-assets/trial-probability/page-0085.png",
+      "stemImage": "",
+      "reviewStatus": "trial_imported",
+      "publishStatus": "published",
+      "qualityTier": "past_exam_trial",
+      "practiceStatus": "trial"
+    },
+    {
+      "id": "classified_probability_candidate_324",
+      "subjects": [
+        "数学一",
+        "数学三"
+      ],
+      "chapterId": "prob_estimation",
+      "chapterName": "参数估计",
+      "point": "例2134",
+      "reason": "真题专项试运行",
+      "type": "solution",
+      "level": "历年真题（试运行）",
+      "difficulty": 4,
+      "stem": "【例 2134】【2002-1-7 分】设总体 X 的概率分布为\n\n X               0            1             2             3\n P              2            2 (1 −  )   2            1 − 2\n\n                    1\n其中   0            是未知参数，利用总体 X 的如下样本值： 3,1, 3, 0, 3,1, 2, 3 ，求  的\n                    2\n\n矩估计值和最大似然估计值.\n                                                                       1",
+      "options": [],
+      "answer": "",
+      "answerStatus": "pending_review",
+      "aliases": [],
+      "explanation": "试运行导入：答案和解析尚未人工校对，请通过“查看原页”核对本题。",
+      "sourceType": "past_exam",
+      "source": "真题分类概率",
+      "sourceBook": "真题分类概率",
+      "sourceSection": "参数估计",
+      "sourceYear": 2002,
+      "sourceMathType": "数学一、数学三",
+      "sourceQuestionNo": "例2134",
+      "sourcePage": 89,
+      "sourcePageImage": "past-exam-assets/trial-probability/page-0089.png",
+      "stemImage": "",
+      "reviewStatus": "trial_imported",
+      "publishStatus": "published",
+      "qualityTier": "past_exam_trial",
+      "practiceStatus": "trial"
+    },
+    {
+      "id": "classified_probability_candidate_336",
+      "subjects": [
+        "数学一",
+        "数学三"
+      ],
+      "chapterId": "prob_estimation",
+      "chapterName": "参数估计",
+      "point": "例2146",
+      "reason": "真题专项试运行",
+      "type": "solution",
+      "level": "历年真题（试运行）",
+      "difficulty": 4,
+      "stem": "【例 2146】【2011-1-11 分】设 X 1 , X 2 ,   , X n 为来自正态总体 N ( 0 ,  2 ) 的简单随机样\n\n本，其中  0 已知，  2  0 未知。 X 和 S 2 分别表示样本均值和样本方差。\n\n（1）求参数  2 的最大似然估计量  2 ；\n\n（2）计算 E ( 2 ) 和 D ( 2 ) 。",
+      "options": [],
+      "answer": "",
+      "answerStatus": "pending_review",
+      "aliases": [],
+      "explanation": "试运行导入：答案和解析尚未人工校对，请通过“查看原页”核对本题。",
+      "sourceType": "past_exam",
+      "source": "真题分类概率",
+      "sourceBook": "真题分类概率",
+      "sourceSection": "参数估计",
+      "sourceYear": 2011,
+      "sourceMathType": "数学一、数学三",
+      "sourceQuestionNo": "例2146",
+      "sourcePage": 92,
+      "sourcePageImage": "past-exam-assets/trial-probability/page-0092.png",
+      "stemImage": "",
+      "reviewStatus": "trial_imported",
+      "publishStatus": "published",
+      "qualityTier": "past_exam_trial",
+      "practiceStatus": "trial"
+    },
+    {
+      "id": "classified_probability_candidate_348",
+      "subjects": [
+        "数学一",
+        "数学三"
+      ],
+      "chapterId": "prob_estimation",
+      "chapterName": "参数估计",
+      "point": "例2158",
+      "reason": "真题专项试运行",
+      "type": "solution",
+      "level": "历年真题（试运行）",
+      "difficulty": 4,
+      "stem": "【例 2158】【2005-3-13 分】设 X 1 , X 2 ,  , X n (n  2) 为来自总体 N (0,  ) 的简单随机\n                                                                                 2\n\n\n\n\n样本，其样本均值为 X 。记 Yi = X i − X , i = 1, 2,               n。\n\n（1）求 Yi 的方差 D (Yi ), i = 1, 2,       n；\n\n（2）求 Y1 与 Yn 的协方差 Cov(Y1 , Yn ) ；\n\n\n\n                                                                                              577",
+      "options": [],
+      "answer": "",
+      "answerStatus": "pending_review",
+      "aliases": [],
+      "explanation": "试运行导入：答案和解析尚未人工校对，请通过“查看原页”核对本题。",
+      "sourceType": "past_exam",
+      "source": "真题分类概率",
+      "sourceBook": "真题分类概率",
+      "sourceSection": "参数估计",
+      "sourceYear": 2005,
+      "sourceMathType": "数学一、数学三",
+      "sourceQuestionNo": "例2158",
+      "sourcePage": 95,
+      "sourcePageImage": "past-exam-assets/trial-probability/page-0095.png",
+      "stemImage": "",
+      "reviewStatus": "trial_imported",
+      "publishStatus": "published",
+      "qualityTier": "past_exam_trial",
+      "practiceStatus": "trial"
+    },
+    {
+      "id": "classified_probability_candidate_361",
+      "subjects": [
+        "数学一",
+        "数学三"
+      ],
+      "chapterId": "prob_testing",
+      "chapterName": "假设检验",
+      "point": "例2171",
+      "reason": "真题专项试运行",
+      "type": "solution",
+      "level": "历年真题（试运行）",
+      "difficulty": 4,
+      "stem": "【例 2171】                               , X n 是来自正态分布 N (  ,  2 ) 的简单随机样本，\n\n                                                     n\n                                 1 n\n其中参数  和  2 未知，记 X =              \n                                 n i =1\n                                        X i ，Q 2 =  ( X i − X )2 ，则假设 H 0 :  = 0 的 t 检\n                                                   i =1\n\n\n验使用统计量 t =                   .",
+      "options": [],
+      "answer": "",
+      "answerStatus": "pending_review",
+      "aliases": [],
+      "explanation": "试运行导入：答案和解析尚未人工校对，请通过“查看原页”核对本题。",
+      "sourceType": "past_exam",
+      "source": "真题分类概率",
+      "sourceBook": "真题分类概率",
+      "sourceSection": "假设检验",
+      "sourceYear": null,
+      "sourceMathType": "数学一、数学三",
+      "sourceQuestionNo": "例2171",
+      "sourcePage": 99,
+      "sourcePageImage": "past-exam-assets/trial-probability/page-0099.png",
+      "stemImage": "",
+      "reviewStatus": "trial_imported",
+      "publishStatus": "published",
+      "qualityTier": "past_exam_trial",
+      "practiceStatus": "trial"
+    },
+    {
+      "id": "classified_probability_candidate_362",
+      "subjects": [
+        "数学一",
+        "数学三"
+      ],
+      "chapterId": "prob_testing",
+      "chapterName": "假设检验",
+      "point": "例2172",
+      "reason": "真题专项试运行",
+      "type": "solution",
+      "level": "历年真题（试运行）",
+      "difficulty": 4,
+      "stem": "【例 2172】【1998-1-4 分】设某次考试的考生成绩服从正态分布，从中随机抽取 36 位考\n\n生的成绩，算得平均成绩为 66.5 分，标准差为 15 分，问在显著性水平 0.05 下，是否可以\n\n认为这次考试全体考生的平均成绩为 70 分？并给出检验过程.\n\n附表： t 分布表        P{t (n)  t p (n)} = p\n\n      t p ( n)          p     0.95                             0.975\n\n           n\n 35                           1.6896                           2.0301\n\n 36                           1.6883                           2.0281",
+      "options": [],
+      "answer": "",
+      "answerStatus": "pending_review",
+      "aliases": [],
+      "explanation": "试运行导入：答案和解析尚未人工校对，请通过“查看原页”核对本题。",
+      "sourceType": "past_exam",
+      "source": "真题分类概率",
+      "sourceBook": "真题分类概率",
+      "sourceSection": "假设检验",
+      "sourceYear": 1998,
+      "sourceMathType": "数学一、数学三",
+      "sourceQuestionNo": "例2172",
+      "sourcePage": 99,
+      "sourcePageImage": "past-exam-assets/trial-probability/page-0099.png",
+      "stemImage": "",
+      "reviewStatus": "trial_imported",
+      "publishStatus": "published",
+      "qualityTier": "past_exam_trial",
+      "practiceStatus": "trial"
+    },
+    {
+      "id": "classified_probability_candidate_364",
+      "subjects": [
+        "数学一",
+        "数学三"
+      ],
+      "chapterId": "prob_testing",
+      "chapterName": "假设检验",
+      "point": "例2174",
+      "reason": "真题专项试运行",
+      "type": "choice",
+      "level": "历年真题（试运行）",
+      "difficulty": 4,
+      "stem": "【例 2174】【2021-1-5 分】设 X 1 , X 2 ,... X 16 是来自总体 N ( , 4) 的简单随机样本，考虑\n\n假设检验问题: H 0 :              10, H1 :         10 ， ( x ) 表示标准正态分布函数，若该检验问题\n\n                                             1 16\n的拒绝域为 W               X   11 ，其中 X                 X i ，则 =11.5 时，该检验犯第二类错误\n                                            16 i 1\n\n的概率为（ ）\n\n（A） 1         (0.5)       （B） 1       (1)       （C） 1       (1.5)       （D） 1       (2)",
+      "options": [
+        "A. 1 (0.5)",
+        "B. 1 (1)",
+        "C. 1 (1.5)",
+        "D. 1 (2)"
+      ],
+      "answer": "",
+      "answerStatus": "pending_review",
+      "aliases": [],
+      "explanation": "试运行导入：答案和解析尚未人工校对，请通过“查看原页”核对本题。",
+      "sourceType": "past_exam",
+      "source": "真题分类概率",
+      "sourceBook": "真题分类概率",
+      "sourceSection": "假设检验",
+      "sourceYear": 2021,
+      "sourceMathType": "数学一、数学三",
+      "sourceQuestionNo": "例2174",
+      "sourcePage": 100,
+      "sourcePageImage": "past-exam-assets/trial-probability/page-0100.png",
+      "stemImage": "",
+      "reviewStatus": "trial_imported",
+      "publishStatus": "published",
+      "qualityTier": "past_exam_trial",
+      "practiceStatus": "trial"
+    }
+  ]
+}

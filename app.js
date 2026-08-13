@@ -2,6 +2,7 @@ const APP_CONFIG = window.__APP_CONFIG__ || {};
 const API_BASE_URL = String(APP_CONFIG.apiBaseUrl || "").replace(/\/$/, "");
 const APP_BASE_PATH = String(window.__APP_BASE_PATH__ || "").replace(/\/$/, "");
 const FIXED_PRACTICE_COUNT = 20;
+const IMPORTED_SOURCE_TYPE = "past_exam";
 const routeToView = {
   "/": "home",
   "/login": "home",
@@ -51,7 +52,7 @@ const trainingModes = {
     stage: "基础阶段",
     count: FIXED_PRACTICE_COUNT,
     difficulty: "mode",
-    sourceType: "all",
+    sourceType: IMPORTED_SOURCE_TYPE,
     description: "按章节补概念、公式、基本计算和常见入口。",
     difficultyLabel: "1-2星 基础题组"
   },
@@ -60,7 +61,7 @@ const trainingModes = {
     stage: "强化阶段",
     count: 20,
     difficulty: "mode",
-    sourceType: "all",
+    sourceType: IMPORTED_SOURCE_TYPE,
     description: "集中处理易错、综合、方法选择和计算稳定性。",
     difficultyLabel: "3-4星 强化题组"
   },
@@ -69,7 +70,7 @@ const trainingModes = {
     stage: "模拟考试",
     count: 20,
     difficulty: "mode",
-    sourceType: "all",
+    sourceType: IMPORTED_SOURCE_TYPE,
     description: "跨章节混合出题，按考试节奏提交并生成薄弱诊断。",
     difficultyLabel: "1-5星 混合题组"
   }
@@ -88,7 +89,7 @@ const state = {
   chapterId: "integral",
   questionCount: FIXED_PRACTICE_COUNT,
   difficulty: localStorage.getItem("difficulty") || "all",
-  sourceType: localStorage.getItem("sourceType") || "all",
+  sourceType: IMPORTED_SOURCE_TYPE,
   current: 0,
   responses: {},
   lastResults: null,
@@ -112,13 +113,14 @@ const navs = [
   ["report", "学习报告"],
   ["pastExams", "真题库"]
 ];
-const sourceOptions = [
+const legacySourceOptions = [
   ["all", "全部题源"],
   ["past_exam", "历年考研数学真题"],
   ["inhouse_original", "自研原创题"],
   ["teacher_original", "签约教师原创题"],
   ["ai_teacher_reviewed", "AI生成后教师审核变式题"]
 ];
+const sourceOptions = [[IMPORTED_SOURCE_TYPE, "同事导入题目"]];
 const difficultyOptions = [
   ["mode", "按当前题组"],
   ["all", "全部难度"],
@@ -169,7 +171,7 @@ function selectMode(key) {
   const picked = mode();
   state.questionCount = FIXED_PRACTICE_COUNT;
   state.difficulty = picked.difficulty;
-  state.sourceType = picked.sourceType;
+  state.sourceType = IMPORTED_SOURCE_TYPE;
   localStorage.setItem("questionCount", String(state.questionCount));
   localStorage.setItem("difficulty", state.difficulty);
   localStorage.setItem("sourceType", state.sourceType);
