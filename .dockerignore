@@ -1,4 +1,9 @@
 .env
+data/db.json
+data/questions.sqlite
+data/app-state.json
+data/db.json.*backup*
+data/db.json.*pre-sqlite*
 .edge-profile
 inspection-shots
 preview.png

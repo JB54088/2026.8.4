@@ -1,5 +1,5 @@
 {
-  "description": "2000-2026 考研数学真题线上来源登记。当前先支持原卷电子刷题；单题刷题需要 OCR 后人工校对题干、选项、答案与解析。",
+  "description": "1987-2025 考研数学真题来源登记。四份本地答案解析 PDF 已通过脚本按 sourceBook + sourceExampleNo 匹配回题库；匹配记录保留 PDF、页码、例题号和原始答案文本。",
   "trustedSources": [
     {
       "site": "中国研究生招生信息网",
@@ -63,20 +63,21 @@
   ],
   "localSources": [
     {
-      "sourceId": "classified-probability",
+      "sourceId": "classified-1987-2025",
       "site": "本地真题资料库",
       "year": "1987-2025",
-      "mathType": "概率专题",
-      "title": "真题分类概率（原页资料）",
+      "mathType": "数学一/二/三/四/五（按原始标签）",
+      "title": "1987-2025 考研数学真题分类资料",
       "url": "past-exam-preview.html",
-      "format": "classified_pages",
-      "importStatus": "trial_questions_imported_pending_answer_review",
-      "description": "100 页原页已发布；当前 30 道题已作为试运行题目进入刷题池，答案和解析仍待人工校对，提交后暂不自动判分。"
+      "format": "classified_pages_and_structured_staging",
+      "importStatus": "2376_answer_pdf_matches_applied_22_legacy_records_pending",
+      "description": "4 份主来源 PDF 已抽取 2346 道候选题并写入题库；答案 PDF 精确匹配 2346 道新题，并按明确例题号回连 30 条历史概率候选记录，共覆盖 2376 条数据库记录。2278 条答案可直接判定，98 条保留为见解析/待复核；另有 22 条旧版 2012 数学二图片卡只有原卷图片题号，不在这四份分类答案 PDF 的例题键范围内，未强行填入答案。原始 PDF 页码、答案文本和解析正文均保留。"
     }
   ],
   "importPolicy": [
     "只把已确认来源的题目标记为 past_exam。",
     "图片版真题必须 OCR 后人工校对年份、卷种、题号、题干、选项、答案。",
+    "答案 PDF 只按 sourceBook + sourceExampleNo 或已有明确例题号回连，不按题干相似度猜题。",
     "第三方下载站和网盘资源不得自动抓正文入库，除非你确认授权。"
   ]
 }

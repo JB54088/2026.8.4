@@ -1,0 +1,1122 @@
+{
+  "schemaVersion": 1,
+  "generatedBy": "tools/extract_past_exam_questions.py",
+  "sourceDir": "/home/adrianchen/mathTools/data/（87-25）数学真题分类",
+  "sourcePolicy": "只扫描主来源 PDF；解析/做题本暂不作为重复题源",
+  "yearRange": [
+    1987,
+    2025
+  ],
+  "status": "needs_review",
+  "candidateCount": 10,
+  "typeCounts": {
+    "solution": 5,
+    "choice": 4,
+    "fill": 1
+  },
+  "reviewFlagCounts": {
+    "original_exam_question_no_not_in_source_tag": 10,
+    "private_use_math_glyph": 9,
+    "formula_requires_visual_review": 6,
+    "type_needs_review": 5,
+    "question_spans_multiple_pages": 1
+  },
+  "files": [
+    {
+      "sourcePdf": "data/（87-25）数学真题分类/高数篇/原PDF及解析/【原PDF】2026考研-真题分类高数下册.pdf",
+      "family": "high_math",
+      "pages": 152,
+      "candidateCount": 787,
+      "questionPages": 144,
+      "status": "ok"
+    }
+  ],
+  "questions": [
+    {
+      "id": "past_1987_3_ex707",
+      "subjects": [
+        "数学三"
+      ],
+      "sectionId": "integral",
+      "sectionName": "一元函数积分学",
+      "chapterId": "integral",
+      "chapterName": "一元函数积分学",
+      "section": {
+        "id": "integral",
+        "name": "一元函数积分学",
+        "groupId": "high_math",
+        "groupName": "高等数学",
+        "order": 0
+      },
+      "point": "不定积分的概念及性质",
+      "reason": "真题自动抽取，待审核",
+      "type": "solution",
+      "level": "历年真题（待审核）",
+      "difficulty": 4,
+      "stem": " f ( x)dx =\nb\n ；  f (2 x)dx =\na\n.",
+      "stemFormat": "text",
+      "formula": "",
+      "formulaFormat": "text",
+      "options": [],
+      "answer": "",
+      "answerStatus": "pending_review",
+      "aliases": [],
+      "explanation": "",
+      "sourceType": "past_exam",
+      "source": "【原PDF】2026考研-真题分类高数下册",
+      "sourceName": "【原PDF】2026考研-真题分类高数下册",
+      "sourceBook": "【原PDF】2026考研-真题分类高数下册",
+      "sourceSection": "不定积分的概念及性质",
+      "sourceYear": 1987,
+      "sourceMathType": "数学三",
+      "sourceQuestionNo": "",
+      "sourcePage": 9,
+      "sourcePageImage": "past-exam-assets/extracted-high-math-pilot/high_math-pdf-2026/page-0009.png",
+      "stemImage": "past-exam-assets/extracted-high-math-pilot/high_math-pdf-2026/page-0009.png",
+      "reviewStatus": "extracted_pending_review",
+      "publishStatus": "draft",
+      "qualityTier": "past_exam_extracted",
+      "practiceStatus": "needs_review",
+      "knowledgePointId": "integral:不定积分的概念及性质",
+      "knowledgePointName": "不定积分的概念及性质",
+      "errorTypes": [
+        "transfer"
+      ],
+      "trainingLevel": "variation",
+      "similarGroupId": "",
+      "content": {
+        "stem": {
+          "value": " f ( x)dx =\nb\n ；  f (2 x)dx =\na\n.",
+          "format": "text"
+        },
+        "formula": {
+          "value": "",
+          "format": "text"
+        },
+        "explanation": {
+          "value": "",
+          "format": "text"
+        }
+      },
+      "sourceSpec": {
+        "type": "past_exam",
+        "name": "【原PDF】2026考研-真题分类高数下册",
+        "book": "【原PDF】2026考研-真题分类高数下册",
+        "section": "不定积分的概念及性质",
+        "year": 1987,
+        "mathType": "数学三",
+        "questionNo": "",
+        "page": 9,
+        "pageImage": "past-exam-assets/extracted-high-math-pilot/high_math-pdf-2026/page-0009.png",
+        "stemImage": "past-exam-assets/extracted-high-math-pilot/high_math-pdf-2026/page-0009.png"
+      },
+      "sourcePdf": "data/（87-25）数学真题分类/高数篇/原PDF及解析/【原PDF】2026考研-真题分类高数下册.pdf",
+      "sourcePageEnd": 9,
+      "sourceExampleNo": 707,
+      "sourceExamTag": "【1987-3-3 分】",
+      "sourceExamMathCode": "3",
+      "sourceScore": 3,
+      "rawText": " f ( x)dx =\nb\n ；  f (2 x)dx =\na\n.",
+      "formulaExtraction": {
+        "status": "pending_formula_ocr",
+        "format": "text",
+        "latex": "",
+        "reviewFlags": [
+          "original_exam_question_no_not_in_source_tag",
+          "private_use_math_glyph",
+          "formula_requires_visual_review",
+          "type_needs_review"
+        ]
+      },
+      "extraction": {
+        "confidence": 0.958,
+        "typeConfidence": 0.58,
+        "reviewFlags": [
+          "original_exam_question_no_not_in_source_tag",
+          "private_use_math_glyph",
+          "formula_requires_visual_review",
+          "type_needs_review"
+        ],
+        "extractor": "tools/extract_past_exam_questions.py"
+      }
+    },
+    {
+      "id": "past_1990_3_ex708",
+      "subjects": [
+        "数学三"
+      ],
+      "sectionId": "integral",
+      "sectionName": "一元函数积分学",
+      "chapterId": "integral",
+      "chapterName": "一元函数积分学",
+      "section": {
+        "id": "integral",
+        "name": "一元函数积分学",
+        "groupId": "high_math",
+        "groupName": "高等数学",
+        "order": 0
+      },
+      "point": "不定积分的概念及性质",
+      "reason": "真题自动抽取，待审核",
+      "type": "choice",
+      "level": "历年真题（待审核）",
+      "difficulty": 4,
+      "stem": "设函数 f ( x ) 在 ( −, + ) 上连续，则 d  f ( x)dx  等于（\n\n ）.",
+      "stemFormat": "text",
+      "formula": "",
+      "formulaFormat": "text",
+      "options": [
+        "A. f ( x )",
+        "B. f ( x ) dx",
+        "C. f ( x ) + C",
+        "D. f ( x ) dx"
+      ],
+      "answer": "",
+      "answerStatus": "pending_review",
+      "aliases": [],
+      "explanation": "",
+      "sourceType": "past_exam",
+      "source": "【原PDF】2026考研-真题分类高数下册",
+      "sourceName": "【原PDF】2026考研-真题分类高数下册",
+      "sourceBook": "【原PDF】2026考研-真题分类高数下册",
+      "sourceSection": "不定积分的概念及性质",
+      "sourceYear": 1990,
+      "sourceMathType": "数学三",
+      "sourceQuestionNo": "",
+      "sourcePage": 9,
+      "sourcePageImage": "past-exam-assets/extracted-high-math-pilot/high_math-pdf-2026/page-0009.png",
+      "stemImage": "past-exam-assets/extracted-high-math-pilot/high_math-pdf-2026/page-0009.png",
+      "reviewStatus": "extracted_pending_review",
+      "publishStatus": "draft",
+      "qualityTier": "past_exam_extracted",
+      "practiceStatus": "needs_review",
+      "knowledgePointId": "integral:不定积分的概念及性质",
+      "knowledgePointName": "不定积分的概念及性质",
+      "errorTypes": [
+        "transfer"
+      ],
+      "trainingLevel": "variation",
+      "similarGroupId": "",
+      "content": {
+        "stem": {
+          "value": "设函数 f ( x ) 在 ( −, + ) 上连续，则 d  f ( x)dx  等于（\n\n ）.",
+          "format": "text"
+        },
+        "formula": {
+          "value": "",
+          "format": "text"
+        },
+        "explanation": {
+          "value": "",
+          "format": "text"
+        }
+      },
+      "sourceSpec": {
+        "type": "past_exam",
+        "name": "【原PDF】2026考研-真题分类高数下册",
+        "book": "【原PDF】2026考研-真题分类高数下册",
+        "section": "不定积分的概念及性质",
+        "year": 1990,
+        "mathType": "数学三",
+        "questionNo": "",
+        "page": 9,
+        "pageImage": "past-exam-assets/extracted-high-math-pilot/high_math-pdf-2026/page-0009.png",
+        "stemImage": "past-exam-assets/extracted-high-math-pilot/high_math-pdf-2026/page-0009.png"
+      },
+      "sourcePdf": "data/（87-25）数学真题分类/高数篇/原PDF及解析/【原PDF】2026考研-真题分类高数下册.pdf",
+      "sourcePageEnd": 9,
+      "sourceExampleNo": 708,
+      "sourceExamTag": "【1990-3-3 分】",
+      "sourceExamMathCode": "3",
+      "sourceScore": 3,
+      "rawText": "设函数 f ( x ) 在 ( −, + ) 上连续，则 d  f ( x)dx  等于（\n\n ）.\n\n（A） f ( x ) （B） f ( x ) dx\n\n（C） f ( x ) + C （D） f ( x ) dx",
+      "formulaExtraction": {
+        "status": "not_detected",
+        "format": "text",
+        "latex": "",
+        "reviewFlags": [
+          "original_exam_question_no_not_in_source_tag",
+          "private_use_math_glyph"
+        ]
+      },
+      "extraction": {
+        "confidence": 0.99,
+        "typeConfidence": 0.95,
+        "reviewFlags": [
+          "original_exam_question_no_not_in_source_tag",
+          "private_use_math_glyph"
+        ],
+        "extractor": "tools/extract_past_exam_questions.py"
+      }
+    },
+    {
+      "id": "past_1992_3_ex709",
+      "subjects": [
+        "数学三"
+      ],
+      "sectionId": "integral",
+      "sectionName": "一元函数积分学",
+      "chapterId": "integral",
+      "chapterName": "一元函数积分学",
+      "section": {
+        "id": "integral",
+        "name": "一元函数积分学",
+        "groupId": "high_math",
+        "groupName": "高等数学",
+        "order": 0
+      },
+      "point": "不定积分的概念及性质",
+      "reason": "真题自动抽取，待审核",
+      "type": "choice",
+      "level": "历年真题（待审核）",
+      "difficulty": 4,
+      "stem": "若 f ( x ) 的导数是 sin x ，则 f ( x ) 有一个原函数为（ ）.",
+      "stemFormat": "text",
+      "formula": "",
+      "formulaFormat": "text",
+      "options": [
+        "A. 1 + sin x",
+        "B. 1 − sin x",
+        "C. 1 + cos x",
+        "D. 1 − cos x"
+      ],
+      "answer": "",
+      "answerStatus": "pending_review",
+      "aliases": [],
+      "explanation": "",
+      "sourceType": "past_exam",
+      "source": "【原PDF】2026考研-真题分类高数下册",
+      "sourceName": "【原PDF】2026考研-真题分类高数下册",
+      "sourceBook": "【原PDF】2026考研-真题分类高数下册",
+      "sourceSection": "不定积分的概念及性质",
+      "sourceYear": 1992,
+      "sourceMathType": "数学三",
+      "sourceQuestionNo": "",
+      "sourcePage": 9,
+      "sourcePageImage": "past-exam-assets/extracted-high-math-pilot/high_math-pdf-2026/page-0009.png",
+      "stemImage": "past-exam-assets/extracted-high-math-pilot/high_math-pdf-2026/page-0009.png",
+      "reviewStatus": "extracted_pending_review",
+      "publishStatus": "draft",
+      "qualityTier": "past_exam_extracted",
+      "practiceStatus": "needs_review",
+      "knowledgePointId": "integral:不定积分的概念及性质",
+      "knowledgePointName": "不定积分的概念及性质",
+      "errorTypes": [
+        "transfer"
+      ],
+      "trainingLevel": "variation",
+      "similarGroupId": "",
+      "content": {
+        "stem": {
+          "value": "若 f ( x ) 的导数是 sin x ，则 f ( x ) 有一个原函数为（ ）.",
+          "format": "text"
+        },
+        "formula": {
+          "value": "",
+          "format": "text"
+        },
+        "explanation": {
+          "value": "",
+          "format": "text"
+        }
+      },
+      "sourceSpec": {
+        "type": "past_exam",
+        "name": "【原PDF】2026考研-真题分类高数下册",
+        "book": "【原PDF】2026考研-真题分类高数下册",
+        "section": "不定积分的概念及性质",
+        "year": 1992,
+        "mathType": "数学三",
+        "questionNo": "",
+        "page": 9,
+        "pageImage": "past-exam-assets/extracted-high-math-pilot/high_math-pdf-2026/page-0009.png",
+        "stemImage": "past-exam-assets/extracted-high-math-pilot/high_math-pdf-2026/page-0009.png"
+      },
+      "sourcePdf": "data/（87-25）数学真题分类/高数篇/原PDF及解析/【原PDF】2026考研-真题分类高数下册.pdf",
+      "sourcePageEnd": 9,
+      "sourceExampleNo": 709,
+      "sourceExamTag": "【1992-3-3 分】",
+      "sourceExamMathCode": "3",
+      "sourceScore": 3,
+      "rawText": "若 f ( x ) 的导数是 sin x ，则 f ( x ) 有一个原函数为（ ）.\n\n（A） 1 + sin x （B） 1 − sin x （C） 1 + cos x （D） 1 − cos x",
+      "formulaExtraction": {
+        "status": "not_detected",
+        "format": "text",
+        "latex": "",
+        "reviewFlags": [
+          "original_exam_question_no_not_in_source_tag"
+        ]
+      },
+      "extraction": {
+        "confidence": 0.99,
+        "typeConfidence": 0.95,
+        "reviewFlags": [
+          "original_exam_question_no_not_in_source_tag"
+        ],
+        "extractor": "tools/extract_past_exam_questions.py"
+      }
+    },
+    {
+      "id": "past_1995_45_ex710",
+      "subjects": [
+        "数学四",
+        "数学五"
+      ],
+      "sectionId": "integral",
+      "sectionName": "一元函数积分学",
+      "chapterId": "integral",
+      "chapterName": "一元函数积分学",
+      "section": {
+        "id": "integral",
+        "name": "一元函数积分学",
+        "groupId": "high_math",
+        "groupName": "高等数学",
+        "order": 0
+      },
+      "point": "不定积分的概念及性质",
+      "reason": "真题自动抽取，待审核",
+      "type": "solution",
+      "level": "历年真题（待审核）",
+      "difficulty": 4,
+      "stem": "设 f (ln x ) = 1 + x ，则 f ( x ) = .\n\n",
+      "stemFormat": "text",
+      "formula": "",
+      "formulaFormat": "text",
+      "options": [],
+      "answer": "",
+      "answerStatus": "pending_review",
+      "aliases": [],
+      "explanation": "",
+      "sourceType": "past_exam",
+      "source": "【原PDF】2026考研-真题分类高数下册",
+      "sourceName": "【原PDF】2026考研-真题分类高数下册",
+      "sourceBook": "【原PDF】2026考研-真题分类高数下册",
+      "sourceSection": "不定积分的概念及性质",
+      "sourceYear": 1995,
+      "sourceMathType": "数学四、数学五",
+      "sourceQuestionNo": "",
+      "sourcePage": 9,
+      "sourcePageImage": "past-exam-assets/extracted-high-math-pilot/high_math-pdf-2026/page-0009.png",
+      "stemImage": "past-exam-assets/extracted-high-math-pilot/high_math-pdf-2026/page-0009.png",
+      "reviewStatus": "extracted_pending_review",
+      "publishStatus": "draft",
+      "qualityTier": "past_exam_extracted",
+      "practiceStatus": "needs_review",
+      "knowledgePointId": "integral:不定积分的概念及性质",
+      "knowledgePointName": "不定积分的概念及性质",
+      "errorTypes": [
+        "transfer"
+      ],
+      "trainingLevel": "variation",
+      "similarGroupId": "",
+      "content": {
+        "stem": {
+          "value": "设 f (ln x ) = 1 + x ，则 f ( x ) = .\n\n",
+          "format": "text"
+        },
+        "formula": {
+          "value": "",
+          "format": "text"
+        },
+        "explanation": {
+          "value": "",
+          "format": "text"
+        }
+      },
+      "sourceSpec": {
+        "type": "past_exam",
+        "name": "【原PDF】2026考研-真题分类高数下册",
+        "book": "【原PDF】2026考研-真题分类高数下册",
+        "section": "不定积分的概念及性质",
+        "year": 1995,
+        "mathType": "数学四、数学五",
+        "questionNo": "",
+        "page": 9,
+        "pageImage": "past-exam-assets/extracted-high-math-pilot/high_math-pdf-2026/page-0009.png",
+        "stemImage": "past-exam-assets/extracted-high-math-pilot/high_math-pdf-2026/page-0009.png"
+      },
+      "sourcePdf": "data/（87-25）数学真题分类/高数篇/原PDF及解析/【原PDF】2026考研-真题分类高数下册.pdf",
+      "sourcePageEnd": 9,
+      "sourceExampleNo": 710,
+      "sourceExamTag": "【1995-45-3 分】",
+      "sourceExamMathCode": "45",
+      "sourceScore": 3,
+      "rawText": "设 f (ln x ) = 1 + x ，则 f ( x ) = .\n\n",
+      "formulaExtraction": {
+        "status": "pending_formula_ocr",
+        "format": "text",
+        "latex": "",
+        "reviewFlags": [
+          "original_exam_question_no_not_in_source_tag",
+          "private_use_math_glyph",
+          "formula_requires_visual_review",
+          "type_needs_review"
+        ]
+      },
+      "extraction": {
+        "confidence": 0.958,
+        "typeConfidence": 0.58,
+        "reviewFlags": [
+          "original_exam_question_no_not_in_source_tag",
+          "private_use_math_glyph",
+          "formula_requires_visual_review",
+          "type_needs_review"
+        ],
+        "extractor": "tools/extract_past_exam_questions.py"
+      }
+    },
+    {
+      "id": "past_1996_45_ex711",
+      "subjects": [
+        "数学四",
+        "数学五"
+      ],
+      "sectionId": "integral",
+      "sectionName": "一元函数积分学",
+      "chapterId": "integral",
+      "chapterName": "一元函数积分学",
+      "section": {
+        "id": "integral",
+        "name": "一元函数积分学",
+        "groupId": "high_math",
+        "groupName": "高等数学",
+        "order": 0
+      },
+      "point": "不定积分的概念及性质",
+      "reason": "真题自动抽取，待审核",
+      "type": "solution",
+      "level": "历年真题（待审核）",
+      "difficulty": 4,
+      "stem": "设 xf ( x)dx = arcsin x + C ，则  f ( x) dx = .",
+      "stemFormat": "text",
+      "formula": "",
+      "formulaFormat": "text",
+      "options": [],
+      "answer": "",
+      "answerStatus": "pending_review",
+      "aliases": [],
+      "explanation": "",
+      "sourceType": "past_exam",
+      "source": "【原PDF】2026考研-真题分类高数下册",
+      "sourceName": "【原PDF】2026考研-真题分类高数下册",
+      "sourceBook": "【原PDF】2026考研-真题分类高数下册",
+      "sourceSection": "不定积分的概念及性质",
+      "sourceYear": 1996,
+      "sourceMathType": "数学四、数学五",
+      "sourceQuestionNo": "",
+      "sourcePage": 9,
+      "sourcePageImage": "past-exam-assets/extracted-high-math-pilot/high_math-pdf-2026/page-0009.png",
+      "stemImage": "past-exam-assets/extracted-high-math-pilot/high_math-pdf-2026/page-0009.png",
+      "reviewStatus": "extracted_pending_review",
+      "publishStatus": "draft",
+      "qualityTier": "past_exam_extracted",
+      "practiceStatus": "needs_review",
+      "knowledgePointId": "integral:不定积分的概念及性质",
+      "knowledgePointName": "不定积分的概念及性质",
+      "errorTypes": [
+        "transfer"
+      ],
+      "trainingLevel": "variation",
+      "similarGroupId": "",
+      "content": {
+        "stem": {
+          "value": "设 xf ( x)dx = arcsin x + C ，则  f ( x) dx = .",
+          "format": "text"
+        },
+        "formula": {
+          "value": "",
+          "format": "text"
+        },
+        "explanation": {
+          "value": "",
+          "format": "text"
+        }
+      },
+      "sourceSpec": {
+        "type": "past_exam",
+        "name": "【原PDF】2026考研-真题分类高数下册",
+        "book": "【原PDF】2026考研-真题分类高数下册",
+        "section": "不定积分的概念及性质",
+        "year": 1996,
+        "mathType": "数学四、数学五",
+        "questionNo": "",
+        "page": 9,
+        "pageImage": "past-exam-assets/extracted-high-math-pilot/high_math-pdf-2026/page-0009.png",
+        "stemImage": "past-exam-assets/extracted-high-math-pilot/high_math-pdf-2026/page-0009.png"
+      },
+      "sourcePdf": "data/（87-25）数学真题分类/高数篇/原PDF及解析/【原PDF】2026考研-真题分类高数下册.pdf",
+      "sourcePageEnd": 9,
+      "sourceExampleNo": 711,
+      "sourceExamTag": "【1996-45-3 分】",
+      "sourceExamMathCode": "45",
+      "sourceScore": 3,
+      "rawText": "设 xf ( x)dx = arcsin x + C ，则  f ( x) dx = .",
+      "formulaExtraction": {
+        "status": "pending_formula_ocr",
+        "format": "text",
+        "latex": "",
+        "reviewFlags": [
+          "original_exam_question_no_not_in_source_tag",
+          "private_use_math_glyph",
+          "formula_requires_visual_review",
+          "type_needs_review"
+        ]
+      },
+      "extraction": {
+        "confidence": 0.958,
+        "typeConfidence": 0.58,
+        "reviewFlags": [
+          "original_exam_question_no_not_in_source_tag",
+          "private_use_math_glyph",
+          "formula_requires_visual_review",
+          "type_needs_review"
+        ],
+        "extractor": "tools/extract_past_exam_questions.py"
+      }
+    },
+    {
+      "id": "past_2004_1_ex712",
+      "subjects": [
+        "数学一"
+      ],
+      "sectionId": "integral",
+      "sectionName": "一元函数积分学",
+      "chapterId": "integral",
+      "chapterName": "一元函数积分学",
+      "section": {
+        "id": "integral",
+        "name": "一元函数积分学",
+        "groupId": "high_math",
+        "groupName": "高等数学",
+        "order": 0
+      },
+      "point": "不定积分的概念及性质",
+      "reason": "真题自动抽取，待审核",
+      "type": "solution",
+      "level": "历年真题（待审核）",
+      "difficulty": 4,
+      "stem": "已知 f (e ) = xe ，且 f (1) = 0 ，则 f ( x ) =\nx −x\n.",
+      "stemFormat": "text",
+      "formula": "",
+      "formulaFormat": "text",
+      "options": [],
+      "answer": "",
+      "answerStatus": "pending_review",
+      "aliases": [],
+      "explanation": "",
+      "sourceType": "past_exam",
+      "source": "【原PDF】2026考研-真题分类高数下册",
+      "sourceName": "【原PDF】2026考研-真题分类高数下册",
+      "sourceBook": "【原PDF】2026考研-真题分类高数下册",
+      "sourceSection": "不定积分的概念及性质",
+      "sourceYear": 2004,
+      "sourceMathType": "数学一",
+      "sourceQuestionNo": "",
+      "sourcePage": 9,
+      "sourcePageImage": "past-exam-assets/extracted-high-math-pilot/high_math-pdf-2026/page-0009.png",
+      "stemImage": "past-exam-assets/extracted-high-math-pilot/high_math-pdf-2026/page-0009.png",
+      "reviewStatus": "extracted_pending_review",
+      "publishStatus": "draft",
+      "qualityTier": "past_exam_extracted",
+      "practiceStatus": "needs_review",
+      "knowledgePointId": "integral:不定积分的概念及性质",
+      "knowledgePointName": "不定积分的概念及性质",
+      "errorTypes": [
+        "transfer"
+      ],
+      "trainingLevel": "variation",
+      "similarGroupId": "",
+      "content": {
+        "stem": {
+          "value": "已知 f (e ) = xe ，且 f (1) = 0 ，则 f ( x ) =\nx −x\n.",
+          "format": "text"
+        },
+        "formula": {
+          "value": "",
+          "format": "text"
+        },
+        "explanation": {
+          "value": "",
+          "format": "text"
+        }
+      },
+      "sourceSpec": {
+        "type": "past_exam",
+        "name": "【原PDF】2026考研-真题分类高数下册",
+        "book": "【原PDF】2026考研-真题分类高数下册",
+        "section": "不定积分的概念及性质",
+        "year": 2004,
+        "mathType": "数学一",
+        "questionNo": "",
+        "page": 9,
+        "pageImage": "past-exam-assets/extracted-high-math-pilot/high_math-pdf-2026/page-0009.png",
+        "stemImage": "past-exam-assets/extracted-high-math-pilot/high_math-pdf-2026/page-0009.png"
+      },
+      "sourcePdf": "data/（87-25）数学真题分类/高数篇/原PDF及解析/【原PDF】2026考研-真题分类高数下册.pdf",
+      "sourcePageEnd": 9,
+      "sourceExampleNo": 712,
+      "sourceExamTag": "【2004-1-4 分】",
+      "sourceExamMathCode": "1",
+      "sourceScore": 4,
+      "rawText": "已知 f (e ) = xe ，且 f (1) = 0 ，则 f ( x ) =\nx −x\n.",
+      "formulaExtraction": {
+        "status": "pending_formula_ocr",
+        "format": "text",
+        "latex": "",
+        "reviewFlags": [
+          "original_exam_question_no_not_in_source_tag",
+          "private_use_math_glyph",
+          "formula_requires_visual_review",
+          "type_needs_review"
+        ]
+      },
+      "extraction": {
+        "confidence": 0.958,
+        "typeConfidence": 0.58,
+        "reviewFlags": [
+          "original_exam_question_no_not_in_source_tag",
+          "private_use_math_glyph",
+          "formula_requires_visual_review",
+          "type_needs_review"
+        ],
+        "extractor": "tools/extract_past_exam_questions.py"
+      }
+    },
+    {
+      "id": "past_2014_12_ex713",
+      "subjects": [
+        "数学一",
+        "数学二"
+      ],
+      "sectionId": "integral",
+      "sectionName": "一元函数积分学",
+      "chapterId": "integral",
+      "chapterName": "一元函数积分学",
+      "section": {
+        "id": "integral",
+        "name": "一元函数积分学",
+        "groupId": "high_math",
+        "groupName": "高等数学",
+        "order": 0
+      },
+      "point": "不定积分的概念及性质",
+      "reason": "真题自动抽取，待审核",
+      "type": "fill",
+      "level": "历年真题（待审核）",
+      "difficulty": 4,
+      "stem": " 设 f ( x ) 是 周 期 为 4 的可导奇函数，且\n\nf ( x) = 2( x − 1), x   0, 2 ，则 f (7) = _______.\n\n2 ( x − 1) , x  1",
+      "stemFormat": "text",
+      "formula": "",
+      "formulaFormat": "text",
+      "options": [],
+      "answer": "",
+      "answerStatus": "pending_review",
+      "aliases": [],
+      "explanation": "",
+      "sourceType": "past_exam",
+      "source": "【原PDF】2026考研-真题分类高数下册",
+      "sourceName": "【原PDF】2026考研-真题分类高数下册",
+      "sourceBook": "【原PDF】2026考研-真题分类高数下册",
+      "sourceSection": "不定积分的概念及性质",
+      "sourceYear": 2014,
+      "sourceMathType": "数学一、数学二",
+      "sourceQuestionNo": "",
+      "sourcePage": 9,
+      "sourcePageImage": "past-exam-assets/extracted-high-math-pilot/high_math-pdf-2026/page-0009.png",
+      "stemImage": "past-exam-assets/extracted-high-math-pilot/high_math-pdf-2026/page-0009.png",
+      "reviewStatus": "extracted_pending_review",
+      "publishStatus": "draft",
+      "qualityTier": "past_exam_extracted",
+      "practiceStatus": "needs_review",
+      "knowledgePointId": "integral:不定积分的概念及性质",
+      "knowledgePointName": "不定积分的概念及性质",
+      "errorTypes": [
+        "transfer"
+      ],
+      "trainingLevel": "variation",
+      "similarGroupId": "",
+      "content": {
+        "stem": {
+          "value": " 设 f ( x ) 是 周 期 为 4 的可导奇函数，且\n\nf ( x) = 2( x − 1), x   0, 2 ，则 f (7) = _______.\n\n2 ( x − 1) , x  1",
+          "format": "text"
+        },
+        "formula": {
+          "value": "",
+          "format": "text"
+        },
+        "explanation": {
+          "value": "",
+          "format": "text"
+        }
+      },
+      "sourceSpec": {
+        "type": "past_exam",
+        "name": "【原PDF】2026考研-真题分类高数下册",
+        "book": "【原PDF】2026考研-真题分类高数下册",
+        "section": "不定积分的概念及性质",
+        "year": 2014,
+        "mathType": "数学一、数学二",
+        "questionNo": "",
+        "page": 9,
+        "pageImage": "past-exam-assets/extracted-high-math-pilot/high_math-pdf-2026/page-0009.png",
+        "stemImage": "past-exam-assets/extracted-high-math-pilot/high_math-pdf-2026/page-0009.png"
+      },
+      "sourcePdf": "data/（87-25）数学真题分类/高数篇/原PDF及解析/【原PDF】2026考研-真题分类高数下册.pdf",
+      "sourcePageEnd": 9,
+      "sourceExampleNo": 713,
+      "sourceExamTag": "【 2014-12-4 分 】",
+      "sourceExamMathCode": "12",
+      "sourceScore": 4,
+      "rawText": " 设 f ( x ) 是 周 期 为 4 的可导奇函数，且\n\nf ( x) = 2( x − 1), x   0, 2 ，则 f (7) = _______.\n\n2 ( x − 1) , x  1",
+      "formulaExtraction": {
+        "status": "pending_formula_ocr",
+        "format": "text",
+        "latex": "",
+        "reviewFlags": [
+          "original_exam_question_no_not_in_source_tag",
+          "private_use_math_glyph",
+          "formula_requires_visual_review"
+        ]
+      },
+      "extraction": {
+        "confidence": 0.968,
+        "typeConfidence": 0.68,
+        "reviewFlags": [
+          "original_exam_question_no_not_in_source_tag",
+          "private_use_math_glyph",
+          "formula_requires_visual_review"
+        ],
+        "extractor": "tools/extract_past_exam_questions.py"
+      }
+    },
+    {
+      "id": "past_2016_12_ex714",
+      "subjects": [
+        "数学一",
+        "数学二"
+      ],
+      "sectionId": "integral",
+      "sectionName": "一元函数积分学",
+      "chapterId": "integral",
+      "chapterName": "一元函数积分学",
+      "section": {
+        "id": "integral",
+        "name": "一元函数积分学",
+        "groupId": "high_math",
+        "groupName": "高等数学",
+        "order": 0
+      },
+      "point": "不定积分的概念及性质",
+      "reason": "真题自动抽取，待审核",
+      "type": "choice",
+      "level": "历年真题（待审核）",
+      "difficulty": 4,
+      "stem": "已知函数 f ( x) =  ，则 f ( x ) 的一个原函数\n ln x, x  1\n\n是（ ）\n ( x − 1)2 , x  1  ( x − 1)2 , x  1",
+      "stemFormat": "text",
+      "formula": "",
+      "formulaFormat": "text",
+      "options": [
+        "A. F ( x ) = ",
+        "B. F ( x ) =   x ( ln x − 1) , x  1  x ( ln x + 1) − 1, x  1  ( x − 1)2 , x  1  ( x − 1)2 , x  1",
+        "C. F ( x ) = ",
+        "D. F ( x ) =   x ( ln x + 1) + 1, x  1  x ( ln x − 1) + 1, x  1"
+      ],
+      "answer": "",
+      "answerStatus": "pending_review",
+      "aliases": [],
+      "explanation": "",
+      "sourceType": "past_exam",
+      "source": "【原PDF】2026考研-真题分类高数下册",
+      "sourceName": "【原PDF】2026考研-真题分类高数下册",
+      "sourceBook": "【原PDF】2026考研-真题分类高数下册",
+      "sourceSection": "不定积分的概念及性质",
+      "sourceYear": 2016,
+      "sourceMathType": "数学一、数学二",
+      "sourceQuestionNo": "",
+      "sourcePage": 9,
+      "sourcePageImage": "past-exam-assets/extracted-high-math-pilot/high_math-pdf-2026/page-0009.png",
+      "stemImage": "past-exam-assets/extracted-high-math-pilot/high_math-pdf-2026/page-0009.png",
+      "reviewStatus": "extracted_pending_review",
+      "publishStatus": "draft",
+      "qualityTier": "past_exam_extracted",
+      "practiceStatus": "needs_review",
+      "knowledgePointId": "integral:不定积分的概念及性质",
+      "knowledgePointName": "不定积分的概念及性质",
+      "errorTypes": [
+        "transfer"
+      ],
+      "trainingLevel": "variation",
+      "similarGroupId": "",
+      "content": {
+        "stem": {
+          "value": "已知函数 f ( x) =  ，则 f ( x ) 的一个原函数\n ln x, x  1\n\n是（ ）\n ( x − 1)2 , x  1  ( x − 1)2 , x  1",
+          "format": "text"
+        },
+        "formula": {
+          "value": "",
+          "format": "text"
+        },
+        "explanation": {
+          "value": "",
+          "format": "text"
+        }
+      },
+      "sourceSpec": {
+        "type": "past_exam",
+        "name": "【原PDF】2026考研-真题分类高数下册",
+        "book": "【原PDF】2026考研-真题分类高数下册",
+        "section": "不定积分的概念及性质",
+        "year": 2016,
+        "mathType": "数学一、数学二",
+        "questionNo": "",
+        "page": 9,
+        "pageImage": "past-exam-assets/extracted-high-math-pilot/high_math-pdf-2026/page-0009.png",
+        "stemImage": "past-exam-assets/extracted-high-math-pilot/high_math-pdf-2026/page-0009.png"
+      },
+      "sourcePdf": "data/（87-25）数学真题分类/高数篇/原PDF及解析/【原PDF】2026考研-真题分类高数下册.pdf",
+      "sourcePageEnd": 10,
+      "sourceExampleNo": 714,
+      "sourceExamTag": "【2016-12-4 分】",
+      "sourceExamMathCode": "12",
+      "sourceScore": 4,
+      "rawText": "已知函数 f ( x) =  ，则 f ( x ) 的一个原函数\n ln x, x  1\n\n是（ ）\n ( x − 1)2 , x  1  ( x − 1)2 , x  1\n（A） F ( x ) =  （B） F ( x ) = \n x ( ln x − 1) , x  1  x ( ln x + 1) − 1, x  1\n ( x − 1)2 , x  1  ( x − 1)2 , x  1\n（C） F ( x ) =  （D） F ( x ) = \n x ( ln x + 1) + 1, x  1  x ( ln x − 1) + 1, x  1",
+      "formulaExtraction": {
+        "status": "not_detected",
+        "format": "text",
+        "latex": "",
+        "reviewFlags": [
+          "original_exam_question_no_not_in_source_tag",
+          "question_spans_multiple_pages",
+          "private_use_math_glyph"
+        ]
+      },
+      "extraction": {
+        "confidence": 0.99,
+        "typeConfidence": 0.95,
+        "reviewFlags": [
+          "original_exam_question_no_not_in_source_tag",
+          "question_spans_multiple_pages",
+          "private_use_math_glyph"
+        ],
+        "extractor": "tools/extract_past_exam_questions.py"
+      }
+    },
+    {
+      "id": "past_2024_2_ex715",
+      "subjects": [
+        "数学二"
+      ],
+      "sectionId": "integral",
+      "sectionName": "一元函数积分学",
+      "chapterId": "integral",
+      "chapterName": "一元函数积分学",
+      "section": {
+        "id": "integral",
+        "name": "一元函数积分学",
+        "groupId": "high_math",
+        "groupName": "高等数学",
+        "order": 0
+      },
+      "point": "不定积分的概念及性质",
+      "reason": "真题自动抽取，待审核",
+      "type": "choice",
+      "level": "历年真题（待审核）",
+      "difficulty": 4,
+      "stem": " 1\n ,x 0\n函数 f ( x ) =  1 + x 2 的原函数为（ ）.\n( x + 1) cos x, x  0\n",
+      "stemFormat": "text",
+      "formula": "",
+      "formulaFormat": "text",
+      "options": [
+        "A. F ( x ) =  ln  ( 1 + x − x ) , x  0",
+        "B. F ( x ) = ln ( 1 + x − x ) + 1, x  0 2 2 ( x + 1) cos x − sin x, x  0 ( x + 1) cos x − sin x, x  0 ",
+        "C. F ( x ) =  ( ln 1 + x 2 − x , x  0 ) ( ln 1 + x 2 + x + 1, x  0 ",
+        "D. F ( x ) =  ) ( x + 1) sin x + cos x, x  0 ( x + 1) sin x + cos x, x  0 xdx"
+      ],
+      "answer": "",
+      "answerStatus": "pending_review",
+      "aliases": [],
+      "explanation": "",
+      "sourceType": "past_exam",
+      "source": "【原PDF】2026考研-真题分类高数下册",
+      "sourceName": "【原PDF】2026考研-真题分类高数下册",
+      "sourceBook": "【原PDF】2026考研-真题分类高数下册",
+      "sourceSection": "不定积分的概念及性质",
+      "sourceYear": 2024,
+      "sourceMathType": "数学二",
+      "sourceQuestionNo": "",
+      "sourcePage": 10,
+      "sourcePageImage": "past-exam-assets/extracted-high-math-pilot/high_math-pdf-2026/page-0010.png",
+      "stemImage": "past-exam-assets/extracted-high-math-pilot/high_math-pdf-2026/page-0010.png",
+      "reviewStatus": "extracted_pending_review",
+      "publishStatus": "draft",
+      "qualityTier": "past_exam_extracted",
+      "practiceStatus": "needs_review",
+      "knowledgePointId": "integral:不定积分的概念及性质",
+      "knowledgePointName": "不定积分的概念及性质",
+      "errorTypes": [
+        "transfer"
+      ],
+      "trainingLevel": "variation",
+      "similarGroupId": "",
+      "content": {
+        "stem": {
+          "value": " 1\n ,x 0\n函数 f ( x ) =  1 + x 2 的原函数为（ ）.\n( x + 1) cos x, x  0\n",
+          "format": "text"
+        },
+        "formula": {
+          "value": "",
+          "format": "text"
+        },
+        "explanation": {
+          "value": "",
+          "format": "text"
+        }
+      },
+      "sourceSpec": {
+        "type": "past_exam",
+        "name": "【原PDF】2026考研-真题分类高数下册",
+        "book": "【原PDF】2026考研-真题分类高数下册",
+        "section": "不定积分的概念及性质",
+        "year": 2024,
+        "mathType": "数学二",
+        "questionNo": "",
+        "page": 10,
+        "pageImage": "past-exam-assets/extracted-high-math-pilot/high_math-pdf-2026/page-0010.png",
+        "stemImage": "past-exam-assets/extracted-high-math-pilot/high_math-pdf-2026/page-0010.png"
+      },
+      "sourcePdf": "data/（87-25）数学真题分类/高数篇/原PDF及解析/【原PDF】2026考研-真题分类高数下册.pdf",
+      "sourcePageEnd": 10,
+      "sourceExampleNo": 715,
+      "sourceExamTag": "【2024-2-5 分】",
+      "sourceExamMathCode": "2",
+      "sourceScore": 5,
+      "rawText": " 1\n ,x 0\n函数 f ( x ) =  1 + x 2 的原函数为（ ）.\n( x + 1) cos x, x  0\n\n\n（A） F ( x ) = \nln\n ( 1 + x − x ) , x  0 （B） F ( x ) = ln ( 1 + x − x ) + 1, x  0\n2 2\n\n( x + 1) cos x − sin x, x  0 ( x + 1) cos x − sin x, x  0\n\n\n（C） F ( x ) = \n(\nln 1 + x 2 − x , x  0\n) (\nln 1 + x 2 + x + 1, x  0\n\n（D） F ( x ) = \n)\n( x + 1) sin x + cos x, x  0 ( x + 1) sin x + cos x, x  0\n\nxdx",
+      "formulaExtraction": {
+        "status": "pending_formula_ocr",
+        "format": "text",
+        "latex": "",
+        "reviewFlags": [
+          "original_exam_question_no_not_in_source_tag",
+          "private_use_math_glyph",
+          "formula_requires_visual_review"
+        ]
+      },
+      "extraction": {
+        "confidence": 0.99,
+        "typeConfidence": 0.95,
+        "reviewFlags": [
+          "original_exam_question_no_not_in_source_tag",
+          "private_use_math_glyph",
+          "formula_requires_visual_review"
+        ],
+        "extractor": "tools/extract_past_exam_questions.py"
+      }
+    },
+    {
+      "id": "past_1987_5_ex716",
+      "subjects": [
+        "数学五"
+      ],
+      "sectionId": "integral",
+      "sectionName": "一元函数积分学",
+      "chapterId": "integral",
+      "chapterName": "一元函数积分学",
+      "section": {
+        "id": "integral",
+        "name": "一元函数积分学",
+        "groupId": "high_math",
+        "groupName": "高等数学",
+        "order": 0
+      },
+      "point": "有理函数的积分",
+      "reason": "真题自动抽取，待审核",
+      "type": "solution",
+      "level": "历年真题（待审核）",
+      "difficulty": 4,
+      "stem": "求不定积分  x + 2x + 5 .\n4 2\n\nx2",
+      "stemFormat": "text",
+      "formula": "",
+      "formulaFormat": "text",
+      "options": [],
+      "answer": "",
+      "answerStatus": "pending_review",
+      "aliases": [],
+      "explanation": "",
+      "sourceType": "past_exam",
+      "source": "【原PDF】2026考研-真题分类高数下册",
+      "sourceName": "【原PDF】2026考研-真题分类高数下册",
+      "sourceBook": "【原PDF】2026考研-真题分类高数下册",
+      "sourceSection": "有理函数的积分",
+      "sourceYear": 1987,
+      "sourceMathType": "数学五",
+      "sourceQuestionNo": "",
+      "sourcePage": 10,
+      "sourcePageImage": "past-exam-assets/extracted-high-math-pilot/high_math-pdf-2026/page-0010.png",
+      "stemImage": "past-exam-assets/extracted-high-math-pilot/high_math-pdf-2026/page-0010.png",
+      "reviewStatus": "extracted_pending_review",
+      "publishStatus": "draft",
+      "qualityTier": "past_exam_extracted",
+      "practiceStatus": "needs_review",
+      "knowledgePointId": "integral:有理函数的积分",
+      "knowledgePointName": "有理函数的积分",
+      "errorTypes": [
+        "transfer"
+      ],
+      "trainingLevel": "variation",
+      "similarGroupId": "",
+      "content": {
+        "stem": {
+          "value": "求不定积分  x + 2x + 5 .\n4 2\n\nx2",
+          "format": "text"
+        },
+        "formula": {
+          "value": "",
+          "format": "text"
+        },
+        "explanation": {
+          "value": "",
+          "format": "text"
+        }
+      },
+      "sourceSpec": {
+        "type": "past_exam",
+        "name": "【原PDF】2026考研-真题分类高数下册",
+        "book": "【原PDF】2026考研-真题分类高数下册",
+        "section": "有理函数的积分",
+        "year": 1987,
+        "mathType": "数学五",
+        "questionNo": "",
+        "page": 10,
+        "pageImage": "past-exam-assets/extracted-high-math-pilot/high_math-pdf-2026/page-0010.png",
+        "stemImage": "past-exam-assets/extracted-high-math-pilot/high_math-pdf-2026/page-0010.png"
+      },
+      "sourcePdf": "data/（87-25）数学真题分类/高数篇/原PDF及解析/【原PDF】2026考研-真题分类高数下册.pdf",
+      "sourcePageEnd": 10,
+      "sourceExampleNo": 716,
+      "sourceExamTag": "【1987-5-4 分】",
+      "sourceExamMathCode": "5",
+      "sourceScore": 4,
+      "rawText": "求不定积分  x + 2x + 5 .\n4 2\n\nx2",
+      "formulaExtraction": {
+        "status": "not_detected",
+        "format": "text",
+        "latex": "",
+        "reviewFlags": [
+          "original_exam_question_no_not_in_source_tag",
+          "private_use_math_glyph",
+          "type_needs_review"
+        ]
+      },
+      "extraction": {
+        "confidence": 0.958,
+        "typeConfidence": 0.58,
+        "reviewFlags": [
+          "original_exam_question_no_not_in_source_tag",
+          "private_use_math_glyph",
+          "type_needs_review"
+        ],
+        "extractor": "tools/extract_past_exam_questions.py"
+      }
+    }
+  ]
+}

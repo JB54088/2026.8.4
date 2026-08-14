@@ -26,7 +26,9 @@
     "sourceType": "past_exam",
     "source": "2012 数学二真题",
     "reviewStatus": "题干图片已切片，答案待校对",
-    "qualityTier": "past_exam_image"
+    "qualityTier": "past_exam_image",
+    "questionCategory": "choice",
+    "questionCategoryLabel": "选择题"
   },
   {
     "id": "past_2012_math2_q02",
@@ -55,7 +57,9 @@
     "sourceType": "past_exam",
     "source": "2012 数学二真题",
     "reviewStatus": "题干图片已切片，答案待校对",
-    "qualityTier": "past_exam_image"
+    "qualityTier": "past_exam_image",
+    "questionCategory": "choice",
+    "questionCategoryLabel": "选择题"
   },
   {
     "id": "past_2012_math2_q03",
@@ -84,7 +88,9 @@
     "sourceType": "past_exam",
     "source": "2012 数学二真题",
     "reviewStatus": "题干图片已切片，答案待校对",
-    "qualityTier": "past_exam_image"
+    "qualityTier": "past_exam_image",
+    "questionCategory": "choice",
+    "questionCategoryLabel": "选择题"
   },
   {
     "id": "past_2012_math2_q04",
@@ -113,7 +119,9 @@
     "sourceType": "past_exam",
     "source": "2012 数学二真题",
     "reviewStatus": "题干图片已切片，答案待校对",
-    "qualityTier": "past_exam_image"
+    "qualityTier": "past_exam_image",
+    "questionCategory": "choice",
+    "questionCategoryLabel": "选择题"
   },
   {
     "id": "past_2012_math2_q05",
@@ -142,7 +150,9 @@
     "sourceType": "past_exam",
     "source": "2012 数学二真题",
     "reviewStatus": "题干图片已切片，答案待校对",
-    "qualityTier": "past_exam_image"
+    "qualityTier": "past_exam_image",
+    "questionCategory": "choice",
+    "questionCategoryLabel": "选择题"
   },
   {
     "id": "past_2012_math2_q06",
@@ -171,7 +181,9 @@
     "sourceType": "past_exam",
     "source": "2012 数学二真题",
     "reviewStatus": "题干图片已切片，答案待校对",
-    "qualityTier": "past_exam_image"
+    "qualityTier": "past_exam_image",
+    "questionCategory": "choice",
+    "questionCategoryLabel": "选择题"
   },
   {
     "id": "past_2012_math2_q07",
@@ -200,7 +212,9 @@
     "sourceType": "past_exam",
     "source": "2012 数学二真题",
     "reviewStatus": "题干图片已切片，答案待校对",
-    "qualityTier": "past_exam_image"
+    "qualityTier": "past_exam_image",
+    "questionCategory": "choice",
+    "questionCategoryLabel": "选择题"
   },
   {
     "id": "past_2012_math2_q08",
@@ -229,7 +243,9 @@
     "sourceType": "past_exam",
     "source": "2012 数学二真题",
     "reviewStatus": "题干图片已切片，答案已据图校对",
-    "qualityTier": "past_exam_image"
+    "qualityTier": "past_exam_image",
+    "questionCategory": "choice",
+    "questionCategoryLabel": "选择题"
   },
   {
     "id": "past_2012_math2_q09",
@@ -253,7 +269,9 @@
     "sourceType": "past_exam",
     "source": "2012 数学二真题",
     "reviewStatus": "题干图片已切片，答案待校对",
-    "qualityTier": "past_exam_image"
+    "qualityTier": "past_exam_image",
+    "questionCategory": "fill",
+    "questionCategoryLabel": "填空题"
   },
   {
     "id": "past_2012_math2_q10",
@@ -277,7 +295,9 @@
     "sourceType": "past_exam",
     "source": "2012 数学二真题",
     "reviewStatus": "题干图片已切片，答案待校对",
-    "qualityTier": "past_exam_image"
+    "qualityTier": "past_exam_image",
+    "questionCategory": "fill",
+    "questionCategoryLabel": "填空题"
   },
   {
     "id": "past_2012_math2_q11",
@@ -302,7 +322,9 @@
     "sourceType": "past_exam",
     "source": "2012 数学二真题",
     "reviewStatus": "题干图片已切片，答案待校对",
-    "qualityTier": "past_exam_image"
+    "qualityTier": "past_exam_image",
+    "questionCategory": "fill",
+    "questionCategoryLabel": "填空题"
   },
   {
     "id": "past_2012_math2_q12",
@@ -326,7 +348,9 @@
     "sourceType": "past_exam",
     "source": "2012 数学二真题",
     "reviewStatus": "题干图片已切片，答案待校对",
-    "qualityTier": "past_exam_image"
+    "qualityTier": "past_exam_image",
+    "questionCategory": "fill",
+    "questionCategoryLabel": "填空题"
   },
   {
     "id": "past_2012_math2_q13",
@@ -350,7 +374,9 @@
     "sourceType": "past_exam",
     "source": "2012 数学二真题",
     "reviewStatus": "题干图片已切片，答案待校对",
-    "qualityTier": "past_exam_image"
+    "qualityTier": "past_exam_image",
+    "questionCategory": "fill",
+    "questionCategoryLabel": "填空题"
   },
   {
     "id": "past_2012_math2_q14",
@@ -374,7 +400,9 @@
     "sourceType": "past_exam",
     "source": "2012 数学二真题",
     "reviewStatus": "题干图片已切片，答案待校对",
-    "qualityTier": "past_exam_image"
+    "qualityTier": "past_exam_image",
+    "questionCategory": "fill",
+    "questionCategoryLabel": "填空题"
   },
   {
     "id": "past_2012_math2_q15",
@@ -398,7 +426,9 @@
     "sourceType": "past_exam",
     "source": "2012 数学二真题",
     "reviewStatus": "题干图片已切片，答案待校对",
-    "qualityTier": "past_exam_image"
+    "qualityTier": "past_exam_image",
+    "questionCategory": "major",
+    "questionCategoryLabel": "大题"
   },
   {
     "id": "past_2012_math2_q16",
@@ -422,7 +452,9 @@
     "sourceType": "past_exam",
     "source": "2012 数学二真题",
     "reviewStatus": "题干图片已切片，答案待校对",
-    "qualityTier": "past_exam_image"
+    "qualityTier": "past_exam_image",
+    "questionCategory": "major",
+    "questionCategoryLabel": "大题"
   },
   {
     "id": "past_2012_math2_q17",
@@ -446,7 +478,9 @@
     "sourceType": "past_exam",
     "source": "2012 数学二真题",
     "reviewStatus": "题干图片已切片，答案待校对",
-    "qualityTier": "past_exam_image"
+    "qualityTier": "past_exam_image",
+    "questionCategory": "major",
+    "questionCategoryLabel": "大题"
   },
   {
     "id": "past_2012_math2_q18",
@@ -470,7 +504,9 @@
     "sourceType": "past_exam",
     "source": "2012 数学二真题",
     "reviewStatus": "题干图片已切片，答案待校对",
-    "qualityTier": "past_exam_image"
+    "qualityTier": "past_exam_image",
+    "questionCategory": "major",
+    "questionCategoryLabel": "大题"
   },
   {
     "id": "past_2012_math2_q19",
@@ -494,7 +530,9 @@
     "sourceType": "past_exam",
     "source": "2012 数学二真题",
     "reviewStatus": "题干图片已切片，答案待校对",
-    "qualityTier": "past_exam_image"
+    "qualityTier": "past_exam_image",
+    "questionCategory": "major",
+    "questionCategoryLabel": "大题"
   },
   {
     "id": "past_2012_math2_q20",
@@ -518,7 +556,9 @@
     "sourceType": "past_exam",
     "source": "2012 数学二真题",
     "reviewStatus": "题干图片已切片，答案待校对",
-    "qualityTier": "past_exam_image"
+    "qualityTier": "past_exam_image",
+    "questionCategory": "major",
+    "questionCategoryLabel": "大题"
   },
   {
     "id": "past_2012_math2_q21",
@@ -542,7 +582,9 @@
     "sourceType": "past_exam",
     "source": "2012 数学二真题",
     "reviewStatus": "题干图片已切片，答案待校对",
-    "qualityTier": "past_exam_image"
+    "qualityTier": "past_exam_image",
+    "questionCategory": "major",
+    "questionCategoryLabel": "大题"
   },
   {
     "id": "past_2012_math2_q22",
@@ -566,7 +608,9 @@
     "sourceType": "past_exam",
     "source": "2012 数学二真题",
     "reviewStatus": "题干图片已切片，答案待校对",
-    "qualityTier": "past_exam_image"
+    "qualityTier": "past_exam_image",
+    "questionCategory": "major",
+    "questionCategoryLabel": "大题"
   },
   {
     "id": "past_2012_math2_q23",
@@ -590,7 +634,9 @@
     "sourceType": "past_exam",
     "source": "2012 数学二真题",
     "reviewStatus": "题干图片已切片，答案待校对",
-    "qualityTier": "past_exam_image"
+    "qualityTier": "past_exam_image",
+    "questionCategory": "major",
+    "questionCategoryLabel": "大题"
   },
   {
     "id": "classified_probability_candidate_001",
@@ -624,7 +670,9 @@
     "reviewStatus": "trial_imported",
     "publishStatus": "published",
     "qualityTier": "past_exam_trial",
-    "practiceStatus": "trial"
+    "practiceStatus": "trial",
+    "questionCategory": "major",
+    "questionCategoryLabel": "大题"
   },
   {
     "id": "classified_probability_candidate_019",
@@ -658,7 +706,9 @@
     "reviewStatus": "trial_imported",
     "publishStatus": "published",
     "qualityTier": "past_exam_trial",
-    "practiceStatus": "trial"
+    "practiceStatus": "trial",
+    "questionCategory": "major",
+    "questionCategoryLabel": "大题"
   },
   {
     "id": "classified_probability_candidate_037",
@@ -697,7 +747,9 @@
     "reviewStatus": "trial_imported",
     "publishStatus": "published",
     "qualityTier": "past_exam_trial",
-    "practiceStatus": "trial"
+    "practiceStatus": "trial",
+    "questionCategory": "choice",
+    "questionCategoryLabel": "选择题"
   },
   {
     "id": "classified_probability_candidate_055",
@@ -731,7 +783,9 @@
     "reviewStatus": "trial_imported",
     "publishStatus": "published",
     "qualityTier": "past_exam_trial",
-    "practiceStatus": "trial"
+    "practiceStatus": "trial",
+    "questionCategory": "major",
+    "questionCategoryLabel": "大题"
   },
   {
     "id": "classified_probability_candidate_073",
@@ -765,7 +819,9 @@
     "reviewStatus": "trial_imported",
     "publishStatus": "published",
     "qualityTier": "past_exam_trial",
-    "practiceStatus": "trial"
+    "practiceStatus": "trial",
+    "questionCategory": "major",
+    "questionCategoryLabel": "大题"
   },
   {
     "id": "classified_probability_candidate_084",
@@ -804,7 +860,9 @@
     "reviewStatus": "trial_imported",
     "publishStatus": "published",
     "qualityTier": "past_exam_trial",
-    "practiceStatus": "trial"
+    "practiceStatus": "trial",
+    "questionCategory": "choice",
+    "questionCategoryLabel": "选择题"
   },
   {
     "id": "classified_probability_candidate_095",
@@ -843,7 +901,9 @@
     "reviewStatus": "trial_imported",
     "publishStatus": "published",
     "qualityTier": "past_exam_trial",
-    "practiceStatus": "trial"
+    "practiceStatus": "trial",
+    "questionCategory": "choice",
+    "questionCategoryLabel": "选择题"
   },
   {
     "id": "classified_probability_candidate_106",
@@ -882,7 +942,9 @@
     "reviewStatus": "trial_imported",
     "publishStatus": "published",
     "qualityTier": "past_exam_trial",
-    "practiceStatus": "trial"
+    "practiceStatus": "trial",
+    "questionCategory": "choice",
+    "questionCategoryLabel": "选择题"
   },
   {
     "id": "classified_probability_candidate_118",
@@ -916,7 +978,9 @@
     "reviewStatus": "trial_imported",
     "publishStatus": "published",
     "qualityTier": "past_exam_trial",
-    "practiceStatus": "trial"
+    "practiceStatus": "trial",
+    "questionCategory": "major",
+    "questionCategoryLabel": "大题"
   },
   {
     "id": "classified_probability_candidate_133",
@@ -950,7 +1014,9 @@
     "reviewStatus": "trial_imported",
     "publishStatus": "published",
     "qualityTier": "past_exam_trial",
-    "practiceStatus": "trial"
+    "practiceStatus": "trial",
+    "questionCategory": "major",
+    "questionCategoryLabel": "大题"
   },
   {
     "id": "classified_probability_candidate_149",
@@ -984,7 +1050,9 @@
     "reviewStatus": "trial_imported",
     "publishStatus": "published",
     "qualityTier": "past_exam_trial",
-    "practiceStatus": "trial"
+    "practiceStatus": "trial",
+    "questionCategory": "major",
+    "questionCategoryLabel": "大题"
   },
   {
     "id": "classified_probability_candidate_165",
@@ -1018,7 +1086,9 @@
     "reviewStatus": "trial_imported",
     "publishStatus": "published",
     "qualityTier": "past_exam_trial",
-    "practiceStatus": "trial"
+    "practiceStatus": "trial",
+    "questionCategory": "major",
+    "questionCategoryLabel": "大题"
   },
   {
     "id": "classified_probability_candidate_181",
@@ -1052,7 +1122,9 @@
     "reviewStatus": "trial_imported",
     "publishStatus": "published",
     "qualityTier": "past_exam_trial",
-    "practiceStatus": "trial"
+    "practiceStatus": "trial",
+    "questionCategory": "major",
+    "questionCategoryLabel": "大题"
   },
   {
     "id": "classified_probability_candidate_207",
@@ -1086,7 +1158,9 @@
     "reviewStatus": "trial_imported",
     "publishStatus": "published",
     "qualityTier": "past_exam_trial",
-    "practiceStatus": "trial"
+    "practiceStatus": "trial",
+    "questionCategory": "major",
+    "questionCategoryLabel": "大题"
   },
   {
     "id": "classified_probability_candidate_233",
@@ -1120,7 +1194,9 @@
     "reviewStatus": "trial_imported",
     "publishStatus": "published",
     "qualityTier": "past_exam_trial",
-    "practiceStatus": "trial"
+    "practiceStatus": "trial",
+    "questionCategory": "major",
+    "questionCategoryLabel": "大题"
   },
   {
     "id": "classified_probability_candidate_259",
@@ -1154,7 +1230,9 @@
     "reviewStatus": "trial_imported",
     "publishStatus": "published",
     "qualityTier": "past_exam_trial",
-    "practiceStatus": "trial"
+    "practiceStatus": "trial",
+    "questionCategory": "major",
+    "questionCategoryLabel": "大题"
   },
   {
     "id": "classified_probability_candidate_285",
@@ -1188,7 +1266,9 @@
     "reviewStatus": "trial_imported",
     "publishStatus": "published",
     "qualityTier": "past_exam_trial",
-    "practiceStatus": "trial"
+    "practiceStatus": "trial",
+    "questionCategory": "major",
+    "questionCategoryLabel": "大题"
   },
   {
     "id": "classified_probability_candidate_288",
@@ -1222,7 +1302,9 @@
     "reviewStatus": "trial_imported",
     "publishStatus": "published",
     "qualityTier": "past_exam_trial",
-    "practiceStatus": "trial"
+    "practiceStatus": "trial",
+    "questionCategory": "major",
+    "questionCategoryLabel": "大题"
   },
   {
     "id": "classified_probability_candidate_291",
@@ -1261,7 +1343,9 @@
     "reviewStatus": "trial_imported",
     "publishStatus": "published",
     "qualityTier": "past_exam_trial",
-    "practiceStatus": "trial"
+    "practiceStatus": "trial",
+    "questionCategory": "choice",
+    "questionCategoryLabel": "选择题"
   },
   {
     "id": "classified_probability_candidate_294",
@@ -1295,7 +1379,9 @@
     "reviewStatus": "trial_imported",
     "publishStatus": "published",
     "qualityTier": "past_exam_trial",
-    "practiceStatus": "trial"
+    "practiceStatus": "trial",
+    "questionCategory": "major",
+    "questionCategoryLabel": "大题"
   },
   {
     "id": "classified_probability_candidate_298",
@@ -1329,7 +1415,9 @@
     "reviewStatus": "trial_imported",
     "publishStatus": "published",
     "qualityTier": "past_exam_trial",
-    "practiceStatus": "trial"
+    "practiceStatus": "trial",
+    "questionCategory": "major",
+    "questionCategoryLabel": "大题"
   },
   {
     "id": "classified_probability_candidate_304",
@@ -1368,7 +1456,9 @@
     "reviewStatus": "trial_imported",
     "publishStatus": "published",
     "qualityTier": "past_exam_trial",
-    "practiceStatus": "trial"
+    "practiceStatus": "trial",
+    "questionCategory": "choice",
+    "questionCategoryLabel": "选择题"
   },
   {
     "id": "classified_probability_candidate_311",
@@ -1402,7 +1492,9 @@
     "reviewStatus": "trial_imported",
     "publishStatus": "published",
     "qualityTier": "past_exam_trial",
-    "practiceStatus": "trial"
+    "practiceStatus": "trial",
+    "questionCategory": "major",
+    "questionCategoryLabel": "大题"
   },
   {
     "id": "classified_probability_candidate_317",
@@ -1436,7 +1528,9 @@
     "reviewStatus": "trial_imported",
     "publishStatus": "published",
     "qualityTier": "past_exam_trial",
-    "practiceStatus": "trial"
+    "practiceStatus": "trial",
+    "questionCategory": "major",
+    "questionCategoryLabel": "大题"
   },
   {
     "id": "classified_probability_candidate_324",
@@ -1470,7 +1564,9 @@
     "reviewStatus": "trial_imported",
     "publishStatus": "published",
     "qualityTier": "past_exam_trial",
-    "practiceStatus": "trial"
+    "practiceStatus": "trial",
+    "questionCategory": "major",
+    "questionCategoryLabel": "大题"
   },
   {
     "id": "classified_probability_candidate_336",
@@ -1504,7 +1600,9 @@
     "reviewStatus": "trial_imported",
     "publishStatus": "published",
     "qualityTier": "past_exam_trial",
-    "practiceStatus": "trial"
+    "practiceStatus": "trial",
+    "questionCategory": "major",
+    "questionCategoryLabel": "大题"
   },
   {
     "id": "classified_probability_candidate_348",
@@ -1538,7 +1636,9 @@
     "reviewStatus": "trial_imported",
     "publishStatus": "published",
     "qualityTier": "past_exam_trial",
-    "practiceStatus": "trial"
+    "practiceStatus": "trial",
+    "questionCategory": "major",
+    "questionCategoryLabel": "大题"
   },
   {
     "id": "classified_probability_candidate_361",
@@ -1572,7 +1672,9 @@
     "reviewStatus": "trial_imported",
     "publishStatus": "published",
     "qualityTier": "past_exam_trial",
-    "practiceStatus": "trial"
+    "practiceStatus": "trial",
+    "questionCategory": "major",
+    "questionCategoryLabel": "大题"
   },
   {
     "id": "classified_probability_candidate_362",
@@ -1606,7 +1708,9 @@
     "reviewStatus": "trial_imported",
     "publishStatus": "published",
     "qualityTier": "past_exam_trial",
-    "practiceStatus": "trial"
+    "practiceStatus": "trial",
+    "questionCategory": "major",
+    "questionCategoryLabel": "大题"
   },
   {
     "id": "classified_probability_candidate_364",
@@ -1645,6 +1749,8 @@
     "reviewStatus": "trial_imported",
     "publishStatus": "published",
     "qualityTier": "past_exam_trial",
-    "practiceStatus": "trial"
+    "practiceStatus": "trial",
+    "questionCategory": "choice",
+    "questionCategoryLabel": "选择题"
   }
 ]

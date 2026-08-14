@@ -3,7 +3,7 @@ services:
     name: ai-math-coach-demo
     runtime: node
     plan: free
-    buildCommand: npm run build
+    buildCommand: npm run build && cp data/question-bank-source.json question-bank-source.json
     startCommand: npm start
     healthCheckPath: /api/health
     envVars:
@@ -23,6 +23,12 @@ services:
         value: "180"
       - key: MAX_BODY_BYTES
         value: "3145728"
+      - key: QUESTION_DB_PATH
+        value: "data/questions.sqlite"
+      - key: APP_STATE_PATH
+        value: "data/app-state.json"
+      - key: QUESTION_SOURCE_PATH
+        value: "question-bank-source.json"
     disk:
       name: ai-math-coach-data
       mountPath: /opt/render/project/src/data

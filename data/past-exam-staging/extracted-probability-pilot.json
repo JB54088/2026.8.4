@@ -1,0 +1,1091 @@
+{
+  "schemaVersion": 1,
+  "generatedBy": "tools/extract_past_exam_questions.py",
+  "sourceDir": "/home/adrianchen/mathTools/data/（87-25）数学真题分类",
+  "sourcePolicy": "只扫描主来源 PDF；解析/做题本暂不作为重复题源",
+  "yearRange": [
+    1987,
+    2025
+  ],
+  "status": "needs_review",
+  "candidateCount": 10,
+  "typeCounts": {
+    "solution": 5,
+    "choice": 4,
+    "fill": 1
+  },
+  "reviewFlagCounts": {
+    "original_exam_question_no_not_in_source_tag": 10,
+    "formula_requires_visual_review": 5,
+    "type_needs_review": 5,
+    "question_spans_multiple_pages": 2,
+    "private_use_math_glyph": 3
+  },
+  "files": [
+    {
+      "sourcePdf": "data/（87-25）数学真题分类/线代概率篇/原PDF及解析/真题分类概率.pdf",
+      "family": "probability",
+      "pages": 100,
+      "candidateCount": 365,
+      "questionPages": 94,
+      "status": "ok"
+    }
+  ],
+  "questions": [
+    {
+      "id": "past_1988_45_ex1811",
+      "subjects": [
+        "数学四",
+        "数学五"
+      ],
+      "sectionId": "prob_events",
+      "sectionName": "随机事件和概率",
+      "section": {
+        "id": "prob_events",
+        "name": "随机事件和概率",
+        "groupId": "prob",
+        "groupName": "概率论与数理统计",
+        "order": 0
+      },
+      "point": "事件的关系与运算",
+      "reason": "真题自动抽取，待审核",
+      "type": "solution",
+      "level": "历年真题（待审核）",
+      "difficulty": 4,
+      "stem": "判断正误：若事件 A, B, C 满足等式 A C=B C ，则\n\nA= B.",
+      "stemFormat": "text",
+      "formula": "",
+      "formulaFormat": "text",
+      "options": [],
+      "answer": "",
+      "answerStatus": "pending_review",
+      "aliases": [],
+      "explanation": "",
+      "sourceType": "past_exam",
+      "source": "真题分类概率",
+      "sourceName": "真题分类概率",
+      "sourceBook": "真题分类概率",
+      "sourceSection": "事件的关系与运算",
+      "sourceYear": 1988,
+      "sourceMathType": "数学四、数学五",
+      "sourceQuestionNo": "",
+      "sourcePage": 7,
+      "sourcePageImage": "past-exam-assets/extracted-probability-pilot/probability-source/page-0007.png",
+      "stemImage": "past-exam-assets/extracted-probability-pilot/probability-source/page-0007.png",
+      "reviewStatus": "extracted_pending_review",
+      "publishStatus": "draft",
+      "qualityTier": "past_exam_extracted",
+      "practiceStatus": "needs_review",
+      "knowledgePointId": "prob_events:事件的关系与运算",
+      "knowledgePointName": "事件的关系与运算",
+      "errorTypes": [
+        "transfer"
+      ],
+      "trainingLevel": "variation",
+      "similarGroupId": "",
+      "content": {
+        "stem": {
+          "value": "判断正误：若事件 A, B, C 满足等式 A C=B C ，则\n\nA= B.",
+          "format": "text"
+        },
+        "formula": {
+          "value": "",
+          "format": "text"
+        },
+        "explanation": {
+          "value": "",
+          "format": "text"
+        }
+      },
+      "sourceSpec": {
+        "type": "past_exam",
+        "name": "真题分类概率",
+        "book": "真题分类概率",
+        "section": "事件的关系与运算",
+        "year": 1988,
+        "mathType": "数学四、数学五",
+        "questionNo": "",
+        "page": 7,
+        "pageImage": "past-exam-assets/extracted-probability-pilot/probability-source/page-0007.png",
+        "stemImage": "past-exam-assets/extracted-probability-pilot/probability-source/page-0007.png"
+      },
+      "sourcePdf": "data/（87-25）数学真题分类/线代概率篇/原PDF及解析/真题分类概率.pdf",
+      "sourcePageEnd": 7,
+      "sourceExampleNo": 1811,
+      "sourceExamTag": "【1988-45-2 分】",
+      "sourceExamMathCode": "45",
+      "sourceScore": 2,
+      "rawText": "判断正误：若事件 A, B, C 满足等式 A C=B C ，则\n\nA= B.",
+      "formulaExtraction": {
+        "status": "pending_formula_ocr",
+        "format": "text",
+        "latex": "",
+        "reviewFlags": [
+          "original_exam_question_no_not_in_source_tag",
+          "formula_requires_visual_review",
+          "type_needs_review"
+        ]
+      },
+      "extraction": {
+        "confidence": 0.958,
+        "typeConfidence": 0.58,
+        "reviewFlags": [
+          "original_exam_question_no_not_in_source_tag",
+          "formula_requires_visual_review",
+          "type_needs_review"
+        ],
+        "extractor": "tools/extract_past_exam_questions.py"
+      }
+    },
+    {
+      "id": "past_1989_45_ex1812",
+      "subjects": [
+        "数学四",
+        "数学五"
+      ],
+      "sectionId": "prob_events",
+      "sectionName": "随机事件和概率",
+      "section": {
+        "id": "prob_events",
+        "name": "随机事件和概率",
+        "groupId": "prob",
+        "groupName": "概率论与数理统计",
+        "order": 0
+      },
+      "point": "事件的关系与运算",
+      "reason": "真题自动抽取，待审核",
+      "type": "choice",
+      "level": "历年真题（待审核）",
+      "difficulty": 4,
+      "stem": "以 A 表示事件“甲种产品畅销，乙种产品滞销”，则其对立\n\n事件 A 为（ ）.",
+      "stemFormat": "text",
+      "formula": "",
+      "formulaFormat": "text",
+      "options": [
+        "A. “甲种产品滞销，乙种产品畅销”",
+        "B. “甲，乙产品均畅销”",
+        "C. “甲种产品滞销”",
+        "D. “甲种产品滞销或乙种产品畅销”"
+      ],
+      "answer": "",
+      "answerStatus": "pending_review",
+      "aliases": [],
+      "explanation": "",
+      "sourceType": "past_exam",
+      "source": "真题分类概率",
+      "sourceName": "真题分类概率",
+      "sourceBook": "真题分类概率",
+      "sourceSection": "事件的关系与运算",
+      "sourceYear": 1989,
+      "sourceMathType": "数学四、数学五",
+      "sourceQuestionNo": "",
+      "sourcePage": 7,
+      "sourcePageImage": "past-exam-assets/extracted-probability-pilot/probability-source/page-0007.png",
+      "stemImage": "past-exam-assets/extracted-probability-pilot/probability-source/page-0007.png",
+      "reviewStatus": "extracted_pending_review",
+      "publishStatus": "draft",
+      "qualityTier": "past_exam_extracted",
+      "practiceStatus": "needs_review",
+      "knowledgePointId": "prob_events:事件的关系与运算",
+      "knowledgePointName": "事件的关系与运算",
+      "errorTypes": [
+        "transfer"
+      ],
+      "trainingLevel": "variation",
+      "similarGroupId": "",
+      "content": {
+        "stem": {
+          "value": "以 A 表示事件“甲种产品畅销，乙种产品滞销”，则其对立\n\n事件 A 为（ ）.",
+          "format": "text"
+        },
+        "formula": {
+          "value": "",
+          "format": "text"
+        },
+        "explanation": {
+          "value": "",
+          "format": "text"
+        }
+      },
+      "sourceSpec": {
+        "type": "past_exam",
+        "name": "真题分类概率",
+        "book": "真题分类概率",
+        "section": "事件的关系与运算",
+        "year": 1989,
+        "mathType": "数学四、数学五",
+        "questionNo": "",
+        "page": 7,
+        "pageImage": "past-exam-assets/extracted-probability-pilot/probability-source/page-0007.png",
+        "stemImage": "past-exam-assets/extracted-probability-pilot/probability-source/page-0007.png"
+      },
+      "sourcePdf": "data/（87-25）数学真题分类/线代概率篇/原PDF及解析/真题分类概率.pdf",
+      "sourcePageEnd": 7,
+      "sourceExampleNo": 1812,
+      "sourceExamTag": "【1989-45-3 分】",
+      "sourceExamMathCode": "45",
+      "sourceScore": 3,
+      "rawText": "以 A 表示事件“甲种产品畅销，乙种产品滞销”，则其对立\n\n事件 A 为（ ）.\n\n（A）“甲种产品滞销，乙种产品畅销”\n\n（B）\n“甲，乙产品均畅销”\n\n（C）\n“甲种产品滞销”\n\n（D）“甲种产品滞销或乙种产品畅销”",
+      "formulaExtraction": {
+        "status": "not_detected",
+        "format": "text",
+        "latex": "",
+        "reviewFlags": [
+          "original_exam_question_no_not_in_source_tag"
+        ]
+      },
+      "extraction": {
+        "confidence": 0.99,
+        "typeConfidence": 0.95,
+        "reviewFlags": [
+          "original_exam_question_no_not_in_source_tag"
+        ],
+        "extractor": "tools/extract_past_exam_questions.py"
+      }
+    },
+    {
+      "id": "past_1991_45_ex1813",
+      "subjects": [
+        "数学四",
+        "数学五"
+      ],
+      "sectionId": "prob_events",
+      "sectionName": "随机事件和概率",
+      "section": {
+        "id": "prob_events",
+        "name": "随机事件和概率",
+        "groupId": "prob",
+        "groupName": "概率论与数理统计",
+        "order": 0
+      },
+      "point": "事件的关系与运算",
+      "reason": "真题自动抽取，待审核",
+      "type": "choice",
+      "level": "历年真题（待审核）",
+      "difficulty": 4,
+      "stem": "设 A 和 B 是任意两个概率不为零的互不相容事件，则下\n列结论正确的是（ ）.",
+      "stemFormat": "text",
+      "formula": "",
+      "formulaFormat": "text",
+      "options": [
+        "A. A 和 B 不相容",
+        "B. A 和 B 相容",
+        "C. P ( AB ) = P ( A) P ( B )",
+        "D. P ( A − B ) = P ( A)"
+      ],
+      "answer": "",
+      "answerStatus": "pending_review",
+      "aliases": [],
+      "explanation": "",
+      "sourceType": "past_exam",
+      "source": "真题分类概率",
+      "sourceName": "真题分类概率",
+      "sourceBook": "真题分类概率",
+      "sourceSection": "事件的关系与运算",
+      "sourceYear": 1991,
+      "sourceMathType": "数学四、数学五",
+      "sourceQuestionNo": "",
+      "sourcePage": 7,
+      "sourcePageImage": "past-exam-assets/extracted-probability-pilot/probability-source/page-0007.png",
+      "stemImage": "past-exam-assets/extracted-probability-pilot/probability-source/page-0007.png",
+      "reviewStatus": "extracted_pending_review",
+      "publishStatus": "draft",
+      "qualityTier": "past_exam_extracted",
+      "practiceStatus": "needs_review",
+      "knowledgePointId": "prob_events:事件的关系与运算",
+      "knowledgePointName": "事件的关系与运算",
+      "errorTypes": [
+        "transfer"
+      ],
+      "trainingLevel": "variation",
+      "similarGroupId": "",
+      "content": {
+        "stem": {
+          "value": "设 A 和 B 是任意两个概率不为零的互不相容事件，则下\n列结论正确的是（ ）.",
+          "format": "text"
+        },
+        "formula": {
+          "value": "",
+          "format": "text"
+        },
+        "explanation": {
+          "value": "",
+          "format": "text"
+        }
+      },
+      "sourceSpec": {
+        "type": "past_exam",
+        "name": "真题分类概率",
+        "book": "真题分类概率",
+        "section": "事件的关系与运算",
+        "year": 1991,
+        "mathType": "数学四、数学五",
+        "questionNo": "",
+        "page": 7,
+        "pageImage": "past-exam-assets/extracted-probability-pilot/probability-source/page-0007.png",
+        "stemImage": "past-exam-assets/extracted-probability-pilot/probability-source/page-0007.png"
+      },
+      "sourcePdf": "data/（87-25）数学真题分类/线代概率篇/原PDF及解析/真题分类概率.pdf",
+      "sourcePageEnd": 7,
+      "sourceExampleNo": 1813,
+      "sourceExamTag": "【1991-45-3 分】",
+      "sourceExamMathCode": "45",
+      "sourceScore": 3,
+      "rawText": "设 A 和 B 是任意两个概率不为零的互不相容事件，则下\n列结论正确的是（ ）.\n（A） A 和 B 不相容\n\n（B） A 和 B 相容\n\n（C） P ( AB ) = P ( A) P ( B )\n\n（D） P ( A − B ) = P ( A)",
+      "formulaExtraction": {
+        "status": "pending_formula_ocr",
+        "format": "text",
+        "latex": "",
+        "reviewFlags": [
+          "original_exam_question_no_not_in_source_tag",
+          "formula_requires_visual_review"
+        ]
+      },
+      "extraction": {
+        "confidence": 0.99,
+        "typeConfidence": 0.95,
+        "reviewFlags": [
+          "original_exam_question_no_not_in_source_tag",
+          "formula_requires_visual_review"
+        ],
+        "extractor": "tools/extract_past_exam_questions.py"
+      }
+    },
+    {
+      "id": "past_1993_4_ex1814",
+      "subjects": [
+        "数学四"
+      ],
+      "sectionId": "prob_events",
+      "sectionName": "随机事件和概率",
+      "section": {
+        "id": "prob_events",
+        "name": "随机事件和概率",
+        "groupId": "prob",
+        "groupName": "概率论与数理统计",
+        "order": 0
+      },
+      "point": "事件的关系与运算",
+      "reason": "真题自动抽取，待审核",
+      "type": "choice",
+      "level": "历年真题（待审核）",
+      "difficulty": 4,
+      "stem": "假设事件 A 和 B 满足 P( B A) = 1 ，则（ ）.",
+      "stemFormat": "text",
+      "formula": "",
+      "formulaFormat": "text",
+      "options": [
+        "A. A 是必然事件",
+        "B. P ( B A) = 0",
+        "C. A  B",
+        "D. A  B"
+      ],
+      "answer": "",
+      "answerStatus": "pending_review",
+      "aliases": [],
+      "explanation": "",
+      "sourceType": "past_exam",
+      "source": "真题分类概率",
+      "sourceName": "真题分类概率",
+      "sourceBook": "真题分类概率",
+      "sourceSection": "事件的关系与运算",
+      "sourceYear": 1993,
+      "sourceMathType": "数学四",
+      "sourceQuestionNo": "",
+      "sourcePage": 7,
+      "sourcePageImage": "past-exam-assets/extracted-probability-pilot/probability-source/page-0007.png",
+      "stemImage": "past-exam-assets/extracted-probability-pilot/probability-source/page-0007.png",
+      "reviewStatus": "extracted_pending_review",
+      "publishStatus": "draft",
+      "qualityTier": "past_exam_extracted",
+      "practiceStatus": "needs_review",
+      "knowledgePointId": "prob_events:事件的关系与运算",
+      "knowledgePointName": "事件的关系与运算",
+      "errorTypes": [
+        "transfer"
+      ],
+      "trainingLevel": "variation",
+      "similarGroupId": "",
+      "content": {
+        "stem": {
+          "value": "假设事件 A 和 B 满足 P( B A) = 1 ，则（ ）.",
+          "format": "text"
+        },
+        "formula": {
+          "value": "",
+          "format": "text"
+        },
+        "explanation": {
+          "value": "",
+          "format": "text"
+        }
+      },
+      "sourceSpec": {
+        "type": "past_exam",
+        "name": "真题分类概率",
+        "book": "真题分类概率",
+        "section": "事件的关系与运算",
+        "year": 1993,
+        "mathType": "数学四",
+        "questionNo": "",
+        "page": 7,
+        "pageImage": "past-exam-assets/extracted-probability-pilot/probability-source/page-0007.png",
+        "stemImage": "past-exam-assets/extracted-probability-pilot/probability-source/page-0007.png"
+      },
+      "sourcePdf": "data/（87-25）数学真题分类/线代概率篇/原PDF及解析/真题分类概率.pdf",
+      "sourcePageEnd": 8,
+      "sourceExampleNo": 1814,
+      "sourceExamTag": "【1993-4-3 分】",
+      "sourceExamMathCode": "4",
+      "sourceScore": 3,
+      "rawText": "假设事件 A 和 B 满足 P( B A) = 1 ，则（ ）.\n\n（A） A 是必然事件\n\n（B） P ( B A) = 0\n\n（C） A  B\n\n（D） A  B",
+      "formulaExtraction": {
+        "status": "pending_formula_ocr",
+        "format": "text",
+        "latex": "",
+        "reviewFlags": [
+          "original_exam_question_no_not_in_source_tag",
+          "question_spans_multiple_pages",
+          "private_use_math_glyph",
+          "formula_requires_visual_review"
+        ]
+      },
+      "extraction": {
+        "confidence": 0.99,
+        "typeConfidence": 0.95,
+        "reviewFlags": [
+          "original_exam_question_no_not_in_source_tag",
+          "question_spans_multiple_pages",
+          "private_use_math_glyph",
+          "formula_requires_visual_review"
+        ],
+        "extractor": "tools/extract_past_exam_questions.py"
+      }
+    },
+    {
+      "id": "past_1997_4_ex1815",
+      "subjects": [
+        "数学四"
+      ],
+      "sectionId": "prob_events",
+      "sectionName": "随机事件和概率",
+      "section": {
+        "id": "prob_events",
+        "name": "随机事件和概率",
+        "groupId": "prob",
+        "groupName": "概率论与数理统计",
+        "order": 0
+      },
+      "point": "事件的关系与运算",
+      "reason": "真题自动抽取，待审核",
+      "type": "solution",
+      "level": "历年真题（待审核）",
+      "difficulty": 4,
+      "stem": "设 A, B 是任意两个随机事件，则\n\nP{( A + B)( A + B )( A + B )( A + B )} = .",
+      "stemFormat": "text",
+      "formula": "",
+      "formulaFormat": "text",
+      "options": [],
+      "answer": "",
+      "answerStatus": "pending_review",
+      "aliases": [],
+      "explanation": "",
+      "sourceType": "past_exam",
+      "source": "真题分类概率",
+      "sourceName": "真题分类概率",
+      "sourceBook": "真题分类概率",
+      "sourceSection": "事件的关系与运算",
+      "sourceYear": 1997,
+      "sourceMathType": "数学四",
+      "sourceQuestionNo": "",
+      "sourcePage": 8,
+      "sourcePageImage": "past-exam-assets/extracted-probability-pilot/probability-source/page-0008.png",
+      "stemImage": "past-exam-assets/extracted-probability-pilot/probability-source/page-0008.png",
+      "reviewStatus": "extracted_pending_review",
+      "publishStatus": "draft",
+      "qualityTier": "past_exam_extracted",
+      "practiceStatus": "needs_review",
+      "knowledgePointId": "prob_events:事件的关系与运算",
+      "knowledgePointName": "事件的关系与运算",
+      "errorTypes": [
+        "transfer"
+      ],
+      "trainingLevel": "variation",
+      "similarGroupId": "",
+      "content": {
+        "stem": {
+          "value": "设 A, B 是任意两个随机事件，则\n\nP{( A + B)( A + B )( A + B )( A + B )} = .",
+          "format": "text"
+        },
+        "formula": {
+          "value": "",
+          "format": "text"
+        },
+        "explanation": {
+          "value": "",
+          "format": "text"
+        }
+      },
+      "sourceSpec": {
+        "type": "past_exam",
+        "name": "真题分类概率",
+        "book": "真题分类概率",
+        "section": "事件的关系与运算",
+        "year": 1997,
+        "mathType": "数学四",
+        "questionNo": "",
+        "page": 8,
+        "pageImage": "past-exam-assets/extracted-probability-pilot/probability-source/page-0008.png",
+        "stemImage": "past-exam-assets/extracted-probability-pilot/probability-source/page-0008.png"
+      },
+      "sourcePdf": "data/（87-25）数学真题分类/线代概率篇/原PDF及解析/真题分类概率.pdf",
+      "sourcePageEnd": 8,
+      "sourceExampleNo": 1815,
+      "sourceExamTag": "【1997-4-3 分】",
+      "sourceExamMathCode": "4",
+      "sourceScore": 3,
+      "rawText": "设 A, B 是任意两个随机事件，则\n\nP{( A + B)( A + B )( A + B )( A + B )} = .",
+      "formulaExtraction": {
+        "status": "not_detected",
+        "format": "text",
+        "latex": "",
+        "reviewFlags": [
+          "original_exam_question_no_not_in_source_tag",
+          "type_needs_review"
+        ]
+      },
+      "extraction": {
+        "confidence": 0.958,
+        "typeConfidence": 0.58,
+        "reviewFlags": [
+          "original_exam_question_no_not_in_source_tag",
+          "type_needs_review"
+        ],
+        "extractor": "tools/extract_past_exam_questions.py"
+      }
+    },
+    {
+      "id": "past_2000_34_ex1816",
+      "subjects": [
+        "数学三",
+        "数学四"
+      ],
+      "sectionId": "prob_events",
+      "sectionName": "随机事件和概率",
+      "section": {
+        "id": "prob_events",
+        "name": "随机事件和概率",
+        "groupId": "prob",
+        "groupName": "概率论与数理统计",
+        "order": 0
+      },
+      "point": "事件的关系与运算",
+      "reason": "真题自动抽取，待审核",
+      "type": "solution",
+      "level": "历年真题（待审核）",
+      "difficulty": 4,
+      "stem": "在电炉上安装了 4 个温控器，其显示温度的误差是随机的.\n\n在使用过程中，只要有两个温控器显示的温度不低于临界温度 t 0 ，电炉就断电.以 E 表示\n\n事件“电炉断电”，而 T(1)  T(2)  T(3)  T(4) 为 4 个温控器显示的按递增顺序排列的温度\n\n值，则事件 E 等于（ ）.\n\n（A） {T(1)  t0 } （B） {T(2)  t0 } （C） {T(3)  t0 } （D） {T(4)  t0 }",
+      "stemFormat": "text",
+      "formula": "",
+      "formulaFormat": "text",
+      "options": [],
+      "answer": "",
+      "answerStatus": "pending_review",
+      "aliases": [],
+      "explanation": "",
+      "sourceType": "past_exam",
+      "source": "真题分类概率",
+      "sourceName": "真题分类概率",
+      "sourceBook": "真题分类概率",
+      "sourceSection": "事件的关系与运算",
+      "sourceYear": 2000,
+      "sourceMathType": "数学三、数学四",
+      "sourceQuestionNo": "",
+      "sourcePage": 8,
+      "sourcePageImage": "past-exam-assets/extracted-probability-pilot/probability-source/page-0008.png",
+      "stemImage": "past-exam-assets/extracted-probability-pilot/probability-source/page-0008.png",
+      "reviewStatus": "extracted_pending_review",
+      "publishStatus": "draft",
+      "qualityTier": "past_exam_extracted",
+      "practiceStatus": "needs_review",
+      "knowledgePointId": "prob_events:事件的关系与运算",
+      "knowledgePointName": "事件的关系与运算",
+      "errorTypes": [
+        "transfer"
+      ],
+      "trainingLevel": "variation",
+      "similarGroupId": "",
+      "content": {
+        "stem": {
+          "value": "在电炉上安装了 4 个温控器，其显示温度的误差是随机的.\n\n在使用过程中，只要有两个温控器显示的温度不低于临界温度 t 0 ，电炉就断电.以 E 表示\n\n事件“电炉断电”，而 T(1)  T(2)  T(3)  T(4) 为 4 个温控器显示的按递增顺序排列的温度\n\n值，则事件 E 等于（ ）.\n\n（A） {T(1)  t0 } （B） {T(2)  t0 } （C） {T(3)  t0 } （D） {T(4)  t0 }",
+          "format": "text"
+        },
+        "formula": {
+          "value": "",
+          "format": "text"
+        },
+        "explanation": {
+          "value": "",
+          "format": "text"
+        }
+      },
+      "sourceSpec": {
+        "type": "past_exam",
+        "name": "真题分类概率",
+        "book": "真题分类概率",
+        "section": "事件的关系与运算",
+        "year": 2000,
+        "mathType": "数学三、数学四",
+        "questionNo": "",
+        "page": 8,
+        "pageImage": "past-exam-assets/extracted-probability-pilot/probability-source/page-0008.png",
+        "stemImage": "past-exam-assets/extracted-probability-pilot/probability-source/page-0008.png"
+      },
+      "sourcePdf": "data/（87-25）数学真题分类/线代概率篇/原PDF及解析/真题分类概率.pdf",
+      "sourcePageEnd": 8,
+      "sourceExampleNo": 1816,
+      "sourceExamTag": "【2000-34-3 分】",
+      "sourceExamMathCode": "34",
+      "sourceScore": 3,
+      "rawText": "在电炉上安装了 4 个温控器，其显示温度的误差是随机的.\n\n在使用过程中，只要有两个温控器显示的温度不低于临界温度 t 0 ，电炉就断电.以 E 表示\n\n事件“电炉断电”，而 T(1)  T(2)  T(3)  T(4) 为 4 个温控器显示的按递增顺序排列的温度\n\n值，则事件 E 等于（ ）.\n\n（A） {T(1)  t0 } （B） {T(2)  t0 } （C） {T(3)  t0 } （D） {T(4)  t0 }",
+      "formulaExtraction": {
+        "status": "not_detected",
+        "format": "text",
+        "latex": "",
+        "reviewFlags": [
+          "original_exam_question_no_not_in_source_tag",
+          "private_use_math_glyph",
+          "type_needs_review"
+        ]
+      },
+      "extraction": {
+        "confidence": 0.958,
+        "typeConfidence": 0.58,
+        "reviewFlags": [
+          "original_exam_question_no_not_in_source_tag",
+          "private_use_math_glyph",
+          "type_needs_review"
+        ],
+        "extractor": "tools/extract_past_exam_questions.py"
+      }
+    },
+    {
+      "id": "past_2001_4_ex1817",
+      "subjects": [
+        "数学四"
+      ],
+      "sectionId": "prob_events",
+      "sectionName": "随机事件和概率",
+      "section": {
+        "id": "prob_events",
+        "name": "随机事件和概率",
+        "groupId": "prob",
+        "groupName": "概率论与数理统计",
+        "order": 0
+      },
+      "point": "事件的关系与运算",
+      "reason": "真题自动抽取，待审核",
+      "type": "solution",
+      "level": "历年真题（待审核）",
+      "difficulty": 4,
+      "stem": "对于任意二事件 A 和 B ，与 A B = B 不等价\n．．．的是（ ）.\n\n（A） A  B （B） B  A （C） AB =  （D） AB = ",
+      "stemFormat": "text",
+      "formula": "",
+      "formulaFormat": "text",
+      "options": [],
+      "answer": "",
+      "answerStatus": "pending_review",
+      "aliases": [],
+      "explanation": "",
+      "sourceType": "past_exam",
+      "source": "真题分类概率",
+      "sourceName": "真题分类概率",
+      "sourceBook": "真题分类概率",
+      "sourceSection": "事件的关系与运算",
+      "sourceYear": 2001,
+      "sourceMathType": "数学四",
+      "sourceQuestionNo": "",
+      "sourcePage": 8,
+      "sourcePageImage": "past-exam-assets/extracted-probability-pilot/probability-source/page-0008.png",
+      "stemImage": "past-exam-assets/extracted-probability-pilot/probability-source/page-0008.png",
+      "reviewStatus": "extracted_pending_review",
+      "publishStatus": "draft",
+      "qualityTier": "past_exam_extracted",
+      "practiceStatus": "needs_review",
+      "knowledgePointId": "prob_events:事件的关系与运算",
+      "knowledgePointName": "事件的关系与运算",
+      "errorTypes": [
+        "transfer"
+      ],
+      "trainingLevel": "variation",
+      "similarGroupId": "",
+      "content": {
+        "stem": {
+          "value": "对于任意二事件 A 和 B ，与 A B = B 不等价\n．．．的是（ ）.\n\n（A） A  B （B） B  A （C） AB =  （D） AB = ",
+          "format": "text"
+        },
+        "formula": {
+          "value": "",
+          "format": "text"
+        },
+        "explanation": {
+          "value": "",
+          "format": "text"
+        }
+      },
+      "sourceSpec": {
+        "type": "past_exam",
+        "name": "真题分类概率",
+        "book": "真题分类概率",
+        "section": "事件的关系与运算",
+        "year": 2001,
+        "mathType": "数学四",
+        "questionNo": "",
+        "page": 8,
+        "pageImage": "past-exam-assets/extracted-probability-pilot/probability-source/page-0008.png",
+        "stemImage": "past-exam-assets/extracted-probability-pilot/probability-source/page-0008.png"
+      },
+      "sourcePdf": "data/（87-25）数学真题分类/线代概率篇/原PDF及解析/真题分类概率.pdf",
+      "sourcePageEnd": 8,
+      "sourceExampleNo": 1817,
+      "sourceExamTag": "【2001-4-3 分】",
+      "sourceExamMathCode": "4",
+      "sourceScore": 3,
+      "rawText": "对于任意二事件 A 和 B ，与 A B = B 不等价\n．．．的是（ ）.\n\n（A） A  B （B） B  A （C） AB =  （D） AB = ",
+      "formulaExtraction": {
+        "status": "pending_formula_ocr",
+        "format": "text",
+        "latex": "",
+        "reviewFlags": [
+          "original_exam_question_no_not_in_source_tag",
+          "private_use_math_glyph",
+          "formula_requires_visual_review",
+          "type_needs_review"
+        ]
+      },
+      "extraction": {
+        "confidence": 0.958,
+        "typeConfidence": 0.58,
+        "reviewFlags": [
+          "original_exam_question_no_not_in_source_tag",
+          "private_use_math_glyph",
+          "formula_requires_visual_review",
+          "type_needs_review"
+        ],
+        "extractor": "tools/extract_past_exam_questions.py"
+      }
+    },
+    {
+      "id": "past_2009_3_ex1818",
+      "subjects": [
+        "数学三"
+      ],
+      "sectionId": "prob_events",
+      "sectionName": "随机事件和概率",
+      "section": {
+        "id": "prob_events",
+        "name": "随机事件和概率",
+        "groupId": "prob",
+        "groupName": "概率论与数理统计",
+        "order": 0
+      },
+      "point": "事件的关系与运算",
+      "reason": "真题自动抽取，待审核",
+      "type": "choice",
+      "level": "历年真题（待审核）",
+      "difficulty": 4,
+      "stem": "设事件 A 与事件 B 互不相容，则（ ）",
+      "stemFormat": "text",
+      "formula": "",
+      "formulaFormat": "text",
+      "options": [
+        "A. P ( AB ) = 0",
+        "B. P ( AB ) = P ( A) P ( B )",
+        "C. P ( A) = 1 − P ( B )",
+        "D. P ( A B) = 1"
+      ],
+      "answer": "",
+      "answerStatus": "pending_review",
+      "aliases": [],
+      "explanation": "",
+      "sourceType": "past_exam",
+      "source": "真题分类概率",
+      "sourceName": "真题分类概率",
+      "sourceBook": "真题分类概率",
+      "sourceSection": "事件的关系与运算",
+      "sourceYear": 2009,
+      "sourceMathType": "数学三",
+      "sourceQuestionNo": "",
+      "sourcePage": 8,
+      "sourcePageImage": "past-exam-assets/extracted-probability-pilot/probability-source/page-0008.png",
+      "stemImage": "past-exam-assets/extracted-probability-pilot/probability-source/page-0008.png",
+      "reviewStatus": "extracted_pending_review",
+      "publishStatus": "draft",
+      "qualityTier": "past_exam_extracted",
+      "practiceStatus": "needs_review",
+      "knowledgePointId": "prob_events:事件的关系与运算",
+      "knowledgePointName": "事件的关系与运算",
+      "errorTypes": [
+        "transfer"
+      ],
+      "trainingLevel": "variation",
+      "similarGroupId": "",
+      "content": {
+        "stem": {
+          "value": "设事件 A 与事件 B 互不相容，则（ ）",
+          "format": "text"
+        },
+        "formula": {
+          "value": "",
+          "format": "text"
+        },
+        "explanation": {
+          "value": "",
+          "format": "text"
+        }
+      },
+      "sourceSpec": {
+        "type": "past_exam",
+        "name": "真题分类概率",
+        "book": "真题分类概率",
+        "section": "事件的关系与运算",
+        "year": 2009,
+        "mathType": "数学三",
+        "questionNo": "",
+        "page": 8,
+        "pageImage": "past-exam-assets/extracted-probability-pilot/probability-source/page-0008.png",
+        "stemImage": "past-exam-assets/extracted-probability-pilot/probability-source/page-0008.png"
+      },
+      "sourcePdf": "data/（87-25）数学真题分类/线代概率篇/原PDF及解析/真题分类概率.pdf",
+      "sourcePageEnd": 8,
+      "sourceExampleNo": 1818,
+      "sourceExamTag": "【2009-3-4 分】",
+      "sourceExamMathCode": "3",
+      "sourceScore": 4,
+      "rawText": "设事件 A 与事件 B 互不相容，则（ ）\n\n（A） P ( AB ) = 0\n\n（B） P ( AB ) = P ( A) P ( B )\n\n（C） P ( A) = 1 − P ( B )\n\n（D） P ( A B) = 1",
+      "formulaExtraction": {
+        "status": "pending_formula_ocr",
+        "format": "text",
+        "latex": "",
+        "reviewFlags": [
+          "original_exam_question_no_not_in_source_tag",
+          "formula_requires_visual_review"
+        ]
+      },
+      "extraction": {
+        "confidence": 0.99,
+        "typeConfidence": 0.95,
+        "reviewFlags": [
+          "original_exam_question_no_not_in_source_tag",
+          "formula_requires_visual_review"
+        ],
+        "extractor": "tools/extract_past_exam_questions.py"
+      }
+    },
+    {
+      "id": "past_1990_45_ex1819",
+      "subjects": [
+        "数学四",
+        "数学五"
+      ],
+      "sectionId": "prob_events",
+      "sectionName": "随机事件和概率",
+      "section": {
+        "id": "prob_events",
+        "name": "随机事件和概率",
+        "groupId": "prob",
+        "groupName": "概率论与数理统计",
+        "order": 0
+      },
+      "point": "古典概型",
+      "reason": "真题自动抽取，待审核",
+      "type": "solution",
+      "level": "历年真题（待审核）",
+      "difficulty": 4,
+      "stem": "从 0,1, 2, ,9 十个数字中任意选出三个不同的数字，试求下\n\n列事件的概率：A1 = {三个数字中不含 0 和 5 }；A2 = {三个数字中不含 0 或 5 }；A3 = {三\n\n个数字中含 0 但不含 5 }.",
+      "stemFormat": "text",
+      "formula": "",
+      "formulaFormat": "text",
+      "options": [],
+      "answer": "",
+      "answerStatus": "pending_review",
+      "aliases": [],
+      "explanation": "",
+      "sourceType": "past_exam",
+      "source": "真题分类概率",
+      "sourceName": "真题分类概率",
+      "sourceBook": "真题分类概率",
+      "sourceSection": "古典概型",
+      "sourceYear": 1990,
+      "sourceMathType": "数学四、数学五",
+      "sourceQuestionNo": "",
+      "sourcePage": 8,
+      "sourcePageImage": "past-exam-assets/extracted-probability-pilot/probability-source/page-0008.png",
+      "stemImage": "past-exam-assets/extracted-probability-pilot/probability-source/page-0008.png",
+      "reviewStatus": "extracted_pending_review",
+      "publishStatus": "draft",
+      "qualityTier": "past_exam_extracted",
+      "practiceStatus": "needs_review",
+      "knowledgePointId": "prob_events:古典概型",
+      "knowledgePointName": "古典概型",
+      "errorTypes": [
+        "transfer"
+      ],
+      "trainingLevel": "variation",
+      "similarGroupId": "",
+      "content": {
+        "stem": {
+          "value": "从 0,1, 2, ,9 十个数字中任意选出三个不同的数字，试求下\n\n列事件的概率：A1 = {三个数字中不含 0 和 5 }；A2 = {三个数字中不含 0 或 5 }；A3 = {三\n\n个数字中含 0 但不含 5 }.",
+          "format": "text"
+        },
+        "formula": {
+          "value": "",
+          "format": "text"
+        },
+        "explanation": {
+          "value": "",
+          "format": "text"
+        }
+      },
+      "sourceSpec": {
+        "type": "past_exam",
+        "name": "真题分类概率",
+        "book": "真题分类概率",
+        "section": "古典概型",
+        "year": 1990,
+        "mathType": "数学四、数学五",
+        "questionNo": "",
+        "page": 8,
+        "pageImage": "past-exam-assets/extracted-probability-pilot/probability-source/page-0008.png",
+        "stemImage": "past-exam-assets/extracted-probability-pilot/probability-source/page-0008.png"
+      },
+      "sourcePdf": "data/（87-25）数学真题分类/线代概率篇/原PDF及解析/真题分类概率.pdf",
+      "sourcePageEnd": 9,
+      "sourceExampleNo": 1819,
+      "sourceExamTag": "【1990-45-4 分】",
+      "sourceExamMathCode": "45",
+      "sourceScore": 4,
+      "rawText": "从 0,1, 2, ,9 十个数字中任意选出三个不同的数字，试求下\n\n列事件的概率：A1 = {三个数字中不含 0 和 5 }；A2 = {三个数字中不含 0 或 5 }；A3 = {三\n\n个数字中含 0 但不含 5 }.",
+      "formulaExtraction": {
+        "status": "not_detected",
+        "format": "text",
+        "latex": "",
+        "reviewFlags": [
+          "original_exam_question_no_not_in_source_tag",
+          "question_spans_multiple_pages",
+          "type_needs_review"
+        ]
+      },
+      "extraction": {
+        "confidence": 0.958,
+        "typeConfidence": 0.58,
+        "reviewFlags": [
+          "original_exam_question_no_not_in_source_tag",
+          "question_spans_multiple_pages",
+          "type_needs_review"
+        ],
+        "extractor": "tools/extract_past_exam_questions.py"
+      }
+    },
+    {
+      "id": "past_1992_4_ex1820",
+      "subjects": [
+        "数学四"
+      ],
+      "sectionId": "prob_events",
+      "sectionName": "随机事件和概率",
+      "section": {
+        "id": "prob_events",
+        "name": "随机事件和概率",
+        "groupId": "prob",
+        "groupName": "概率论与数理统计",
+        "order": 0
+      },
+      "point": "古典概型",
+      "reason": "真题自动抽取，待审核",
+      "type": "fill",
+      "level": "历年真题（待审核）",
+      "difficulty": 4,
+      "stem": "将 C , C , E , E , I , N , S 等七个字母随机地排成一行，那么恰\n\n好排成英文单词 SCIENCE 的概率为 .",
+      "stemFormat": "text",
+      "formula": "",
+      "formulaFormat": "text",
+      "options": [],
+      "answer": "",
+      "answerStatus": "pending_review",
+      "aliases": [],
+      "explanation": "",
+      "sourceType": "past_exam",
+      "source": "真题分类概率",
+      "sourceName": "真题分类概率",
+      "sourceBook": "真题分类概率",
+      "sourceSection": "古典概型",
+      "sourceYear": 1992,
+      "sourceMathType": "数学四",
+      "sourceQuestionNo": "",
+      "sourcePage": 9,
+      "sourcePageImage": "past-exam-assets/extracted-probability-pilot/probability-source/page-0009.png",
+      "stemImage": "past-exam-assets/extracted-probability-pilot/probability-source/page-0009.png",
+      "reviewStatus": "extracted_pending_review",
+      "publishStatus": "draft",
+      "qualityTier": "past_exam_extracted",
+      "practiceStatus": "needs_review",
+      "knowledgePointId": "prob_events:古典概型",
+      "knowledgePointName": "古典概型",
+      "errorTypes": [
+        "transfer"
+      ],
+      "trainingLevel": "variation",
+      "similarGroupId": "",
+      "content": {
+        "stem": {
+          "value": "将 C , C , E , E , I , N , S 等七个字母随机地排成一行，那么恰\n\n好排成英文单词 SCIENCE 的概率为 .",
+          "format": "text"
+        },
+        "formula": {
+          "value": "",
+          "format": "text"
+        },
+        "explanation": {
+          "value": "",
+          "format": "text"
+        }
+      },
+      "sourceSpec": {
+        "type": "past_exam",
+        "name": "真题分类概率",
+        "book": "真题分类概率",
+        "section": "古典概型",
+        "year": 1992,
+        "mathType": "数学四",
+        "questionNo": "",
+        "page": 9,
+        "pageImage": "past-exam-assets/extracted-probability-pilot/probability-source/page-0009.png",
+        "stemImage": "past-exam-assets/extracted-probability-pilot/probability-source/page-0009.png"
+      },
+      "sourcePdf": "data/（87-25）数学真题分类/线代概率篇/原PDF及解析/真题分类概率.pdf",
+      "sourcePageEnd": 9,
+      "sourceExampleNo": 1820,
+      "sourceExamTag": "【1992-4-3 分】",
+      "sourceExamMathCode": "4",
+      "sourceScore": 3,
+      "rawText": "将 C , C , E , E , I , N , S 等七个字母随机地排成一行，那么恰\n\n好排成英文单词 SCIENCE 的概率为 .",
+      "formulaExtraction": {
+        "status": "not_detected",
+        "format": "text",
+        "latex": "",
+        "reviewFlags": [
+          "original_exam_question_no_not_in_source_tag"
+        ]
+      },
+      "extraction": {
+        "confidence": 0.968,
+        "typeConfidence": 0.68,
+        "reviewFlags": [
+          "original_exam_question_no_not_in_source_tag"
+        ],
+        "extractor": "tools/extract_past_exam_questions.py"
+      }
+    }
+  ]
+}

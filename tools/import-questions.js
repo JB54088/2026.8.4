@@ -4,9 +4,15 @@ const {
   normalizeQuestion: normalizeQuestionModel,
   isPracticeQuestionReady
 } = require("../public/question-model.js");
+const { createQuestionRepository } = require("../question-repository.js");
 
 const root = path.join(__dirname, "..");
-const dbPath = path.join(root, "data", "db.json");
+const dbPath = process.env.QUESTION_DB_PATH
+  ? path.resolve(root, process.env.QUESTION_DB_PATH)
+  : path.join(root, "data", "questions.sqlite");
+const sourcePath = process.env.QUESTION_SOURCE_PATH
+  ? path.resolve(root, process.env.QUESTION_SOURCE_PATH)
+  : path.join(root, "data", "question-bank-source.json");
 
 const usage = `
 Usage:
@@ -14,10 +20,10 @@ Usage:
   node tools/import-questions.js path/to/questions.csv
 
 Required fields:
-  id,subjects,chapterId,chapterName,point,reason,type,level,stem,answer,source
+  id,subjects,chapterId,chapterName,point,reason,type,level,stem,source
 
 Optional fields:
-  options,aliases,explanation,formula,formulaFormat,stemFormat,book,bookSection,problemNo
+  options,answer,aliases,explanation,formula,formulaFormat,stemFormat,book,bookSection,problemNo
   practiceStatus,knowledgePointId,knowledgePointName,errorTypes,trainingLevel,similarGroupId,reviewer,reviewedAt
 
 CSV notes:
@@ -63,6 +69,9 @@ function normalizeQuestion(raw, index) {
     ? value
     : String(value || "").split("|").map((item) => item.trim()).filter(Boolean);
   const question = {
+    // JSON staging 文件可能带有 sourceSpec、原页图和抽取置信度等溯源字段。
+    // 先保留扩展字段，再用下面的兼容字段覆盖导入必需值；CSV 不受影响。
+    ...raw,
     id: String(raw.id || `${raw.book || "import"}_${raw.problemNo || index + 1}`).trim(),
     subjects: split(raw.subjects),
     chapterId: String(raw.chapterId || "").trim(),
@@ -98,7 +107,7 @@ function normalizeQuestion(raw, index) {
     reviewer: String(raw.reviewer || "").trim(),
     reviewedAt: String(raw.reviewedAt || "").trim()
   };
-  const missing = ["subjects", "chapterId", "chapterName", "point", "type", "stem", "answer", "source"]
+  const missing = ["subjects", "chapterId", "chapterName", "point", "type", "stem", "source"]
     .filter((field) => Array.isArray(question[field]) ? !question[field].length : !question[field]);
   if (missing.length) throw new Error(`Question ${index + 1} missing fields: ${missing.join(", ")}`);
   if (!["choice", "fill", "solution", "subjective"].includes(question.type)) {
@@ -108,6 +117,9 @@ function normalizeQuestion(raw, index) {
     throw new Error(`Question ${index + 1} is choice but has fewer than 2 options`);
   }
   const normalized = normalizeQuestionModel(question);
+  if (normalized.practiceMeta.status === "published" && !question.answer) {
+    throw new Error(`Question ${index + 1} 标记为 published，但缺少 answer`);
+  }
   if (normalized.practiceMeta.status === "published" && !isPracticeQuestionReady(normalized)) {
     throw new Error(`Question ${index + 1} 标记为 published，但未通过题库可刷校验：请补齐知识点、错误类型、答案、解析和审核状态`);
   }
@@ -123,16 +135,18 @@ function main() {
   const absolute = path.resolve(input);
   const text = fs.readFileSync(absolute, "utf8");
   const ext = path.extname(absolute).toLowerCase();
-  const raw = ext === ".json" ? JSON.parse(text) : parseCsv(text);
+  const parsed = ext === ".json" ? JSON.parse(text) : parseCsv(text);
+  const raw = Array.isArray(parsed) ? parsed : parsed?.questions;
+  if (!Array.isArray(raw)) throw new Error("输入 JSON 必须是题目数组或包含 questions 数组");
   const imported = raw.map(normalizeQuestion);
-  const db = JSON.parse(fs.readFileSync(dbPath, "utf8"));
-  const byId = new Map(db.questions.map((question) => [question.id, question]));
-  imported.forEach((question) => byId.set(question.id, question));
-  db.questions = Array.from(byId.values());
-  db.meta.lastImportAt = new Date().toISOString();
-  db.meta.lastImportCount = imported.length;
-  fs.writeFileSync(dbPath, JSON.stringify(db, null, 2), "utf8");
-  console.log(`Imported ${imported.length} questions. Total: ${db.questions.length}`);
+  const repository = createQuestionRepository({
+    dbPath,
+    sourcePath,
+    initializeIfEmpty: true
+  });
+  repository.upsert(imported, { source: absolute });
+  console.log(`Imported ${imported.length} questions. Total: ${repository.count()}`);
+  repository.close();
 }
 
 main();

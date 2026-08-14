@@ -2,6 +2,12 @@
 
 题库、刷题 API、静态演示和导入脚本都使用同一套题目规范。当前版本号为 `19`，由 `public/question-model.js` 统一归一化。
 
+## 存储方式
+
+正式题库运行时存储在 SQLite 的 `data/questions.sqlite` 中。每道题的完整规范化对象保存在 `question_json` 字段，章节、题型、难度、题源、审核状态和知识点等常用筛选字段单独建立索引。可追踪源数据为 `data/question-bank-source.json`，数据库缺失时会自动从源数据初始化。
+
+题库源数据中保留全部题目，包括 `needs_review`；设置 `allowUnreviewedPractice: true` 的历年真题可以直接进入刷题池，但只有 `practiceMeta.status = "published"` 且通过完整校验的题目才进入正式相似题训练。
+
 ## 核心结构
 
 ```js
@@ -21,6 +27,8 @@
   },
 
   type: "choice", // choice | fill | solution | subjective
+  questionCategory: "choice", // choice | fill | major
+  questionCategoryLabel: "选择题", // 选择题 | 填空题 | 大题
   point: "换元积分",
   level: "强化训练",
   difficulty: 4,
@@ -81,7 +89,7 @@
 /api/questions?studentId=stu_1&chapterIds=integral,linear_determinant
 ```
 
-服务端和静态演示都会从统一的 `questions` 题库中按 `subjects + sectionIds + sourceType + difficulty` 筛选，再生成刷题组，不再维护独立的刷题题目结构。相似题训练额外只接受 `practiceMeta.status = "published"` 且通过答案、解析、知识点和错误类型校验的题目；题库不足时返回短缺数量，不使用未审核题或规则生成题补足。
+服务端和静态演示都会从统一的 `questions` 题库中按 `subjects + sectionIds + sourceType + difficulty` 筛选，再生成刷题组，不再维护独立的刷题题目结构。带 `allowUnreviewedPractice: true` 的历年真题可用于直接刷题；相似题训练额外只接受 `practiceMeta.status = "published"` 且通过答案、解析、知识点和错误类型校验的题目；题库不足时返回短缺数量，不使用未审核题或规则生成题补足。
 
 相似题按 `similarGroupId`、知识点、题型、错误类型、章节和数学科目分层匹配，并用固定种子稳定排序。针对训练的层级顺序为：基础题 2 道、同类题 3 道、变式题 3 道、综合题 2 道。综合训练同样从已发布题库选择。
 
@@ -89,7 +97,7 @@
 
 ## 数学公式
 
-公式可放在 `stem`、`formula`、`explanation`、选项和答案中，支持普通文本、Unicode 数学符号和常用轻量 LaTeX（如 `$...$`、`\\frac{a}{b}`、`\\sqrt{x}`、上下标）。前端通过 `QuestionModel.renderFormulaText()` 安全渲染；真题仍可同时保留 `stemImage/pageImage` 作为复杂排版的最终显示层。
+公式可放在 `stem`、`formula`、`explanation`、选项和答案中，支持普通文本、Unicode 数学符号和 LaTeX。前端优先使用本地 KaTeX 渲染 `$...$`、`$$...$$`、`\\(...\\)`、`\\[...\\]` 和 `format: "latex"` 的内容；解析失败时保留安全转义的原文，真题仍可同时保留 `stemImage/pageImage` 作为复杂排版的最终显示层。
 
 ## 导入与校验
 
@@ -97,5 +105,8 @@ CSV 模板为仓库根目录的 `question-import-template.csv`。导入时填写
 
 ```bash
 node tools/import-questions.js path/to/questions.csv
+node tools/annotate-question-categories.js
 node tools/validate-question-bank.js
 ```
+
+题型归类保留原始 `type` 字段，同时写入统一的 `questionCategory`：`choice` 为选择题，`fill` 为填空题，`solution/subjective` 统一归为大题。这样既方便三类筛选，也不会影响现有答题和判分逻辑。

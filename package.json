@@ -5,8 +5,18 @@
   "type": "commonjs",
   "scripts": {
     "start": "node server.js",
-    "build": "node --check server.js && node --check public/app.js",
+    "build": "node --check server.js && node --check question-repository.js && node --check public/app.js && node --check public/static-api.js && node tools/prepare-public-assets.js",
+    "db:init": "node tools/init-question-db.js",
+    "db:rebuild": "node tools/init-question-db.js --rebuild",
+    "data:annotate-types": "node tools/annotate-question-categories.js",
+    "data:remove-generated": "node tools/remove-generated-question-bank.js",
+    "data:audit-pdf-sources": "python3 tools/identify_past_exam_pdfs.py",
+    "db:validate": "node tools/validate-question-bank.js",
     "health": "node -e \"fetch('http://localhost:' + (process.env.PORT || 5188) + '/api/health').then(r=>r.json()).then(console.log)\""
+  },
+  "dependencies": {
+    "better-sqlite3": "^12.11.1",
+    "katex": "^0.18.4"
   },
   "engines": {
     "node": ">=20"

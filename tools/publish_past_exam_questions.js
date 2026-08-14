@@ -14,6 +14,7 @@ const {
   normalizeQuestion: normalizeQuestionModel,
   isPracticeQuestionReady
 } = require("../public/question-model.js");
+const { createQuestionRepository } = require("../question-repository.js");
 
 const ROOT = path.join(__dirname, "..");
 const DEFAULT_INPUT = path.join(ROOT, "data", "past-exam-staging", "probability-pilot.json");
@@ -197,6 +198,17 @@ function main() {
   publishable.forEach((question) => byId.set(question.id, question));
   const next = Array.from(byId.values());
   fs.writeFileSync(args.outputPath, `${JSON.stringify(next, null, 2)}\n`, "utf8");
+  const repository = createQuestionRepository({
+    dbPath: process.env.QUESTION_DB_PATH
+      ? path.resolve(ROOT, process.env.QUESTION_DB_PATH)
+      : path.join(ROOT, "data", "questions.sqlite"),
+    sourcePath: process.env.QUESTION_SOURCE_PATH
+      ? path.resolve(ROOT, process.env.QUESTION_SOURCE_PATH)
+      : path.join(ROOT, "data", "question-bank-source.json"),
+    initializeIfEmpty: true
+  });
+  repository.upsert(publishable, { source: args.inputPath });
+  repository.close();
   console.log(`${args.trial ? "已导入试运行真题" : "已发布真题"} ${publishable.length} 道：${args.outputPath}`);
 }
 

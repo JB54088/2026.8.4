@@ -1,8 +1,18 @@
 .env
 data/db.json
+data/questions.sqlite
+data/questions.sqlite-*
+data/app-state.json
+data/db.json.*backup*
+data/db.json.*pre-sqlite*
+public/vendor/katex/
 .edge-profile/
 inspection-shots/
 node_modules/
 npm-debug.log*
 __pycache__/
 *.pyc
+
+# temporary page extraction artifacts emitted at the repository root
+/--*.png
+/--*.jpg

@@ -10,7 +10,6 @@ const {
   choiceSpec,
   canonicalAnswer,
   normalizeQuestion,
-  normalizeQuestionList,
   queryQuestions,
   isPracticeQuestionReady,
   selectSimilarQuestions,
@@ -19,10 +18,12 @@ const {
   publicTrainingBatch,
   publicTrainingQuestion
 } = require("./public/question-model.js");
+const { createQuestionRepository } = require("./question-repository.js");
 
 const ROOT = __dirname;
 const PUBLIC = path.join(ROOT, "public");
-const DB_FILE = path.join(ROOT, "data", "db.json");
+const LEGACY_DB_FILE = path.join(ROOT, "data", "db.json");
+const DEFAULT_STATE_FILE = path.join(ROOT, "data", "app-state.json");
 
 function loadEnvFile() {
   const file = path.join(ROOT, ".env");
@@ -53,6 +54,7 @@ const ALLOWED_ORIGINS = String(process.env.ALLOWED_ORIGINS || "")
   .map((item) => item.trim())
   .filter(Boolean);
 const requestHits = new Map();
+let questionRepository;
 
 function configuredOpenAIKey() {
   const key = String(process.env.OPENAI_API_KEY || "").trim();
@@ -65,54 +67,72 @@ function readJson(file) {
 }
 
 function writeJson(file, value) {
+  fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, JSON.stringify(value, null, 2), "utf8");
 }
 
-function normalizeQuestionRecord(question) {
-  return normalizeQuestion(classifyQuestionChapter(question));
+function questionDatabaseConfig() {
+  return {
+    dbPath: process.env.QUESTION_DB_PATH
+      ? path.resolve(ROOT, process.env.QUESTION_DB_PATH)
+      : path.join(ROOT, "data", "questions.sqlite"),
+    sourcePath: process.env.QUESTION_SOURCE_PATH
+      ? path.resolve(ROOT, process.env.QUESTION_SOURCE_PATH)
+      : path.join(ROOT, "data", "question-bank-source.json")
+  };
+}
+
+function stateFilePath() {
+  return process.env.APP_STATE_PATH
+    ? path.resolve(ROOT, process.env.APP_STATE_PATH)
+    : DEFAULT_STATE_FILE;
+}
+
+function getQuestionRepository() {
+  if (!questionRepository) {
+    questionRepository = createQuestionRepository({
+      ...questionDatabaseConfig(),
+      initializeIfEmpty: true
+    });
+  }
+  return questionRepository;
+}
+
+function stateFromLegacyDb() {
+  if (!fs.existsSync(LEGACY_DB_FILE)) return null;
+  const legacy = readJson(LEGACY_DB_FILE);
+  const { questions, ...state } = legacy;
+  return state;
+}
+
+function ensureStateFile() {
+  const file = stateFilePath();
+  if (fs.existsSync(file)) return false;
+  const migrated = stateFromLegacyDb();
+  writeJson(file, migrated || seedDb());
+  return true;
 }
 
 function db() {
-  if (!fs.existsSync(DB_FILE)) writeJson(DB_FILE, seedDb());
-  const store = readJson(DB_FILE);
-  const rawQuestions = Array.isArray(store.questions) ? store.questions : [];
-  const needsQuestionNormalization = rawQuestions.some((question) => (
-    !question
-    || question.schemaVersion !== QUESTION_SCHEMA_VERSION
-    || !question.sectionId
-    || !question.answerSpec
-    || !question.content
-    || !question.sourceSpec
-  ));
-  let changed = false;
-  if (!rawQuestions.length) {
-    store.questions = buildQuestions();
-    changed = true;
-  } else if (needsQuestionNormalization) {
-    store.questions = normalizeQuestionList(rawQuestions.map(normalizeQuestionRecord));
-    changed = true;
-  }
+  const migratedFromLegacy = ensureStateFile();
+  const store = readJson(stateFilePath());
+  store.questions = getQuestionRepository().all();
   store.meta = store.meta || {};
-  if (store.meta.questionSchemaVersion !== QUESTION_SCHEMA_VERSION) {
-    store.meta.questionSchemaVersion = QUESTION_SCHEMA_VERSION;
-    changed = true;
-  }
-  if (changed) {
-    migrateChapterReferences(store);
-    saveDb(store);
-  }
-  if (!Array.isArray(store.submissions)) {
-    store.submissions = [];
-    saveDb(store);
-  }
+  store.meta.questionSchemaVersion = QUESTION_SCHEMA_VERSION;
+  if (!Array.isArray(store.submissions)) store.submissions = [];
   if (!Array.isArray(store.trainingBatches)) store.trainingBatches = [];
   if (!Array.isArray(store.trainingRecords)) store.trainingRecords = [];
   if (!Array.isArray(store.retestRecords)) store.retestRecords = [];
+  if (migratedFromLegacy) {
+    migrateChapterReferences(store);
+    saveDb(store);
+  }
   return store;
 }
 
 function saveDb(next) {
-  writeJson(DB_FILE, next);
+  const { questions, ...state } = next;
+  writeJson(stateFilePath(), state);
 }
 
 function migrateChapterReferences(store) {
@@ -157,9 +177,14 @@ function readPastExamSources() {
 
 function pastExamSourcesFor(store) {
   const sources = readPastExamSources();
-  sources.importedQuestionCount = (store?.questions || []).filter((question) =>
-    question.sourceType === "past_exam" && isQuestionReadyForPractice(question)
-  ).length;
+  const pastQuestions = (store?.questions || []).filter((question) => question.sourceType === "past_exam");
+  sources.questionBankCount = (store?.questions || []).length;
+  sources.structuredPastExamCount = pastQuestions.length;
+  sources.importedQuestionCount = pastQuestions.filter((question) => isQuestionReadyForPractice(question)).length;
+  sources.answerMatchedQuestionCount = pastQuestions.filter((question) => question.answerMatchKey).length;
+  sources.answerExplicitCount = pastQuestions.filter((question) => question.answerStatus === "matched_from_answer_pdf").length;
+  sources.answerPendingCount = pastQuestions.filter((question) => question.answerMatchKey && question.answerStatus !== "matched_from_answer_pdf").length;
+  sources.answerUnmatchedCount = pastQuestions.filter((question) => !question.answerMatchKey && !String(question.answer || "").trim()).length;
   return sources;
 }
 
@@ -239,8 +264,7 @@ function seedDb() {
     trainingRecords: [],
     retestRecords: [],
     attempts: [],
-    notes: [],
-    questions: buildQuestions()
+    notes: []
   };
 }
 
@@ -934,7 +958,10 @@ function publicFile(req, res) {
     ".svg": "image/svg+xml",
     ".jpg": "image/jpeg",
     ".jpeg": "image/jpeg",
-    ".png": "image/png"
+    ".png": "image/png",
+    ".woff": "font/woff",
+    ".woff2": "font/woff2",
+    ".ttf": "font/ttf"
   };
   res.writeHead(200, { "content-type": types[ext] || "application/octet-stream" });
   fs.createReadStream(file).pipe(res);
@@ -957,10 +984,17 @@ async function api(req, res) {
   }
 
   if (req.method === "GET" && url.pathname === "/api/health") {
+    const questionStats = getQuestionRepository().stats();
     send(res, 200, {
       status: "ok",
       environment: NODE_ENV,
-      timestamp: nowIso()
+      timestamp: nowIso(),
+      questionBank: {
+        storage: "sqlite",
+        count: questionStats.count,
+        status: questionStats.status,
+        schemaVersion: QUESTION_SCHEMA_VERSION
+      }
     });
     return;
   }
@@ -1099,7 +1133,7 @@ async function api(req, res) {
         sourceType,
         practiceType,
         availableCount: 0,
-        message: "尚未导入真实历年考研数学真题，请先导入2000-2026真题题库。"
+        message: "当前筛选下没有可刷的1987-2025历年考研数学真题，请调整数学类型、章节或难度。"
       });
     }
     const modeDifficulty = {
@@ -1509,13 +1543,19 @@ async function api(req, res) {
     const body = await parseBody(req);
     const batch = (store.trainingBatches || []).find((item) => item.id === body.trainingBatchId);
     if (!batch) return send(res, 404, { error: "训练批次不存在" });
+    let retestQuestions;
+    try {
+      retestQuestions = buildRetestFromBatch(store, batch);
+    } catch (error) {
+      return send(res, 400, { error: error.message || "复测题生成失败" });
+    }
     const retest = {
       id: id("retest"),
       studentId: batch.studentId,
       trainingBatchId: batch.id,
       sourceWrongQuestionId: batch.sourceWrongQuestionId,
       sourceErrorType: batch.sourceErrorType,
-      questions: buildRetestFromBatch(batch),
+      questions: retestQuestions,
       status: "waiting_answer",
       result: null,
       createdAt: nowIso(),
@@ -1589,7 +1629,7 @@ async function api(req, res) {
 
 function chapterSummary(questions) {
   const map = new Map();
-  questions.forEach((q) => {
+  questions.filter((question) => isQuestionReadyForPractice(question)).forEach((q) => {
     const sectionId = q.sectionId || q.chapterId;
     const sectionName = q.sectionName || q.chapterName;
     const section = q.section || {};
@@ -1651,7 +1691,7 @@ function buildReportFor(store, studentId) {
 }
 
 function typeLabelFor(type) {
-  return type === "choice" ? "选择题" : type === "fill" ? "填空题" : "主观题";
+  return type === "choice" ? "选择题" : type === "fill" ? "填空题" : "大题";
 }
 
 function scoreForAttempt(question, attempt) {
@@ -2311,22 +2351,38 @@ function detectProcessIssue(question, attempt, steps = []) {
   return { hasIssue: false, reason: "", severity: "none" };
 }
 
-function buildRetestFromBatch(batch) {
-  const seed = batch.questions[0] || {};
-  const make = (index, purpose) => ({
-    id: id("retestq"),
-    sourceWrongQuestionId: batch.sourceWrongQuestionId,
-    sourceErrorType: batch.sourceErrorType,
-    knowledgePoint: batch.knowledgePoint,
-    subKnowledgePoint: batch.subKnowledgePoint,
-    questionType: index === 4 ? "original_retry" : "subjective",
-    difficultyLevel: index < 2 ? 3 : 4,
-    stem: `${purpose}：围绕 ${batch.subKnowledgePoint}，独立完成，不提供明显提示。`,
-    answer: seed.answer || "以完整推导结果为准",
-    detailedSolution: seed.detailedSolution || {},
-    hintPolicy: "retest_no_hint"
+function buildRetestFromBatch(store, batch) {
+  const sourceQuestion = store.questions.find((question) => question.id === batch.sourceWrongQuestionId)
+    || store.questions.find((question) => question.id === batch.questions?.find((question) => question.bankQuestionId)?.bankQuestionId);
+  if (!sourceQuestion) throw new Error("原错题不在当前题库中，无法生成复测");
+  const student = store.students.find((item) => item.id === batch.studentId) || {};
+  const excluded = [sourceQuestion.id, ...(batch.questions || []).map((question) => question.bankQuestionId).filter(Boolean)];
+  const selection = selectSimilarQuestions(store.questions, sourceQuestion, {
+    count: 4,
+    targetLevels: [3, 3, 4, 4],
+    subject: student.mathType,
+    seed: `${batch.id}:retest`,
+    excludeIds: excluded
   });
-  return [make(0, "同错误类型新题1"), make(1, "同错误类型新题2"), make(2, "同知识点变式题"), make(3, "综合迁移题"), make(4, "原错题重新作答")];
+  const bankQuestions = [...selection.selected.map((entry) => entry.question), sourceQuestion];
+  return bankQuestions.map((question, index) => {
+    const retestQuestionId = id("retestq");
+    const originalRetry = index === bankQuestions.length - 1;
+    return {
+      ...question,
+      id: retestQuestionId,
+      questionId: retestQuestionId,
+      bankQuestionId: question.id,
+      sourceWrongQuestionId: batch.sourceWrongQuestionId,
+      sourceErrorType: batch.sourceErrorType,
+      knowledgePoint: batch.knowledgePoint,
+      subKnowledgePoint: batch.subKnowledgePoint,
+      questionType: originalRetry ? "original_retry" : question.type,
+      difficultyLevel: question.difficulty,
+      retestPurpose: originalRetry ? "原错题重新作答" : "题库相似题复测",
+      hintPolicy: "retest_no_hint"
+    };
+  });
 }
 
 function normalizeWeakPoint(question, attempt) {
@@ -2404,23 +2460,37 @@ function buildStepAnalysis(question, attempt) {
   ];
 }
 
-function buildDemoLoop() {
+function buildDemoLoop(store) {
+  const demoQuestion = (store.questions || []).find((question) => question.id === "subjective_integral_model_001")
+    || (store.questions || []).find((question) => question.sourceType !== "past_exam");
+  if (!demoQuestion) throw new Error("题库为空，无法生成演示学习闭环");
+  const demoKnowledgePoint = demoQuestion.practiceMeta?.knowledgePointName || demoQuestion.point || demoQuestion.chapterName;
+  const demoRetestQuestions = (store.questions || [])
+    .filter((question) => question.id !== demoQuestion.id && isQuestionReadyForPractice(question)
+      && question.subjects?.some((subject) => (demoQuestion.subjects || []).includes(subject)))
+    .slice(0, 2)
+    .map((question) => ({
+      ...question,
+      typeLabel: typeLabelFor(question.type),
+      target: demoKnowledgePoint,
+      result: "待完成题库复测"
+    }));
   return {
     diagnosis: {
       score: "6/15",
       accuracy: 40,
-      weakKnowledgePoints: ["一元函数应用建模", "利润函数", "方程约束关系"],
+      weakKnowledgePoints: [demoKnowledgePoint, "利润函数", "方程约束关系"],
       summary: "本轮主要问题不是计算量不足，而是题意中的数量关系没有转成正确模型。AI定位到第一次偏差出现在利润表达式：把单件利润误写为 60+x，导致后续方程和结论全部偏离。",
       questionAnalyses: [{
-        typeLabel: "主观题",
+        typeLabel: typeLabelFor(demoQuestion.type),
         score: 6,
         maxScore: 15,
         finalAnswerCorrect: false,
-        title: "某商品原售价60元，成本40元。若每涨价1元，销量减少2件。求使总利润为2400元时的涨价额。",
+        title: demoQuestion.stem,
         studentAnswer: "(60+x)(100-2x)=2400",
-        standardAnswer: "(20+x)(100-2x)=2400",
+        standardAnswer: demoQuestion.answer,
         errorTypes: ["数量关系理解错误", "利润公式应用错误", "建模错误"],
-        knowledgePoints: ["函数应用题建模", "利润=单件利润×销量"],
+        knowledgePoints: [demoKnowledgePoint, "利润=单件利润×销量"],
         steps: [
           { stepNumber: 1, status: "correct", judgment: "能识别变量", score: 3, maxScore: 3, studentContent: "设涨价 x 元", normalizedExpression: "x 表示涨价额", errorDescription: "变量设定清楚。", correction: "继续保留变量含义和单位。", relatedKnowledgePoint: "变量设定" },
           { stepNumber: 2, status: "wrong", judgment: "第一次错误：单件利润写错", score: 0, maxScore: 6, studentContent: "利润 = (60+x)(100-2x)", normalizedExpression: "(60+x)(100-2x)", errorDescription: "60+x 是售价，不是利润。单件利润应为售价减成本，即 60+x-40=20+x。", correction: "把模型改为 (20+x)(100-2x)=2400，再求解。", relatedKnowledgePoint: "利润函数" },
@@ -2445,10 +2515,7 @@ function buildDemoLoop() {
       independent: true,
       hintsUsed: 0,
       passed: true,
-      questions: [
-        { typeLabel: "主观题", difficulty: "3星 易错", stem: "某商品成本30元，售价50元。每涨价2元销量减少5件，求利润达到1800元时的涨价额。", target: "验证利润函数建模", result: "模型建立正确，计算稳定" },
-        { typeLabel: "填空题", difficulty: "2星 计算", stem: "售价 a，成本 b，销量 q，则总利润表达式为____。", target: "验证公式迁移", result: "填写正确" }
-      ]
+      questions: demoRetestQuestions
     },
     improvement: { beforeMastery: 42, afterMastery: 78, improvementValue: 36, status: "已达标，建议隔日复测", originalError: "把售价当成利润，导致模型源头错误。", trainingResult: "已能区分售价、成本和单件利润，并能独立列式。", nextRisk: "遇到折扣、销量变化率等复杂表述时仍需慢审题。" },
     profile: {
@@ -2463,9 +2530,9 @@ function buildDemoLoop() {
 }
 
 function buildLearningLoopFor(store, studentId, demo = false) {
-  if (demo) return buildDemoLoop();
+  if (demo) return buildDemoLoop(store);
   const attempts = store.attempts.filter((a) => a.studentId === studentId).slice(-8).reverse();
-  if (!attempts.length) return buildDemoLoop();
+  if (!attempts.length) return buildDemoLoop(store);
   const questionAnalyses = attempts.map((attempt) => {
     const question = store.questions.find((q) => q.id === attempt.questionId) || {};
     const { score, maxScore } = scoreForAttempt(question, attempt);
@@ -2493,6 +2560,22 @@ function buildLearningLoopFor(store, studentId, demo = false) {
   const primaryReason = weakReasons[0] || "稳定性不足";
   const beforeMastery = Math.max(25, Math.min(78, accuracy - 8));
   const afterMastery = Math.max(beforeMastery + 10, Math.min(92, accuracy + 18));
+  const focusQuestion = store.questions.find((question) => question.point === primaryWeak)
+    || store.questions.find((question) => question.id === attempts[0]?.questionId)
+    || store.questions.find((question) => question.sourceType !== "past_exam");
+  const loopRetestQuestions = focusQuestion
+    ? selectSimilarQuestions(store.questions, focusQuestion, {
+      count: 2,
+      targetLevels: [3, 4],
+      subject: store.students.find((student) => student.id === studentId)?.mathType,
+      seed: `${studentId}:learning-loop-retest:${focusQuestion.id}`
+    }).selected.map((entry) => ({
+      ...entry.question,
+      typeLabel: typeLabelFor(entry.question.type),
+      target: primaryWeak,
+      result: "待完成题库复测"
+    }))
+    : [];
   return {
     diagnosis: {
       score: `${totalScore}/${totalMax}`,
@@ -2518,10 +2601,7 @@ function buildLearningLoopFor(store, studentId, demo = false) {
       independent: afterMastery >= 70,
       hintsUsed: afterMastery >= 70 ? 0 : 1,
       passed: afterMastery >= 70,
-      questions: [
-        { typeLabel: "变式题", difficulty: "基础变式", stem: `围绕 ${primaryWeak} 的同模型变式题`, target: "确认公式和入口是否正确", result: afterMastery >= 70 ? "已通过" : "仍需巩固" },
-        { typeLabel: "变式题", difficulty: "综合变式", stem: `把 ${primaryWeak} 放入跨章节情境中重新检测`, target: "确认是否真正迁移", result: afterMastery >= 75 ? "迁移基本稳定" : "迁移仍不稳定" }
-      ]
+      questions: loopRetestQuestions
     },
     improvement: { beforeMastery, afterMastery, improvementValue: afterMastery - beforeMastery, status: afterMastery >= 75 ? "阶段达标" : "需要二刷", originalError: primaryReason, trainingResult: `已生成 ${primaryWeak} 的补漏、同类训练和限时巩固任务。`, nextRisk: weakKnowledgePoints[1] ? `下一轮建议关注 ${weakKnowledgePoints[1]}。` : "下一轮建议增加综合题，验证长期稳定性。" },
     profile: {

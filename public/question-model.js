@@ -7,6 +7,7 @@
   const ASCII_LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
   const QUESTION_SCHEMA_VERSION = 19;
   const QUESTION_TYPES = new Set(["choice", "fill", "solution", "subjective"]);
+  const QUESTION_CATEGORIES = new Set(["choice", "fill", "major"]);
   const PRACTICE_STATUSES = new Set(["needs_review", "published", "blocked"]);
   const PRACTICE_ERROR_TYPES = new Set(["concept", "condition", "method", "calculation", "expression", "modeling", "transfer"]);
   const TRAINING_LEVELS = new Set(["foundation", "same_type", "variation", "comprehensive"]);
@@ -173,7 +174,7 @@
     return /\\[a-zA-Z]+|\$|\^\{|_\{/.test(raw) ? "latex" : "text";
   }
 
-  function renderFormulaText(value) {
+  function renderLegacyFormulaText(value) {
     let html = escapeHtml(value);
     if (!html) return "";
     html = html.replace(/\$([^$]*)\$/g, "$1");
@@ -192,6 +193,65 @@
     return `<span class="math-text">${html.replace(/\r?\n/g, "<br>")}</span>`;
   }
 
+  function katexRenderer() {
+    const candidate = typeof globalThis !== "undefined" ? globalThis.katex : null;
+    return candidate && typeof candidate.renderToString === "function" ? candidate : null;
+  }
+
+  function renderKatexSource(source, displayMode, katex) {
+    try {
+      return katex.renderToString(source, {
+        displayMode,
+        throwOnError: true,
+        strict: "ignore",
+        trust: false,
+        output: "htmlAndMathml"
+      });
+    } catch (error) {
+      return `<span class="formula-fallback" title="公式解析失败">${escapeHtml(source)}</span>`;
+    }
+  }
+
+  function renderKatexFormulaText(value, explicitFormat = "") {
+    const raw = asText(value);
+    const katex = katexRenderer();
+    if (!raw || !katex) return "";
+
+    const delimiterPattern = /(\$\$[\s\S]*?\$\$|\\\[[\s\S]*?\\\]|\\\([\s\S]*?\\\)|\$[^$\r\n]+?\$)/g;
+    let cursor = 0;
+    let found = false;
+    let html = "";
+    raw.replace(delimiterPattern, (match, _capture, offset) => {
+      found = true;
+      html += escapeHtml(raw.slice(cursor, offset)).replace(/\r?\n/g, "<br>");
+      const isDisplay = match.startsWith("$$") || match.startsWith("\\[");
+      const source = isDisplay
+        ? match.slice(2, -2)
+        : match.startsWith("\\(")
+          ? match.slice(2, -2)
+          : match.slice(1, -1);
+      html += renderKatexSource(source, isDisplay, katex);
+      cursor = offset + match.length;
+      return match;
+    });
+
+    if (found) {
+      html += escapeHtml(raw.slice(cursor)).replace(/\r?\n/g, "<br>");
+      return `<span class="math-text">${html}</span>`;
+    }
+
+    const format = asText(explicitFormat).toLowerCase();
+    const looksLikeLatex = format === "latex" || /\\[a-zA-Z]+|\^\{|_\{/.test(raw);
+    return looksLikeLatex ? `<span class="math-text">${renderKatexSource(raw, true, katex)}</span>` : "";
+  }
+
+  function renderFormulaText(value, explicitFormat = "") {
+    const raw = asText(value);
+    if (!raw) return "";
+    const rendered = renderKatexFormulaText(raw, explicitFormat);
+    return rendered || renderLegacyFormulaText(raw);
+  }
+
   function normalizedType(raw = {}) {
     const direct = asText(raw.type || raw.questionType).toLowerCase();
     if (QUESTION_TYPES.has(direct)) return { type: direct, reason: asText(raw.reason) };
@@ -200,6 +260,18 @@
     const options = Array.isArray(raw.options) ? raw.options : raw.choiceOptions;
     if (Array.isArray(options) && options.length >= 2) return { type: "choice", reason: asText(raw.reason || "待标注") };
     return { type: direct || "subjective", reason: asText(raw.reason || "待标注") };
+  }
+
+  function questionCategoryForType(type) {
+    if (type === "choice") return "choice";
+    if (type === "fill") return "fill";
+    return "major";
+  }
+
+  function questionCategoryLabel(category) {
+    if (category === "choice") return "选择题";
+    if (category === "fill") return "填空题";
+    return "大题";
   }
 
   function practiceErrorTypeCode(value) {
@@ -312,6 +384,7 @@
 
   function normalizeQuestion(raw = {}) {
     const typeInfo = normalizedType(raw);
+    const questionCategory = questionCategoryForType(typeInfo.type);
     const section = questionSection(raw);
     const source = questionSource(raw);
     const options = Array.isArray(raw.options)
@@ -339,6 +412,8 @@
       reason: typeInfo.reason || "待标注",
       type: typeInfo.type,
       questionType: typeInfo.type,
+      questionCategory,
+      questionCategoryLabel: questionCategoryLabel(questionCategory),
       level: asText(raw.level || raw.difficultyLabel || "待分层"),
       difficulty: Math.max(1, Math.min(5, Number(raw.difficulty || raw.difficultyLevel || 3))),
       stem,
@@ -423,17 +498,20 @@
     const normalized = question.practiceMeta ? question : normalizeQuestion(question);
     const answer = asText(normalized.answer || normalized.answerSpec?.value);
     const placeholder = /(待标注|待校对|待审核|草稿|占位|placeholder|请对照原页|答案生成中)/i;
-    if (normalized.practiceMeta?.status !== "published") return false;
+    const allowUnreviewedPastExam = normalized.sourceType === "past_exam"
+      && normalized.allowUnreviewedPractice === true;
+    if (!allowUnreviewedPastExam && normalized.practiceMeta?.status !== "published") return false;
     if (!normalized.id || !normalized.sectionId || !normalized.stem || placeholder.test(normalized.stem)) return false;
     if (!normalized.practiceMeta.knowledgePointId || !normalized.practiceMeta.knowledgePointName) return false;
     if (!normalized.practiceMeta.errorTypes?.length) return false;
-    if (!answer || placeholder.test(answer)) return false;
-    if (!normalized.explanation || placeholder.test(normalized.explanation)) return false;
+    if (!allowUnreviewedPastExam && (!answer || placeholder.test(answer))) return false;
+    if (!allowUnreviewedPastExam && (!normalized.explanation || placeholder.test(normalized.explanation))) return false;
     if (normalized.type === "choice") {
-      if (normalized.choiceOptions.length < 2 || !normalized.answerSpec.optionKey) return false;
+      if (normalized.choiceOptions.length < 2) return false;
+      if (!allowUnreviewedPastExam && !normalized.answerSpec.optionKey) return false;
     }
-    if (normalized.sourceType === "past_exam" && normalized.answerStatus && !/reviewed/i.test(normalized.answerStatus)) return false;
-    if (/(pending|待|草稿|draft|trial|未审核|未校对)/i.test(`${normalized.reviewStatus || ""} ${normalized.answerStatus || ""}`)) return false;
+    if (!allowUnreviewedPastExam && normalized.sourceType === "past_exam" && normalized.answerStatus && !/reviewed/i.test(normalized.answerStatus)) return false;
+    if (!allowUnreviewedPastExam && /(pending|待|草稿|draft|trial|未审核|未校对)/i.test(`${normalized.reviewStatus || ""} ${normalized.answerStatus || ""}`)) return false;
     return true;
   }
 
@@ -573,7 +651,9 @@
       index: normalized.index,
       type: normalized.type,
       questionType: normalized.type,
-      typeLabel: normalized.type === "choice" ? "选择题" : normalized.type === "fill" ? "填空题" : "解答题",
+      questionCategory: normalized.questionCategory || questionCategoryForType(normalized.type),
+      questionCategoryLabel: normalized.questionCategoryLabel || questionCategoryLabel(normalized.questionCategory || questionCategoryForType(normalized.type)),
+      typeLabel: normalized.questionCategoryLabel || questionCategoryLabel(normalized.questionCategory || questionCategoryForType(normalized.type)),
       stem: normalized.stem,
       stemFormat: normalized.stemFormat,
       formula: normalized.formula,
@@ -626,6 +706,9 @@
     normalizeQuestion,
     normalizeQuestionList,
     queryQuestions,
+    QUESTION_CATEGORIES: Array.from(QUESTION_CATEGORIES),
+    questionCategoryForType,
+    questionCategoryLabel,
     practiceErrorTypeCode,
     practiceErrorTypes,
     normalizePracticeMeta,

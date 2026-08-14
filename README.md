@@ -23,7 +23,8 @@ https://jb54088.github.io/2026.8.4/
 
 - 前端：原生 HTML / CSS / JavaScript 单页应用
 - 后端：Node.js 原生 HTTP 服务
-- 数据：本地 JSON 数据文件 `data/db.json`
+- 题库：SQLite 文件数据库 `data/questions.sqlite`，源数据为 `data/question-bank-source.json`
+- 学习状态：本地 JSON 数据文件 `data/app-state.json`
 - 草稿纸：Canvas，支持笔、荧光笔、橡皮、撤销、清空、粗细和颜色
 - 在线静态演示：GitHub Pages + `public/static-api.js` 浏览器内模拟 API
 - 生产后端部署：Render Web Service，配置见 `render.yaml`
@@ -69,6 +70,9 @@ OPENAI_API_KEY=
 OPENAI_VISION_MODEL=gpt-5
 RATE_LIMIT_PER_MINUTE=180
 MAX_BODY_BYTES=3145728
+QUESTION_DB_PATH=data/questions.sqlite
+QUESTION_SOURCE_PATH=data/question-bank-source.json
+APP_STATE_PATH=data/app-state.json
 ```
 
 AI 降级方案：
@@ -111,20 +115,32 @@ AI 降级方案：
 
 ## 当前数据结构
 
-当前演示版使用 JSON 存储，主要对象包括：
+当前应用状态仍使用 JSON 存储，主要对象包括：
 
 - `students`
-- `questions`
 - `attempts`
 - `notes`
 - `reports`
 - `learningLoop`
 
-题目对象统一使用 `schemaVersion: 19`。题库导入、服务端刷题接口和静态演示都会归一化为 `sectionId/section`、`type`、`content`、`choiceOptions`、`answerSpec`、`sourceSpec`、`practiceMeta` 等规范字段，同时保留 `chapterId/options/answer` 等旧字段作为兼容别名。刷题接口按 `sectionId` 直接从 `questions` 题库分区筛选，不再维护另一套刷题题目结构；相似题训练只使用已标注且审核发布的题目，题库不足时明确显示短缺，不使用未审核或规则生成题补足。公式字段支持普通文本、Unicode 数学符号和常用轻量 LaTeX。字段说明见 [统一题目结构](docs/question-schema.md)。
+题库已经单独迁移到 SQLite。首次启动或运行 `npm run db:init` 时，会从可追踪的 `data/question-bank-source.json` 自动生成 `data/questions.sqlite`；`data/db.json` 仅作为旧版迁移备份，不再参与每次请求的题库读取和整体写入。题库导入和校验命令如下：
 
-题库导入使用根目录的 `question-import-template.csv`；校验已发布题目可运行 `node tools/validate-question-bank.js`。训练题在提交前不会返回答案，单题提交后记录锁定，并通过 `record.reveal` 返回标准答案和解析。
+```bash
+node tools/import-questions.js path/to/questions.csv
+node tools/annotate-question-categories.js
+node tools/validate-question-bank.js
+node tools/init-question-db.js --rebuild
+```
 
-正式商业化建议迁移到 PostgreSQL，拆分为：
+题目对象统一使用 `schemaVersion: 19`。题库导入、服务端刷题接口和静态演示都会归一化为 `sectionId/section`、`type`、`content`、`choiceOptions`、`answerSpec`、`sourceSpec`、`practiceMeta` 等规范字段，同时保留 `chapterId/options/answer` 等旧字段作为兼容别名。刷题接口按 `sectionId` 直接从 `questions` 题库分区筛选，不再维护另一套刷题题目结构；带 `allowUnreviewedPractice: true` 的历年真题可以直接进入真题刷题池，但相似题训练只使用已标注且审核发布的题目，题库不足时明确显示短缺，不使用未审核或规则生成题补足。公式字段保留 LaTeX 原文，同时支持普通文本、Unicode 数学符号和本地 KaTeX 渲染。字段说明见 [统一题目结构](docs/question-schema.md)。
+
+SQLite 题库包含两张表：`question_db_meta(key, value)` 保存数据库版本、题目 schema 版本、导入时间、来源和数量；`questions` 保存 `id`、`subjects_json`、`section_id`、`section_name`、`type`、`difficulty`、`source_type`、`practice_status`、`knowledge_point_id`、`training_level`、`similar_group_id`、完整 `question_json` 和 `updated_at`。章节、题型、难度、题源、状态、知识点和训练层级均有索引，完整题目对象以 `question_json` 为规范快照。
+
+静态演示构建时会把同一份 `data/question-bank-source.json` 发布为 `public/question-bank.json`，浏览器内的刷题、错题、训练和复测都从这份题库读取；不会再用硬编码种子题或规则变式题补数。
+
+题库导入使用根目录的 `question-import-template.csv`；可运行 `node tools/validate-question-bank.js` 校验题目结构和可刷状态。训练题在提交前不会返回答案，单题提交后记录锁定，并通过 `record.reveal` 返回标准答案和解析。
+
+正式商业化如果需要多实例部署，再迁移到 PostgreSQL；当前 SQLite 题库表已经为后续迁移保留筛选字段和完整题目 JSON。学生学习状态仍暂时使用 JSON。商业化阶段可继续拆分为：
 
 - `users`
 - `student_profiles`
@@ -153,15 +169,14 @@ AI 降级方案：
 
 真题采用“原页图片 + 结构化题目”的双层方式：原页图片负责公式、分式、矩阵和分段函数的最终显示；OCR 文本只用于搜索、复制和人工校对。
 
-当前试运行内容：
+当前导入内容：
 
-- 原页预览：`public/past-exam-preview.html` 和 `public/past-exam-assets/trial-probability/`
-- 页面清单：`public/past-exam-assets/trial-probability/manifest.json`
-- 待校对候选：`data/past-exam-staging/probability-pilot.json`
-- 正式题库文件：`data/past-exam-questions.json`
-- 导入工具：`tools/pdf_to_markdown.py`、`tools/build_past_exam_staging.js`、`tools/publish_past_exam_questions.js`
+- 1987-2025 结构化题库源：`data/question-bank-source.json`
+- 原页资源和页面清单：`public/past-exam-assets/classified-1987-2025/`
+- 答案匹配结果：`data/past-exam-staging/answers-matched-1987-2025.json`
+- 导入工具：`tools/extract_past_exam_questions.py`、`tools/extract_past_exam_answers.py`、`tools/import_past_exam_answers.js`
 
-试运行题使用 `practiceStatus: "needs_review"`，可以保留在真题来源预览中，但不会进入已审核相似题训练，且 `answerStatus` 保持 `pending_review`。完成题干、选项、答案和解析校对后，再使用普通审核发布流程标记 `practiceStatus: "published"`。
+未审核真题使用 `practiceMeta.status: "needs_review"` 并通过 `allowUnreviewedPractice: true` 进入直接刷题池；它们不会进入相似题训练，也不会被当作最终审核标准。完成题干、选项、答案和解析校对后，再使用普通审核发布流程标记 `practiceMeta.status: "published"`。
 
 ## 部署
 
@@ -182,7 +197,7 @@ AI 降级方案：
 ## 已知问题
 
 - 公开 GitHub Pages 版是静态演示，数据保存在访问者浏览器中，不是正式云数据库。
-- 当前题库仍是演示级题库，已经支持题量生成和真题切片样式，但大规模正版题库需要授权资料后通过导入工具进入。
-- 当前真题专项只完成概率分类资料的 100 页原页试运行；数学二不包含概率论，其他章节需要对应资料完成转换和人工校对后才会出现真题。
+- 当前题库包含已结构化的 1987-2025 真题；部分题目仍待答案或原页人工校对，未完成校对的题目只支持直接刷题，不进入相似题训练。
+- 真题题源仍受数学类型和章节范围限制；例如数学二不包含概率论，筛选时应先确认数学类型、章节和题源。
 - 主观题真实手写识别依赖 `OPENAI_API_KEY` 和模型调用额度。
 - 管理后台已有基础数据查看能力，题库 CRUD、Word/Excel/OCR 批量导入仍需继续产品化。

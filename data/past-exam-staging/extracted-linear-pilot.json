@@ -1,0 +1,1091 @@
+{
+  "schemaVersion": 1,
+  "generatedBy": "tools/extract_past_exam_questions.py",
+  "sourceDir": "/home/adrianchen/mathTools/data/（87-25）数学真题分类",
+  "sourcePolicy": "只扫描主来源 PDF；解析/做题本暂不作为重复题源",
+  "yearRange": [
+    1987,
+    2025
+  ],
+  "status": "needs_review",
+  "candidateCount": 10,
+  "typeCounts": {
+    "solution": 7,
+    "fill": 1,
+    "choice": 2
+  },
+  "reviewFlagCounts": {
+    "original_exam_question_no_not_in_source_tag": 10,
+    "formula_requires_visual_review": 9,
+    "type_needs_review": 7,
+    "private_use_math_glyph": 3,
+    "question_spans_multiple_pages": 2
+  },
+  "files": [
+    {
+      "sourcePdf": "data/（87-25）数学真题分类/线代概率篇/原PDF及解析/真题分类线代.pdf",
+      "family": "linear",
+      "pages": 96,
+      "candidateCount": 424,
+      "questionPages": 90,
+      "status": "ok"
+    }
+  ],
+  "questions": [
+    {
+      "id": "past_1988_45_ex1401",
+      "subjects": [
+        "数学四",
+        "数学五"
+      ],
+      "sectionId": "linear_determinant",
+      "sectionName": "行列式",
+      "section": {
+        "id": "linear_determinant",
+        "name": "行列式",
+        "groupId": "linear",
+        "groupName": "线性代数",
+        "order": 0
+      },
+      "point": "低阶数值型行列式的计算",
+      "reason": "真题自动抽取，待审核",
+      "type": "solution",
+      "level": "历年真题（待审核）",
+      "difficulty": 4,
+      "stem": " = .\n1 0 1 1\n0 1 1 1\n\n1 −1 1 x −1\n1 −1 x +1 −1",
+      "stemFormat": "text",
+      "formula": "",
+      "formulaFormat": "text",
+      "options": [],
+      "answer": "",
+      "answerStatus": "pending_review",
+      "aliases": [],
+      "explanation": "",
+      "sourceType": "past_exam",
+      "source": "真题分类线代",
+      "sourceName": "真题分类线代",
+      "sourceBook": "真题分类线代",
+      "sourceSection": "低阶数值型行列式的计算",
+      "sourceYear": 1988,
+      "sourceMathType": "数学四、数学五",
+      "sourceQuestionNo": "",
+      "sourcePage": 7,
+      "sourcePageImage": "past-exam-assets/extracted-linear-pilot/linear-source/page-0007.png",
+      "stemImage": "past-exam-assets/extracted-linear-pilot/linear-source/page-0007.png",
+      "reviewStatus": "extracted_pending_review",
+      "publishStatus": "draft",
+      "qualityTier": "past_exam_extracted",
+      "practiceStatus": "needs_review",
+      "knowledgePointId": "linear_determinant:低阶数值型行列式的计算",
+      "knowledgePointName": "低阶数值型行列式的计算",
+      "errorTypes": [
+        "transfer"
+      ],
+      "trainingLevel": "variation",
+      "similarGroupId": "",
+      "content": {
+        "stem": {
+          "value": " = .\n1 0 1 1\n0 1 1 1\n\n1 −1 1 x −1\n1 −1 x +1 −1",
+          "format": "text"
+        },
+        "formula": {
+          "value": "",
+          "format": "text"
+        },
+        "explanation": {
+          "value": "",
+          "format": "text"
+        }
+      },
+      "sourceSpec": {
+        "type": "past_exam",
+        "name": "真题分类线代",
+        "book": "真题分类线代",
+        "section": "低阶数值型行列式的计算",
+        "year": 1988,
+        "mathType": "数学四、数学五",
+        "questionNo": "",
+        "page": 7,
+        "pageImage": "past-exam-assets/extracted-linear-pilot/linear-source/page-0007.png",
+        "stemImage": "past-exam-assets/extracted-linear-pilot/linear-source/page-0007.png"
+      },
+      "sourcePdf": "data/（87-25）数学真题分类/线代概率篇/原PDF及解析/真题分类线代.pdf",
+      "sourcePageEnd": 7,
+      "sourceExampleNo": 1401,
+      "sourceExamTag": "【1988-45-1 分】",
+      "sourceExamMathCode": "45",
+      "sourceScore": 1,
+      "rawText": " = .\n1 0 1 1\n0 1 1 1\n\n1 −1 1 x −1\n1 −1 x +1 −1",
+      "formulaExtraction": {
+        "status": "pending_formula_ocr",
+        "format": "text",
+        "latex": "",
+        "reviewFlags": [
+          "original_exam_question_no_not_in_source_tag",
+          "formula_requires_visual_review",
+          "type_needs_review"
+        ]
+      },
+      "extraction": {
+        "confidence": 0.958,
+        "typeConfidence": 0.58,
+        "reviewFlags": [
+          "original_exam_question_no_not_in_source_tag",
+          "formula_requires_visual_review",
+          "type_needs_review"
+        ],
+        "extractor": "tools/extract_past_exam_questions.py"
+      }
+    },
+    {
+      "id": "past_1989_5_ex1402",
+      "subjects": [
+        "数学五"
+      ],
+      "sectionId": "linear_determinant",
+      "sectionName": "行列式",
+      "section": {
+        "id": "linear_determinant",
+        "name": "行列式",
+        "groupId": "linear",
+        "groupName": "线性代数",
+        "order": 0
+      },
+      "point": "低阶数值型行列式的计算",
+      "reason": "真题自动抽取，待审核",
+      "type": "solution",
+      "level": "历年真题（待审核）",
+      "difficulty": 4,
+      "stem": "行列式 = .\n1 x −1 1 −1\nx +1 −1 1 −1",
+      "stemFormat": "text",
+      "formula": "",
+      "formulaFormat": "text",
+      "options": [],
+      "answer": "",
+      "answerStatus": "pending_review",
+      "aliases": [],
+      "explanation": "",
+      "sourceType": "past_exam",
+      "source": "真题分类线代",
+      "sourceName": "真题分类线代",
+      "sourceBook": "真题分类线代",
+      "sourceSection": "低阶数值型行列式的计算",
+      "sourceYear": 1989,
+      "sourceMathType": "数学五",
+      "sourceQuestionNo": "",
+      "sourcePage": 7,
+      "sourcePageImage": "past-exam-assets/extracted-linear-pilot/linear-source/page-0007.png",
+      "stemImage": "past-exam-assets/extracted-linear-pilot/linear-source/page-0007.png",
+      "reviewStatus": "extracted_pending_review",
+      "publishStatus": "draft",
+      "qualityTier": "past_exam_extracted",
+      "practiceStatus": "needs_review",
+      "knowledgePointId": "linear_determinant:低阶数值型行列式的计算",
+      "knowledgePointName": "低阶数值型行列式的计算",
+      "errorTypes": [
+        "transfer"
+      ],
+      "trainingLevel": "variation",
+      "similarGroupId": "",
+      "content": {
+        "stem": {
+          "value": "行列式 = .\n1 x −1 1 −1\nx +1 −1 1 −1",
+          "format": "text"
+        },
+        "formula": {
+          "value": "",
+          "format": "text"
+        },
+        "explanation": {
+          "value": "",
+          "format": "text"
+        }
+      },
+      "sourceSpec": {
+        "type": "past_exam",
+        "name": "真题分类线代",
+        "book": "真题分类线代",
+        "section": "低阶数值型行列式的计算",
+        "year": 1989,
+        "mathType": "数学五",
+        "questionNo": "",
+        "page": 7,
+        "pageImage": "past-exam-assets/extracted-linear-pilot/linear-source/page-0007.png",
+        "stemImage": "past-exam-assets/extracted-linear-pilot/linear-source/page-0007.png"
+      },
+      "sourcePdf": "data/（87-25）数学真题分类/线代概率篇/原PDF及解析/真题分类线代.pdf",
+      "sourcePageEnd": 7,
+      "sourceExampleNo": 1402,
+      "sourceExamTag": "【1989-5-3 分】",
+      "sourceExamMathCode": "5",
+      "sourceScore": 3,
+      "rawText": "行列式 = .\n1 x −1 1 −1\nx +1 −1 1 −1",
+      "formulaExtraction": {
+        "status": "not_detected",
+        "format": "text",
+        "latex": "",
+        "reviewFlags": [
+          "original_exam_question_no_not_in_source_tag",
+          "type_needs_review"
+        ]
+      },
+      "extraction": {
+        "confidence": 0.958,
+        "typeConfidence": 0.58,
+        "reviewFlags": [
+          "original_exam_question_no_not_in_source_tag",
+          "type_needs_review"
+        ],
+        "extractor": "tools/extract_past_exam_questions.py"
+      }
+    },
+    {
+      "id": "past_1996_5_ex1403",
+      "subjects": [
+        "数学五"
+      ],
+      "sectionId": "linear_determinant",
+      "sectionName": "行列式",
+      "section": {
+        "id": "linear_determinant",
+        "name": "行列式",
+        "groupId": "linear",
+        "groupName": "线性代数",
+        "order": 0
+      },
+      "point": "低阶数值型行列式的计算",
+      "reason": "真题自动抽取，待审核",
+      "type": "solution",
+      "level": "历年真题（待审核）",
+      "difficulty": 4,
+      "stem": "五阶行列式\n1− a a 0 0 0\n−1 1− a a 0 0\nD= 0 −1 1− a a 0 = .\n0 0 −1 1− a a\n0 0 0 −1 1− a\n −1 0 0\n0  −1 0",
+      "stemFormat": "text",
+      "formula": "",
+      "formulaFormat": "text",
+      "options": [],
+      "answer": "",
+      "answerStatus": "pending_review",
+      "aliases": [],
+      "explanation": "",
+      "sourceType": "past_exam",
+      "source": "真题分类线代",
+      "sourceName": "真题分类线代",
+      "sourceBook": "真题分类线代",
+      "sourceSection": "低阶数值型行列式的计算",
+      "sourceYear": 1996,
+      "sourceMathType": "数学五",
+      "sourceQuestionNo": "",
+      "sourcePage": 7,
+      "sourcePageImage": "past-exam-assets/extracted-linear-pilot/linear-source/page-0007.png",
+      "stemImage": "past-exam-assets/extracted-linear-pilot/linear-source/page-0007.png",
+      "reviewStatus": "extracted_pending_review",
+      "publishStatus": "draft",
+      "qualityTier": "past_exam_extracted",
+      "practiceStatus": "needs_review",
+      "knowledgePointId": "linear_determinant:低阶数值型行列式的计算",
+      "knowledgePointName": "低阶数值型行列式的计算",
+      "errorTypes": [
+        "transfer"
+      ],
+      "trainingLevel": "variation",
+      "similarGroupId": "",
+      "content": {
+        "stem": {
+          "value": "五阶行列式\n1− a a 0 0 0\n−1 1− a a 0 0\nD= 0 −1 1− a a 0 = .\n0 0 −1 1− a a\n0 0 0 −1 1− a\n −1 0 0\n0  −1 0",
+          "format": "text"
+        },
+        "formula": {
+          "value": "",
+          "format": "text"
+        },
+        "explanation": {
+          "value": "",
+          "format": "text"
+        }
+      },
+      "sourceSpec": {
+        "type": "past_exam",
+        "name": "真题分类线代",
+        "book": "真题分类线代",
+        "section": "低阶数值型行列式的计算",
+        "year": 1996,
+        "mathType": "数学五",
+        "questionNo": "",
+        "page": 7,
+        "pageImage": "past-exam-assets/extracted-linear-pilot/linear-source/page-0007.png",
+        "stemImage": "past-exam-assets/extracted-linear-pilot/linear-source/page-0007.png"
+      },
+      "sourcePdf": "data/（87-25）数学真题分类/线代概率篇/原PDF及解析/真题分类线代.pdf",
+      "sourcePageEnd": 7,
+      "sourceExampleNo": 1403,
+      "sourceExamTag": "【1996-5-3 分】",
+      "sourceExamMathCode": "5",
+      "sourceScore": 3,
+      "rawText": "五阶行列式\n1− a a 0 0 0\n−1 1− a a 0 0\nD= 0 −1 1− a a 0 = .\n0 0 −1 1− a a\n0 0 0 −1 1− a\n −1 0 0\n0  −1 0",
+      "formulaExtraction": {
+        "status": "pending_formula_ocr",
+        "format": "text",
+        "latex": "",
+        "reviewFlags": [
+          "original_exam_question_no_not_in_source_tag",
+          "private_use_math_glyph",
+          "formula_requires_visual_review",
+          "type_needs_review"
+        ]
+      },
+      "extraction": {
+        "confidence": 0.958,
+        "typeConfidence": 0.58,
+        "reviewFlags": [
+          "original_exam_question_no_not_in_source_tag",
+          "private_use_math_glyph",
+          "formula_requires_visual_review",
+          "type_needs_review"
+        ],
+        "extractor": "tools/extract_past_exam_questions.py"
+      }
+    },
+    {
+      "id": "past_2016_13_ex1404",
+      "subjects": [
+        "数学一",
+        "数学三"
+      ],
+      "sectionId": "linear_determinant",
+      "sectionName": "行列式",
+      "section": {
+        "id": "linear_determinant",
+        "name": "行列式",
+        "groupId": "linear",
+        "groupName": "线性代数",
+        "order": 0
+      },
+      "point": "低阶数值型行列式的计算",
+      "reason": "真题自动抽取，待审核",
+      "type": "fill",
+      "level": "历年真题（待审核）",
+      "difficulty": 4,
+      "stem": "行列式 = ______ .\n0 0  −1\n4 3 2  +1\n\na 0 −1 1\n0 a 1 −1",
+      "stemFormat": "text",
+      "formula": "",
+      "formulaFormat": "text",
+      "options": [],
+      "answer": "",
+      "answerStatus": "pending_review",
+      "aliases": [],
+      "explanation": "",
+      "sourceType": "past_exam",
+      "source": "真题分类线代",
+      "sourceName": "真题分类线代",
+      "sourceBook": "真题分类线代",
+      "sourceSection": "低阶数值型行列式的计算",
+      "sourceYear": 2016,
+      "sourceMathType": "数学一、数学三",
+      "sourceQuestionNo": "",
+      "sourcePage": 7,
+      "sourcePageImage": "past-exam-assets/extracted-linear-pilot/linear-source/page-0007.png",
+      "stemImage": "past-exam-assets/extracted-linear-pilot/linear-source/page-0007.png",
+      "reviewStatus": "extracted_pending_review",
+      "publishStatus": "draft",
+      "qualityTier": "past_exam_extracted",
+      "practiceStatus": "needs_review",
+      "knowledgePointId": "linear_determinant:低阶数值型行列式的计算",
+      "knowledgePointName": "低阶数值型行列式的计算",
+      "errorTypes": [
+        "transfer"
+      ],
+      "trainingLevel": "variation",
+      "similarGroupId": "",
+      "content": {
+        "stem": {
+          "value": "行列式 = ______ .\n0 0  −1\n4 3 2  +1\n\na 0 −1 1\n0 a 1 −1",
+          "format": "text"
+        },
+        "formula": {
+          "value": "",
+          "format": "text"
+        },
+        "explanation": {
+          "value": "",
+          "format": "text"
+        }
+      },
+      "sourceSpec": {
+        "type": "past_exam",
+        "name": "真题分类线代",
+        "book": "真题分类线代",
+        "section": "低阶数值型行列式的计算",
+        "year": 2016,
+        "mathType": "数学一、数学三",
+        "questionNo": "",
+        "page": 7,
+        "pageImage": "past-exam-assets/extracted-linear-pilot/linear-source/page-0007.png",
+        "stemImage": "past-exam-assets/extracted-linear-pilot/linear-source/page-0007.png"
+      },
+      "sourcePdf": "data/（87-25）数学真题分类/线代概率篇/原PDF及解析/真题分类线代.pdf",
+      "sourcePageEnd": 7,
+      "sourceExampleNo": 1404,
+      "sourceExamTag": "【2016-13-4 分】",
+      "sourceExamMathCode": "13",
+      "sourceScore": 4,
+      "rawText": "行列式 = ______ .\n0 0  −1\n4 3 2  +1\n\na 0 −1 1\n0 a 1 −1",
+      "formulaExtraction": {
+        "status": "pending_formula_ocr",
+        "format": "text",
+        "latex": "",
+        "reviewFlags": [
+          "original_exam_question_no_not_in_source_tag",
+          "private_use_math_glyph",
+          "formula_requires_visual_review"
+        ]
+      },
+      "extraction": {
+        "confidence": 0.968,
+        "typeConfidence": 0.68,
+        "reviewFlags": [
+          "original_exam_question_no_not_in_source_tag",
+          "private_use_math_glyph",
+          "formula_requires_visual_review"
+        ],
+        "extractor": "tools/extract_past_exam_questions.py"
+      }
+    },
+    {
+      "id": "past_2020_123_ex1405",
+      "subjects": [
+        "数学一",
+        "数学二",
+        "数学三"
+      ],
+      "sectionId": "linear_determinant",
+      "sectionName": "行列式",
+      "section": {
+        "id": "linear_determinant",
+        "name": "行列式",
+        "groupId": "linear",
+        "groupName": "线性代数",
+        "order": 0
+      },
+      "point": "低阶数值型行列式的计算",
+      "reason": "真题自动抽取，待审核",
+      "type": "solution",
+      "level": "历年真题（待审核）",
+      "difficulty": 4,
+      "stem": "行列式 = .\n−1 1 a 0\n1 −1 0 a\na1 0 0 b1\n0 a2 b2 0",
+      "stemFormat": "text",
+      "formula": "",
+      "formulaFormat": "text",
+      "options": [],
+      "answer": "",
+      "answerStatus": "pending_review",
+      "aliases": [],
+      "explanation": "",
+      "sourceType": "past_exam",
+      "source": "真题分类线代",
+      "sourceName": "真题分类线代",
+      "sourceBook": "真题分类线代",
+      "sourceSection": "低阶数值型行列式的计算",
+      "sourceYear": 2020,
+      "sourceMathType": "数学一、数学二、数学三",
+      "sourceQuestionNo": "",
+      "sourcePage": 7,
+      "sourcePageImage": "past-exam-assets/extracted-linear-pilot/linear-source/page-0007.png",
+      "stemImage": "past-exam-assets/extracted-linear-pilot/linear-source/page-0007.png",
+      "reviewStatus": "extracted_pending_review",
+      "publishStatus": "draft",
+      "qualityTier": "past_exam_extracted",
+      "practiceStatus": "needs_review",
+      "knowledgePointId": "linear_determinant:低阶数值型行列式的计算",
+      "knowledgePointName": "低阶数值型行列式的计算",
+      "errorTypes": [
+        "transfer"
+      ],
+      "trainingLevel": "variation",
+      "similarGroupId": "",
+      "content": {
+        "stem": {
+          "value": "行列式 = .\n−1 1 a 0\n1 −1 0 a\na1 0 0 b1\n0 a2 b2 0",
+          "format": "text"
+        },
+        "formula": {
+          "value": "",
+          "format": "text"
+        },
+        "explanation": {
+          "value": "",
+          "format": "text"
+        }
+      },
+      "sourceSpec": {
+        "type": "past_exam",
+        "name": "真题分类线代",
+        "book": "真题分类线代",
+        "section": "低阶数值型行列式的计算",
+        "year": 2020,
+        "mathType": "数学一、数学二、数学三",
+        "questionNo": "",
+        "page": 7,
+        "pageImage": "past-exam-assets/extracted-linear-pilot/linear-source/page-0007.png",
+        "stemImage": "past-exam-assets/extracted-linear-pilot/linear-source/page-0007.png"
+      },
+      "sourcePdf": "data/（87-25）数学真题分类/线代概率篇/原PDF及解析/真题分类线代.pdf",
+      "sourcePageEnd": 7,
+      "sourceExampleNo": 1405,
+      "sourceExamTag": "【2020-123-4 分】",
+      "sourceExamMathCode": "123",
+      "sourceScore": 4,
+      "rawText": "行列式 = .\n−1 1 a 0\n1 −1 0 a\na1 0 0 b1\n0 a2 b2 0",
+      "formulaExtraction": {
+        "status": "pending_formula_ocr",
+        "format": "text",
+        "latex": "",
+        "reviewFlags": [
+          "original_exam_question_no_not_in_source_tag",
+          "formula_requires_visual_review",
+          "type_needs_review"
+        ]
+      },
+      "extraction": {
+        "confidence": 0.958,
+        "typeConfidence": 0.58,
+        "reviewFlags": [
+          "original_exam_question_no_not_in_source_tag",
+          "formula_requires_visual_review",
+          "type_needs_review"
+        ],
+        "extractor": "tools/extract_past_exam_questions.py"
+      }
+    },
+    {
+      "id": "past_1996_12_ex1406",
+      "subjects": [
+        "数学一",
+        "数学二"
+      ],
+      "sectionId": "linear_determinant",
+      "sectionName": "行列式",
+      "section": {
+        "id": "linear_determinant",
+        "name": "行列式",
+        "groupId": "linear",
+        "groupName": "线性代数",
+        "order": 0
+      },
+      "point": "低阶数值型行列式的计算",
+      "reason": "真题自动抽取，待审核",
+      "type": "choice",
+      "level": "历年真题（待审核）",
+      "difficulty": 4,
+      "stem": "四阶行列式 的值等于（ ）.\n0 b3 a3 0\nb4 0 0 a4",
+      "stemFormat": "text",
+      "formula": "",
+      "formulaFormat": "text",
+      "options": [
+        "A. a1a2 a3 a4 − b1b2b3b4 （B） a1a2 a3 a4 + b1b2b3b4",
+        "C. (a1a2 − b1b2 )(a3a4 − b3b4 ) （D） (a2 a3 − b2b3 )(a1a4 − b1b4 ) x−2 x −1 x−2 x −3 2x − 2 2x −1 2x − 2 2x − 3"
+      ],
+      "answer": "",
+      "answerStatus": "pending_review",
+      "aliases": [],
+      "explanation": "",
+      "sourceType": "past_exam",
+      "source": "真题分类线代",
+      "sourceName": "真题分类线代",
+      "sourceBook": "真题分类线代",
+      "sourceSection": "低阶数值型行列式的计算",
+      "sourceYear": 1996,
+      "sourceMathType": "数学一、数学二",
+      "sourceQuestionNo": "",
+      "sourcePage": 7,
+      "sourcePageImage": "past-exam-assets/extracted-linear-pilot/linear-source/page-0007.png",
+      "stemImage": "past-exam-assets/extracted-linear-pilot/linear-source/page-0007.png",
+      "reviewStatus": "extracted_pending_review",
+      "publishStatus": "draft",
+      "qualityTier": "past_exam_extracted",
+      "practiceStatus": "needs_review",
+      "knowledgePointId": "linear_determinant:低阶数值型行列式的计算",
+      "knowledgePointName": "低阶数值型行列式的计算",
+      "errorTypes": [
+        "transfer"
+      ],
+      "trainingLevel": "variation",
+      "similarGroupId": "",
+      "content": {
+        "stem": {
+          "value": "四阶行列式 的值等于（ ）.\n0 b3 a3 0\nb4 0 0 a4",
+          "format": "text"
+        },
+        "formula": {
+          "value": "",
+          "format": "text"
+        },
+        "explanation": {
+          "value": "",
+          "format": "text"
+        }
+      },
+      "sourceSpec": {
+        "type": "past_exam",
+        "name": "真题分类线代",
+        "book": "真题分类线代",
+        "section": "低阶数值型行列式的计算",
+        "year": 1996,
+        "mathType": "数学一、数学二",
+        "questionNo": "",
+        "page": 7,
+        "pageImage": "past-exam-assets/extracted-linear-pilot/linear-source/page-0007.png",
+        "stemImage": "past-exam-assets/extracted-linear-pilot/linear-source/page-0007.png"
+      },
+      "sourcePdf": "data/（87-25）数学真题分类/线代概率篇/原PDF及解析/真题分类线代.pdf",
+      "sourcePageEnd": 8,
+      "sourceExampleNo": 1406,
+      "sourceExamTag": "【1996-12-3 分】",
+      "sourceExamMathCode": "12",
+      "sourceScore": 3,
+      "rawText": "四阶行列式 的值等于（ ）.\n0 b3 a3 0\nb4 0 0 a4\n\n（A） a1a2 a3 a4 − b1b2b3b4 （B） a1a2 a3 a4 + b1b2b3b4\n\n（C） (a1a2 − b1b2 )(a3a4 − b3b4 ) （D） (a2 a3 − b2b3 )(a1a4 − b1b4 )\n\nx−2 x −1 x−2 x −3\n2x − 2 2x −1 2x − 2 2x − 3",
+      "formulaExtraction": {
+        "status": "pending_formula_ocr",
+        "format": "text",
+        "latex": "",
+        "reviewFlags": [
+          "original_exam_question_no_not_in_source_tag",
+          "question_spans_multiple_pages",
+          "formula_requires_visual_review"
+        ]
+      },
+      "extraction": {
+        "confidence": 0.99,
+        "typeConfidence": 0.95,
+        "reviewFlags": [
+          "original_exam_question_no_not_in_source_tag",
+          "question_spans_multiple_pages",
+          "formula_requires_visual_review"
+        ],
+        "extractor": "tools/extract_past_exam_questions.py"
+      }
+    },
+    {
+      "id": "past_1999_2_ex1407",
+      "subjects": [
+        "数学二"
+      ],
+      "sectionId": "linear_determinant",
+      "sectionName": "行列式",
+      "section": {
+        "id": "linear_determinant",
+        "name": "行列式",
+        "groupId": "linear",
+        "groupName": "线性代数",
+        "order": 0
+      },
+      "point": "低阶数值型行列式的计算",
+      "reason": "真题自动抽取，待审核",
+      "type": "solution",
+      "level": "历年真题（待审核）",
+      "difficulty": 4,
+      "stem": "记行列式 为 f ( x ) ，则方程\n3x − 3 3x − 2 4 x − 5 3x − 5\n4x 4x − 3 5x − 7 4 x − 3\n\nf ( x ) = 0 的根的个数为（ ）.\n\n（A）1 （B） 2 （C） 3 （D） 4",
+      "stemFormat": "text",
+      "formula": "",
+      "formulaFormat": "text",
+      "options": [],
+      "answer": "",
+      "answerStatus": "pending_review",
+      "aliases": [],
+      "explanation": "",
+      "sourceType": "past_exam",
+      "source": "真题分类线代",
+      "sourceName": "真题分类线代",
+      "sourceBook": "真题分类线代",
+      "sourceSection": "低阶数值型行列式的计算",
+      "sourceYear": 1999,
+      "sourceMathType": "数学二",
+      "sourceQuestionNo": "",
+      "sourcePage": 8,
+      "sourcePageImage": "past-exam-assets/extracted-linear-pilot/linear-source/page-0008.png",
+      "stemImage": "past-exam-assets/extracted-linear-pilot/linear-source/page-0008.png",
+      "reviewStatus": "extracted_pending_review",
+      "publishStatus": "draft",
+      "qualityTier": "past_exam_extracted",
+      "practiceStatus": "needs_review",
+      "knowledgePointId": "linear_determinant:低阶数值型行列式的计算",
+      "knowledgePointName": "低阶数值型行列式的计算",
+      "errorTypes": [
+        "transfer"
+      ],
+      "trainingLevel": "variation",
+      "similarGroupId": "",
+      "content": {
+        "stem": {
+          "value": "记行列式 为 f ( x ) ，则方程\n3x − 3 3x − 2 4 x − 5 3x − 5\n4x 4x − 3 5x − 7 4 x − 3\n\nf ( x ) = 0 的根的个数为（ ）.\n\n（A）1 （B） 2 （C） 3 （D） 4",
+          "format": "text"
+        },
+        "formula": {
+          "value": "",
+          "format": "text"
+        },
+        "explanation": {
+          "value": "",
+          "format": "text"
+        }
+      },
+      "sourceSpec": {
+        "type": "past_exam",
+        "name": "真题分类线代",
+        "book": "真题分类线代",
+        "section": "低阶数值型行列式的计算",
+        "year": 1999,
+        "mathType": "数学二",
+        "questionNo": "",
+        "page": 8,
+        "pageImage": "past-exam-assets/extracted-linear-pilot/linear-source/page-0008.png",
+        "stemImage": "past-exam-assets/extracted-linear-pilot/linear-source/page-0008.png"
+      },
+      "sourcePdf": "data/（87-25）数学真题分类/线代概率篇/原PDF及解析/真题分类线代.pdf",
+      "sourcePageEnd": 8,
+      "sourceExampleNo": 1407,
+      "sourceExamTag": "【1999-2-3 分】",
+      "sourceExamMathCode": "2",
+      "sourceScore": 3,
+      "rawText": "记行列式 为 f ( x ) ，则方程\n3x − 3 3x − 2 4 x − 5 3x − 5\n4x 4x − 3 5x − 7 4 x − 3\n\nf ( x ) = 0 的根的个数为（ ）.\n\n（A）1 （B） 2 （C） 3 （D） 4",
+      "formulaExtraction": {
+        "status": "pending_formula_ocr",
+        "format": "text",
+        "latex": "",
+        "reviewFlags": [
+          "original_exam_question_no_not_in_source_tag",
+          "formula_requires_visual_review",
+          "type_needs_review"
+        ]
+      },
+      "extraction": {
+        "confidence": 0.958,
+        "typeConfidence": 0.58,
+        "reviewFlags": [
+          "original_exam_question_no_not_in_source_tag",
+          "formula_requires_visual_review",
+          "type_needs_review"
+        ],
+        "extractor": "tools/extract_past_exam_questions.py"
+      }
+    },
+    {
+      "id": "past_2025_3_ex1408",
+      "subjects": [
+        "数学三"
+      ],
+      "sectionId": "linear_determinant",
+      "sectionName": "行列式",
+      "section": {
+        "id": "linear_determinant",
+        "name": "行列式",
+        "groupId": "linear",
+        "groupName": "线性代数",
+        "order": 0
+      },
+      "point": "低阶数值型行列式的计算",
+      "reason": "真题自动抽取，待审核",
+      "type": "solution",
+      "level": "历年真题（待审核）",
+      "difficulty": 4,
+      "stem": "2x +1 3 2x +1 1 2x +1 1 2x +1 3\n2x −3 4x −2 5 x + 1 −2 4x −3\n已知函数 f ( x ) = , g ( x) = ，则方程\n2x +1 2 2x +1 1 0 1 2x +1 2\n2x −4 4x −2 2x −2 4x −4\n\nf ( x ) = g ( x ) 的不同根的个数为 .\n\n0 a b 0\na 0 0 b",
+      "stemFormat": "text",
+      "formula": "",
+      "formulaFormat": "text",
+      "options": [],
+      "answer": "",
+      "answerStatus": "pending_review",
+      "aliases": [],
+      "explanation": "",
+      "sourceType": "past_exam",
+      "source": "真题分类线代",
+      "sourceName": "真题分类线代",
+      "sourceBook": "真题分类线代",
+      "sourceSection": "低阶数值型行列式的计算",
+      "sourceYear": 2025,
+      "sourceMathType": "数学三",
+      "sourceQuestionNo": "",
+      "sourcePage": 8,
+      "sourcePageImage": "past-exam-assets/extracted-linear-pilot/linear-source/page-0008.png",
+      "stemImage": "past-exam-assets/extracted-linear-pilot/linear-source/page-0008.png",
+      "reviewStatus": "extracted_pending_review",
+      "publishStatus": "draft",
+      "qualityTier": "past_exam_extracted",
+      "practiceStatus": "needs_review",
+      "knowledgePointId": "linear_determinant:低阶数值型行列式的计算",
+      "knowledgePointName": "低阶数值型行列式的计算",
+      "errorTypes": [
+        "transfer"
+      ],
+      "trainingLevel": "variation",
+      "similarGroupId": "",
+      "content": {
+        "stem": {
+          "value": "2x +1 3 2x +1 1 2x +1 1 2x +1 3\n2x −3 4x −2 5 x + 1 −2 4x −3\n已知函数 f ( x ) = , g ( x) = ，则方程\n2x +1 2 2x +1 1 0 1 2x +1 2\n2x −4 4x −2 2x −2 4x −4\n\nf ( x ) = g ( x ) 的不同根的个数为 .\n\n0 a b 0\na 0 0 b",
+          "format": "text"
+        },
+        "formula": {
+          "value": "",
+          "format": "text"
+        },
+        "explanation": {
+          "value": "",
+          "format": "text"
+        }
+      },
+      "sourceSpec": {
+        "type": "past_exam",
+        "name": "真题分类线代",
+        "book": "真题分类线代",
+        "section": "低阶数值型行列式的计算",
+        "year": 2025,
+        "mathType": "数学三",
+        "questionNo": "",
+        "page": 8,
+        "pageImage": "past-exam-assets/extracted-linear-pilot/linear-source/page-0008.png",
+        "stemImage": "past-exam-assets/extracted-linear-pilot/linear-source/page-0008.png"
+      },
+      "sourcePdf": "data/（87-25）数学真题分类/线代概率篇/原PDF及解析/真题分类线代.pdf",
+      "sourcePageEnd": 8,
+      "sourceExampleNo": 1408,
+      "sourceExamTag": "【2025-3-5 分】",
+      "sourceExamMathCode": "3",
+      "sourceScore": 5,
+      "rawText": "2x +1 3 2x +1 1 2x +1 1 2x +1 3\n2x −3 4x −2 5 x + 1 −2 4x −3\n已知函数 f ( x ) = , g ( x) = ，则方程\n2x +1 2 2x +1 1 0 1 2x +1 2\n2x −4 4x −2 2x −2 4x −4\n\nf ( x ) = g ( x ) 的不同根的个数为 .\n\n0 a b 0\na 0 0 b",
+      "formulaExtraction": {
+        "status": "pending_formula_ocr",
+        "format": "text",
+        "latex": "",
+        "reviewFlags": [
+          "original_exam_question_no_not_in_source_tag",
+          "formula_requires_visual_review",
+          "type_needs_review"
+        ]
+      },
+      "extraction": {
+        "confidence": 0.958,
+        "typeConfidence": 0.58,
+        "reviewFlags": [
+          "original_exam_question_no_not_in_source_tag",
+          "formula_requires_visual_review",
+          "type_needs_review"
+        ],
+        "extractor": "tools/extract_past_exam_questions.py"
+      }
+    },
+    {
+      "id": "past_2014_123_ex1409",
+      "subjects": [
+        "数学一",
+        "数学二",
+        "数学三"
+      ],
+      "sectionId": "linear_determinant",
+      "sectionName": "行列式",
+      "section": {
+        "id": "linear_determinant",
+        "name": "行列式",
+        "groupId": "linear",
+        "groupName": "线性代数",
+        "order": 0
+      },
+      "point": "低阶数值型行列式的计算",
+      "reason": "真题自动抽取，待审核",
+      "type": "choice",
+      "level": "历年真题（待审核）",
+      "difficulty": 4,
+      "stem": "行列式 等于（ ）\n0 c d 0\nc 0 0 d",
+      "stemFormat": "text",
+      "formula": "",
+      "formulaFormat": "text",
+      "options": [
+        "A. (ad − bc) （B） −(ad − bc) 2 2",
+        "C. a 2 d 2 − b 2 c 2 （D） b 2 c 2 − a 2 d 2 3 0 4 0 2 2 2 2"
+      ],
+      "answer": "",
+      "answerStatus": "pending_review",
+      "aliases": [],
+      "explanation": "",
+      "sourceType": "past_exam",
+      "source": "真题分类线代",
+      "sourceName": "真题分类线代",
+      "sourceBook": "真题分类线代",
+      "sourceSection": "低阶数值型行列式的计算",
+      "sourceYear": 2014,
+      "sourceMathType": "数学一、数学二、数学三",
+      "sourceQuestionNo": "",
+      "sourcePage": 8,
+      "sourcePageImage": "past-exam-assets/extracted-linear-pilot/linear-source/page-0008.png",
+      "stemImage": "past-exam-assets/extracted-linear-pilot/linear-source/page-0008.png",
+      "reviewStatus": "extracted_pending_review",
+      "publishStatus": "draft",
+      "qualityTier": "past_exam_extracted",
+      "practiceStatus": "needs_review",
+      "knowledgePointId": "linear_determinant:低阶数值型行列式的计算",
+      "knowledgePointName": "低阶数值型行列式的计算",
+      "errorTypes": [
+        "transfer"
+      ],
+      "trainingLevel": "variation",
+      "similarGroupId": "",
+      "content": {
+        "stem": {
+          "value": "行列式 等于（ ）\n0 c d 0\nc 0 0 d",
+          "format": "text"
+        },
+        "formula": {
+          "value": "",
+          "format": "text"
+        },
+        "explanation": {
+          "value": "",
+          "format": "text"
+        }
+      },
+      "sourceSpec": {
+        "type": "past_exam",
+        "name": "真题分类线代",
+        "book": "真题分类线代",
+        "section": "低阶数值型行列式的计算",
+        "year": 2014,
+        "mathType": "数学一、数学二、数学三",
+        "questionNo": "",
+        "page": 8,
+        "pageImage": "past-exam-assets/extracted-linear-pilot/linear-source/page-0008.png",
+        "stemImage": "past-exam-assets/extracted-linear-pilot/linear-source/page-0008.png"
+      },
+      "sourcePdf": "data/（87-25）数学真题分类/线代概率篇/原PDF及解析/真题分类线代.pdf",
+      "sourcePageEnd": 8,
+      "sourceExampleNo": 1409,
+      "sourceExamTag": "【2014-123-4 分】",
+      "sourceExamMathCode": "123",
+      "sourceScore": 4,
+      "rawText": "行列式 等于（ ）\n0 c d 0\nc 0 0 d\n\n（A） (ad − bc) （B） −(ad − bc)\n2 2\n（C） a 2 d 2 − b 2 c 2 （D） b 2 c 2 − a 2 d 2\n\n3 0 4 0\n2 2 2 2",
+      "formulaExtraction": {
+        "status": "pending_formula_ocr",
+        "format": "text",
+        "latex": "",
+        "reviewFlags": [
+          "original_exam_question_no_not_in_source_tag",
+          "formula_requires_visual_review"
+        ]
+      },
+      "extraction": {
+        "confidence": 0.99,
+        "typeConfidence": 0.95,
+        "reviewFlags": [
+          "original_exam_question_no_not_in_source_tag",
+          "formula_requires_visual_review"
+        ],
+        "extractor": "tools/extract_past_exam_questions.py"
+      }
+    },
+    {
+      "id": "past_2001_4_ex1410",
+      "subjects": [
+        "数学四"
+      ],
+      "sectionId": "linear_determinant",
+      "sectionName": "行列式",
+      "section": {
+        "id": "linear_determinant",
+        "name": "行列式",
+        "groupId": "linear",
+        "groupName": "线性代数",
+        "order": 0
+      },
+      "point": "低阶数值型行列式的计算",
+      "reason": "真题自动抽取，待审核",
+      "type": "solution",
+      "level": "历年真题（待审核）",
+      "difficulty": 4,
+      "stem": "设行列式 D = ，则第四行各元素余子式之和\n0 −7 0 0\n5 3 −2 2\n\n的值为 .\n\n 1 −1 0 0 \n −2 1 −1 1 ",
+      "stemFormat": "text",
+      "formula": "",
+      "formulaFormat": "text",
+      "options": [],
+      "answer": "",
+      "answerStatus": "pending_review",
+      "aliases": [],
+      "explanation": "",
+      "sourceType": "past_exam",
+      "source": "真题分类线代",
+      "sourceName": "真题分类线代",
+      "sourceBook": "真题分类线代",
+      "sourceSection": "低阶数值型行列式的计算",
+      "sourceYear": 2001,
+      "sourceMathType": "数学四",
+      "sourceQuestionNo": "",
+      "sourcePage": 8,
+      "sourcePageImage": "past-exam-assets/extracted-linear-pilot/linear-source/page-0008.png",
+      "stemImage": "past-exam-assets/extracted-linear-pilot/linear-source/page-0008.png",
+      "reviewStatus": "extracted_pending_review",
+      "publishStatus": "draft",
+      "qualityTier": "past_exam_extracted",
+      "practiceStatus": "needs_review",
+      "knowledgePointId": "linear_determinant:低阶数值型行列式的计算",
+      "knowledgePointName": "低阶数值型行列式的计算",
+      "errorTypes": [
+        "transfer"
+      ],
+      "trainingLevel": "variation",
+      "similarGroupId": "",
+      "content": {
+        "stem": {
+          "value": "设行列式 D = ，则第四行各元素余子式之和\n0 −7 0 0\n5 3 −2 2\n\n的值为 .\n\n 1 −1 0 0 \n −2 1 −1 1 ",
+          "format": "text"
+        },
+        "formula": {
+          "value": "",
+          "format": "text"
+        },
+        "explanation": {
+          "value": "",
+          "format": "text"
+        }
+      },
+      "sourceSpec": {
+        "type": "past_exam",
+        "name": "真题分类线代",
+        "book": "真题分类线代",
+        "section": "低阶数值型行列式的计算",
+        "year": 2001,
+        "mathType": "数学四",
+        "questionNo": "",
+        "page": 8,
+        "pageImage": "past-exam-assets/extracted-linear-pilot/linear-source/page-0008.png",
+        "stemImage": "past-exam-assets/extracted-linear-pilot/linear-source/page-0008.png"
+      },
+      "sourcePdf": "data/（87-25）数学真题分类/线代概率篇/原PDF及解析/真题分类线代.pdf",
+      "sourcePageEnd": 9,
+      "sourceExampleNo": 1410,
+      "sourceExamTag": "【2001-4-3 分】",
+      "sourceExamMathCode": "4",
+      "sourceScore": 3,
+      "rawText": "设行列式 D = ，则第四行各元素余子式之和\n0 −7 0 0\n5 3 −2 2\n\n的值为 .\n\n 1 −1 0 0 \n −2 1 −1 1 ",
+      "formulaExtraction": {
+        "status": "pending_formula_ocr",
+        "format": "text",
+        "latex": "",
+        "reviewFlags": [
+          "original_exam_question_no_not_in_source_tag",
+          "question_spans_multiple_pages",
+          "private_use_math_glyph",
+          "formula_requires_visual_review",
+          "type_needs_review"
+        ]
+      },
+      "extraction": {
+        "confidence": 0.958,
+        "typeConfidence": 0.58,
+        "reviewFlags": [
+          "original_exam_question_no_not_in_source_tag",
+          "question_spans_multiple_pages",
+          "private_use_math_glyph",
+          "formula_requires_visual_review",
+          "type_needs_review"
+        ],
+        "extractor": "tools/extract_past_exam_questions.py"
+      }
+    }
+  ]
+}

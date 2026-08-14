@@ -14,128 +14,64 @@
   const classifyQuestionChapter = window.ChapterClassifier?.classifyQuestionChapter || ((question) => question);
   const questionModel = window.QuestionModel;
   const questionSchemaVersion = questionModel?.QUESTION_SCHEMA_VERSION || 19;
-  const syllabusChapters = window.ChapterClassifier?.chapterDefinitions || { linear: [], prob: [] };
-  const chapters = [
-    { id: "limit", name: "函数、极限与连续", subjects: ["数学一", "数学二", "数学三"], count: 24 },
-    { id: "diff", name: "一元函数微分学", subjects: ["数学一", "数学二", "数学三"], count: 28 },
-    { id: "integral", name: "一元函数积分学", subjects: ["数学一", "数学二", "数学三"], count: 30 },
-    { id: "multi", name: "多元函数微分学", subjects: ["数学一", "数学二", "数学三"], count: 22 },
-    ...syllabusChapters.linear.map((chapter) => ({ ...chapter, subjects: ["数学一", "数学二", "数学三"], count: 0 })),
-    ...syllabusChapters.prob.map((chapter) => ({ ...chapter, subjects: ["数学一", "数学三"], count: 0 })),
-    { id: "past_exam_2012_math2", name: "2012 数学二真题", subjects: ["数学二"], count: 23 }
-  ];
+  const originalFetch = window.fetch.bind(window);
+  let questions = [];
+  let chapters = [];
+  let questionBankError = null;
 
-  const q = (id, subjects, chapterId, chapterName, point, reason, type, level, difficulty, stem, options, answer, explanation, extra = {}) => ({
-    id, subjects, chapterId, chapterName, point, reason, type, level, difficulty, stem,
-    options: options || [], answer, aliases: [], explanation,
-    sourceType: extra.sourceType || "teacher_original",
-    source: extra.source || "签约教师审核题",
-    reviewStatus: extra.reviewStatus || "教师已审核",
-    qualityTier: extra.qualityTier || "exam_standard",
-    ...extra
-  });
-
-  const common = ["数学一", "数学二", "数学三"];
-  const questions = [
-    q("limit_001", common, "limit", "函数、极限与连续", "等价无穷小", "方法选择错误", "choice", "基础训练", 2, "当 x→0 时，ln(1+x)-x 与下列哪一项等价？", ["-x^2/2", "x^2/2", "x", "-x"], "-x^2/2", "ln(1+x)=x-x^2/2+o(x^2)。"),
-    q("limit_002", common, "limit", "函数、极限与连续", "重要极限", "概念理解错误", "choice", "强化训练", 3, "若 lim(x→0) sin(ax)/x = 3，则 a = ?", ["1/3", "1", "3", "不存在"], "3", "sin(ax)~ax，所以极限为 a。"),
-    q("diff_001", common, "diff", "一元函数微分学", "隐函数求导", "计算过程错误", "choice", "强化训练", 4, "由 x^2+xy+y^2=3 确定 y=y(x)，则 y' = ?", ["-(2x+y)/(x+2y)", "-(x+2y)/(2x+y)", "(2x+y)/(x+2y)", "x+y"], "-(2x+y)/(x+2y)", "两边对 x 求导并整理。"),
-    q("diff_002", common, "diff", "一元函数微分学", "单调性与极值", "题型识别错误", "choice", "强化训练", 3, "若 f'(x)=x(x-1)^2(x+1)，则 x=1 是 f(x) 的什么点？", ["极大值点", "极小值点", "非极值驻点", "不可导点"], "非极值驻点", "x=1 两侧导数符号不变。"),
-    q("integral_001", common, "integral", "一元函数积分学", "换元积分", "方法选择错误", "choice", "基础训练", 2, "令 t=1+x^2，则 ∫2x√(1+x^2)dx 可化为？", ["∫√t dt", "∫2√t dt", "∫x√t dt", "∫t dt"], "∫√t dt", "dt=2x dx，整体替换即可。"),
-    q("integral_002", common, "integral", "一元函数积分学", "变上限积分", "方法选择错误", "choice", "强化训练", 4, "设 F(x)=∫(0 到 x^2) e^(-t^2)dt，则 F'(x) = ?", ["2xe^(-x^4)", "e^(-x^4)", "2x·e^(-x^2)", "∫(0 到 2x)e^(-t^2)dt"], "2xe^(-x^4)", "变上限积分先代上限，再乘以上限函数导数。"),
-    q("integral_003", common, "integral", "一元函数积分学", "不定积分常数", "表达不完整", "fill", "基础训练", 1, "计算 ∫2x dx。", [], "x^2+C", "不定积分结果需要加任意常数 C。"),
-    q("integral_004", common, "integral", "一元函数积分学", "分部积分", "综合应用不足", "fill", "强化训练", 4, "计算 ∫(0 到 1) x ln(1+x) dx。", [], "1/4", "分部积分后化为有理函数积分。"),
-    q("subjective_integral_model_001", common, "integral", "一元函数积分学", "定积分应用建模", "建模错误", "subjective", "综合提升", 4, "某商品原售价60元，成本40元。若每涨价1元，销量减少2件。设原销量为100件，求使总利润为2400元时的涨价额，并写出完整建模过程。", [], "(20+x)(100-2x)=2400", "设涨价额为 x，则单件利润为 60+x-40=20+x，销量为 100-2x，总利润模型为 (20+x)(100-2x)=2400。"),
-    q("subjective_multi_extreme_001", common, "multi", "多元函数微分学", "多元函数极值", "条件遗漏", "subjective", "综合提升", 4, "求函数 z=x^2+y^2-2x-4y+1 的极值，并说明取得极值的点。", [], "极小值-4，点(1,2)", "配方 z=(x-1)^2+(y-2)^2-4，所以在 (1,2) 处取得极小值 -4。"),
-    q("multi_001", common, "multi", "多元函数微分学", "偏导数", "计算过程错误", "choice", "基础训练", 2, "z=x^2y+3y，求 z 对 x 的偏导数。", ["2xy", "x^2+3", "2x+3", "x^2y"], "2xy", "对 x 求偏导时把 y 看作常数。"),
-    q("linear_001", common, "linear", "线性代数", "矩阵秩", "概念理解错误", "choice", "强化训练", 4, "3阶矩阵 A 的秩为 2，则齐次方程 Ax=0 的基础解系含有几个解向量？", ["0", "1", "2", "3"], "1", "基础解系个数为未知量个数减秩。"),
-    q("linear_002", common, "linear", "线性代数", "行列式", "计算过程错误", "fill", "基础训练", 1, "矩阵 [[1,2],[3,4]] 的行列式是？", [], "-2", "二阶行列式 ad-bc=4-6=-2。"),
-    q("prob_001", ["数学一", "数学三"], "prob", "概率论与数理统计", "独立事件", "公式记忆错误", "choice", "基础训练", 2, "A、B 独立，P(A)=0.4，P(B)=0.5，则 P(AB)=?", ["0.9", "0.2", "0.1", "0.45"], "0.2", "独立事件交集概率等于概率乘积。"),
-    q("past_2012_math2_q01", ["数学二"], "past_exam_2012_math2", "2012 数学二真题", "选择题第1题", "真题切片练习", "choice", "历年真题", 4, "2012年考研数学二第1题", ["A", "B", "C", "D"], "A", "演示版保留真题切片样式，正式答案可由教研校对后启用。", { sourceType: "past_exam", source: "2012 数学二真题", qualityTier: "past_exam_image", stemImage: "past-exam-slices/2012-math2/q01.jpg" }),
-    q("past_2012_math2_q02", ["数学二"], "past_exam_2012_math2", "2012 数学二真题", "选择题第2题", "真题切片练习", "choice", "历年真题", 4, "2012年考研数学二第2题", ["A", "B", "C", "D"], "B", "演示版保留真题切片样式，正式答案可由教研校对后启用。", { sourceType: "past_exam", source: "2012 数学二真题", qualityTier: "past_exam_image", stemImage: "past-exam-slices/2012-math2/q02.jpg" })
-  ];
-
-  questions.forEach((question, index) => {
-    const classified = classifyQuestionChapter(question);
-    questions[index] = questionModel?.normalizeQuestion
-      ? questionModel.normalizeQuestion(classified)
-      : classified;
-  });
-
-  // The public demo has no server-side database. Expand each chapter from reviewed
-  // seed questions so the fixed 20-question flow is still usable and refreshable.
-  chapters.filter((chapter) => chapter.id !== "past_exam_2012_math2").forEach((chapter) => {
-    const existing = questions.filter((item) => item.chapterId === chapter.id);
-    const seed = existing[0] || {
-      id: `demo_seed_${chapter.id}`,
-      subjects: chapter.subjects,
-      chapterId: chapter.id,
-      chapterName: chapter.name,
-      point: chapter.name,
-      reason: "章节综合应用"
-    };
-    const targetCount = 80;
-    for (let index = existing.length; index < targetCount; index += 1) {
-      const variant = window.TrainingFactory.createTrainingQuestion({
-        sourceQuestion: { ...seed, id: `${seed.id}_source`, chapterId: chapter.id, point: seed.point || chapter.name },
-        sourceTag: { questionId: seed.id, errorType: ["概念理解错误", "公式条件错误", "方法选择错误", "计算过程错误"][index % 4], subKnowledgePoint: seed.point || chapter.name, errorCategory: "章节专项训练" },
-        index: index % 10,
-        variant: index + 1,
-        trainingType: "targeted",
-        purpose: "章节20题训练"
-      });
-      questions.push({
-        id: `demo_${chapter.id}_${String(index + 1).padStart(3, "0")}`,
-        subjects: chapter.subjects,
-        chapterId: chapter.id,
-        chapterName: chapter.name,
-        point: variant.knowledgePoint || seed.point || chapter.name,
-        reason: variant.sourceErrorType || seed.reason || "章节综合应用",
-        type: variant.questionType,
-        level: variant.difficulty <= 2 ? "基础训练" : variant.difficulty >= 4 ? "综合训练" : "强化训练",
-        difficulty: variant.difficulty,
-        stem: variant.stem,
-        formula: variant.formula,
-        options: variant.options || [],
-        answer: variant.answer,
-        aliases: variant.aliases || [],
-        explanation: variant.explanation,
-        detailedSolution: variant.detailedSolution,
-        sourceType: "teacher_original",
-        source: "演示题库·规则变式",
-        reviewStatus: "演示题已校验",
-        qualityTier: "exam_standard",
-        generatedFrom: "static-demo-seed"
-      });
-    }
-  });
-
-  // Normalize the expanded demo bank too, so generated variants and seed rows
-  // expose exactly the same structure to the practice API.
-  questions.forEach((question, index) => {
-    const normalized = questionModel?.normalizeQuestion
-      ? questionModel.normalizeQuestion(classifyQuestionChapter(question))
-      : classifyQuestionChapter(question);
-    // 静态演示题库是随仓库发布的示例数据，明确标记为可练习；真实服务端
-    // 仍然只允许通过导入审核流程发布的题目进入相似题训练。
-    questions[index] = {
-      ...normalized,
-      practiceMeta: {
-        ...(normalized.practiceMeta || {}),
-        status: "published"
-      },
-      practiceStatus: "published"
-    };
-  });
-
-  chapters.forEach((chapter) => {
-    chapter.countsByMathType = {};
-    questions.filter((item) => item.chapterId === chapter.id).forEach((item) => {
-      (item.subjects || []).forEach((mathType) => {
+  const buildStaticChapters = (list) => {
+    const map = new Map();
+    list.filter((question) => staticPracticeReady(question)).forEach((question) => {
+      const id = question.sectionId || question.chapterId;
+      if (!id) return;
+      if (!map.has(id)) {
+        map.set(id, {
+          id,
+          name: question.sectionName || question.chapterName || id,
+          subjects: [],
+          count: 0,
+          countsByMathType: {},
+          groupId: question.section?.groupId || question.chapterGroupId || "",
+          groupName: question.section?.groupName || question.chapterGroupName || "",
+          syllabusOrder: question.section?.order || question.syllabusOrder || 0
+        });
+      }
+      const chapter = map.get(id);
+      chapter.count += 1;
+      chapter.subjects = Array.from(new Set([...chapter.subjects, ...(question.subjects || [])]));
+      (question.subjects || []).forEach((mathType) => {
         chapter.countsByMathType[mathType] = (chapter.countsByMathType[mathType] || 0) + 1;
       });
     });
-  });
+    const groupOrder = { "": 0, linear: 1, prob: 2 };
+    return Array.from(map.values()).sort((left, right) => (
+      (groupOrder[left.groupId] ?? 0) - (groupOrder[right.groupId] ?? 0)
+      || left.syllabusOrder - right.syllabusOrder
+      || left.name.localeCompare(right.name, "zh-CN")
+    ));
+  };
+
+  const staticPracticeReady = (question) => question.sourceType !== "past_exam"
+    || questionModel.isPracticeQuestionReady(question);
+  const questionBankPath = location.protocol === "file:"
+    ? "question-bank.json"
+    : `${window.__APP_BASE_PATH__ || ""}/question-bank.json`.replace(/\/\/+/g, "/");
+  const questionBankPromise = originalFetch(questionBankPath)
+    .then((response) => {
+      if (!response.ok) throw new Error(`静态题库加载失败（${response.status}）`);
+      return response.json();
+    })
+    .then((payload) => {
+      const sourceQuestions = Array.isArray(payload) ? payload : payload.questions;
+      if (!Array.isArray(sourceQuestions)) throw new Error("静态题库格式无效");
+      questions = questionModel.normalizeQuestionList(sourceQuestions.map(classifyQuestionChapter));
+      chapters = buildStaticChapters(questions);
+      return questions;
+    })
+    .catch((error) => {
+      questionBankError = error;
+      return [];
+    });
 
   const key = `staticDemo:${sessionId}`;
   const readStore = () => JSON.parse(localStorage.getItem(key) || '{"students":[],"attempts":[],"submissions":[],"trainingBatches":[],"trainingRecords":[],"retestRecords":[]}');
@@ -266,7 +202,7 @@
     return { reason: question.reason, advice: `优先复习「${question.point}」，再做 3 道同知识点变式题。` };
   };
 
-  const typeLabelFor = (type) => type === "choice" ? "选择题" : type === "fill" ? "填空题" : "主观题";
+  const typeLabelFor = (type) => type === "choice" ? "选择题" : type === "fill" ? "填空题" : "大题";
   const hasResponseContent = (payload = {}) => Boolean(payload.choice?.key || payload.answer || payload.selectedOption || payload.formulaText || payload.stepsText || payload.scratchImage || payload.answerImage || payload.strokeCount);
   const scoreForAttempt = (question, attempt) => {
     const maxScore = question.type === "choice" ? 5 : question.type === "fill" ? 5 : 10;
@@ -334,21 +270,8 @@
       || eligible[0]
       || {};
     if (!wrong.questionId) throw new Error("报告中没有明确的错题或过程问题，无法生成相似题训练");
-    const sourceBase = questions.find((item) => item.id === wrong.questionId) || {};
-    const sourceQuestion = sourceBase.id
-      ? sourceBase
-      : questionModel.normalizeQuestion({
-        id: wrong.questionId || "static_source",
-        subjects: [store.students.find((item) => item.id === studentId)?.mathType || "数学一"],
-        chapterId: wrong.chapterId || "integral",
-        chapterName: wrong.chapterName || "考研数学",
-        point: wrong.knowledgePoints?.[0] || "当前知识点",
-        reason: wrong.errorTypes?.[0] || "方法选择错误",
-        type: wrong.type || "subjective",
-        stem: wrong.title || "当前错题",
-        answer: wrong.standardAnswer || "",
-        explanation: wrong.standardSteps || wrong.deductionReason || ""
-      });
+    const sourceQuestion = questions.find((item) => item.id === wrong.questionId);
+    if (!sourceQuestion) throw new Error("错题不在当前题库中，无法生成相似题训练");
     const sourceTag = {
       questionId: wrong.questionId || sourceQuestion.id,
       errorType: wrong.errorTypes?.[0] || sourceQuestion.reason || "方法选择错误",
@@ -456,6 +379,40 @@
     return batch;
   };
 
+  const buildStaticRetestFromBatch = (batch) => {
+    const sourceQuestion = questions.find((item) => item.id === batch.sourceWrongQuestionId)
+      || questions.find((item) => item.id === batch.questions?.find((question) => question.bankQuestionId)?.bankQuestionId);
+    if (!sourceQuestion) throw new Error("原错题不在当前题库中，无法生成复测");
+    const student = readStore().students.find((item) => item.id === batch.studentId) || {};
+    const excluded = [sourceQuestion.id, ...(batch.questions || []).map((question) => question.bankQuestionId).filter(Boolean)];
+    const selection = questionModel.selectSimilarQuestions(questions, sourceQuestion, {
+      count: 4,
+      targetLevels: [3, 3, 4, 4],
+      subject: student.mathType,
+      seed: `${batch.id}:retest`,
+      excludeIds: excluded
+    });
+    const bankQuestions = [...selection.selected.map((entry) => entry.question), sourceQuestion];
+    return bankQuestions.map((question, index) => {
+      const retestQuestionId = `retestq_${Date.now()}_${index}_${Math.random().toString(16).slice(2)}`;
+      const originalRetry = index === bankQuestions.length - 1;
+      return {
+        ...question,
+        id: retestQuestionId,
+        questionId: retestQuestionId,
+        bankQuestionId: question.id,
+        sourceWrongQuestionId: batch.sourceWrongQuestionId,
+        sourceErrorType: batch.sourceErrorType,
+        knowledgePoint: batch.knowledgePoint,
+        subKnowledgePoint: batch.subKnowledgePoint,
+        questionType: originalRetry ? "original_retry" : question.type,
+        difficultyLevel: question.difficulty,
+        retestPurpose: originalRetry ? "原错题重新作答" : "题库相似题复测",
+        hintPolicy: "retest_no_hint"
+      };
+    });
+  };
+
   function studentFrom(body) {
     const store = readStore();
     let student = store.students[0];
@@ -502,8 +459,21 @@
     const store = readStore();
     const attempts = store.attempts.filter((a) => a.studentId === studentId);
     const lastWrong = attempts.findLast((a) => a.correct === false) || attempts[attempts.length - 1];
-    const baseQuestion = questions.find((item) => item.id === lastWrong?.questionId) || questions[5];
+    const baseQuestion = questions.find((item) => item.id === lastWrong?.questionId)
+      || questions.find((item) => item.sourceType !== "past_exam")
+      || questions[0];
+    if (!baseQuestion) throw new Error("题库为空，无法生成学习闭环");
     const weakPoint = baseQuestion.point;
+    const loopRetestQuestions = questions
+      .filter((item) => item.id !== baseQuestion.id && staticPracticeReady(item)
+        && item.subjects?.some((subject) => (baseQuestion.subjects || []).includes(subject)))
+      .slice(0, 2)
+      .map((item) => ({
+        ...item,
+        typeLabel: item.questionCategoryLabel || item.type,
+        target: weakPoint,
+        result: "待完成题库复测"
+      }));
     const errorType = lastWrong?.reason || baseQuestion.reason;
     const report = buildReport(studentId);
     return {
@@ -574,7 +544,7 @@
         masteredFeedback: "重做时已经避开原错误，说明该知识点进入基本掌握状态。",
         reinforceFeedback: "仍重复原错误，需要降低训练难度并重新复习。"
       },
-      retest: { score: 80, independent: true, hintsUsed: 0, passed: true, questions: [{ typeLabel: "变式题", difficulty: "强化", stem: "同知识点变式复测题", target: weakPoint, result: "用于判断迁移能力" }] },
+      retest: { score: null, independent: null, hintsUsed: 0, passed: null, questions: loopRetestQuestions },
       improvement: { beforeMastery: 45, afterMastery: 78, improvementValue: 33, status: "明显提升", originalError: errorType, trainingResult: "完成知识点复习、理解检查和相似题训练。", nextRisk: "间隔 2 天后需要复刷，防止遗忘。" },
       comparisonReport: { firstScore: "2/5", retryScore: "4/5", firstDuration: "4 分钟", retryDuration: "3 分钟", firstErrorStep: errorType, firstSteps: "第一次跳过关键判断", retryStepPerformance: "第二次补全关键条件", sameErrorRepeated: false },
       profile: { abilities: [
@@ -585,12 +555,13 @@
     };
   }
 
-  const originalFetch = window.fetch.bind(window);
   window.fetch = async (input, init = {}) => {
     const raw = typeof input === "string" ? input : input.url;
     const url = new URL(raw, location.origin);
     const apiIndex = url.pathname.indexOf("/api/");
     if (apiIndex < 0) return originalFetch(input, init);
+    await questionBankPromise;
+    if (questionBankError) return json({ error: `静态题库不可用：${questionBankError.message}` }, 500);
     const path = url.pathname.slice(apiIndex);
     const method = (init.method || "GET").toUpperCase();
     const body = init.body ? JSON.parse(init.body) : {};
@@ -600,8 +571,14 @@
     const staticPastExamSources = {
       trustedSources: [{ site: "演示真题来源", items: [{ year: "2012", mathType: "数学二", title: "2012 全国硕士研究生入学考试数学二试题", format: "image_slices", importStatus: "demo_ready", url: "https://yz.chsi.com.cn/" }] }],
       candidateSourcesNeedReview: [],
-      importedQuestionCount: 0,
-      localSources: [{ sourceId: "classified-probability", site: "本地真题资料库", year: "1987-2025", mathType: "概率专题", title: "真题分类概率（原页资料）", url: "past-exam-preview.html", format: "classified_pages", importStatus: "page_preview_ready_pending_question_review", description: "100 页原页已发布；候选题待人工校对，暂未发布为正式刷题题目。" }]
+      questionBankCount: questions.length,
+      structuredPastExamCount: questions.filter((question) => question.sourceType === "past_exam").length,
+      importedQuestionCount: questions.filter((question) => question.sourceType === "past_exam" && questionModel.isPracticeQuestionReady(question)).length,
+      answerMatchedQuestionCount: questions.filter((question) => question.sourceType === "past_exam" && question.answerMatchKey).length,
+      answerExplicitCount: questions.filter((question) => question.sourceType === "past_exam" && question.answerStatus === "matched_from_answer_pdf").length,
+      answerPendingCount: questions.filter((question) => question.sourceType === "past_exam" && question.answerMatchKey && question.answerStatus !== "matched_from_answer_pdf").length,
+      answerUnmatchedCount: questions.filter((question) => question.sourceType === "past_exam" && !question.answerMatchKey && !String(question.answer || "").trim()).length,
+      localSources: [{ sourceId: "classified-1987-2025", site: "本地真题资料库", year: "1987-2025", mathType: "数学一/二/三/四/五（按原始标签）", title: "1987-2025 考研数学真题分类资料", url: "past-exam-preview.html", format: "classified_pages_and_answer_matching", importStatus: "answer_pdf_matching_applied", description: "已结构化导入的历史真题可直接试刷；四份答案解析 PDF 已按来源与例题号匹配，明确答案可自动判分，部分题目保留待复核状态。" }]
     };
     if (method === "GET" && path === "/api/bootstrap") return json({ questionSchemaVersion, chapters, inviteCodes: ["demo"], pastExamSources: staticPastExamSources, aiStatus: { handwritingRecognition: false, model: "static-demo" } });
     if (method === "GET" && path === "/api/past-exam-sources") return json(staticPastExamSources);
@@ -634,9 +611,10 @@
       let pool = questionModel?.queryQuestions
         ? questionModel.queryQuestions(questions, { sectionIds: chapterIds, subjects: [student.mathType] })
         : questions.filter((item) => item.subjects.includes(student.mathType) && (chapterSet === null || chapterSet.has(item.chapterId)));
+      pool = pool.filter(staticPracticeReady);
       if (sourceType !== "all") pool = pool.filter((item) => (item.sourceSpec?.type || item.sourceType) === sourceType);
       if (!["all", "mode"].includes(difficulty)) pool = pool.filter((item) => String(item.difficulty) === String(difficulty));
-      if (!pool.length && chapterIds === null) pool = questions.filter((item) => item.subjects.includes(student.mathType));
+      if (!pool.length && chapterIds === null) pool = questions.filter((item) => item.subjects.includes(student.mathType) && staticPracticeReady(item));
       const modeDifficulty = { foundation: ["1", "2"], reinforce: ["3", "4"], mock: ["1", "2", "3", "4", "5"] }[mode] || ["3", "4"];
       const modePool = ["all", "mode"].includes(difficulty) ? pool.filter((item) => modeDifficulty.includes(String(item.difficulty))) : pool;
       const candidates = modePool.length >= count ? modePool : pool;
@@ -870,7 +848,13 @@
     if (method === "POST" && path === "/api/retests") {
       const batch = (store.trainingBatches || []).find((item) => item.id === body.trainingBatchId);
       if (!batch) return json({ error: "训练批次不存在" }, 404);
-      const retest = { id: `retest_${Date.now()}`, studentId: batch.studentId, trainingBatchId: batch.id, sourceWrongQuestionId: batch.sourceWrongQuestionId, sourceErrorType: batch.sourceErrorType, questions: Array.from({ length: 5 }, (_, index) => ({ id: `retestq_${index}`, sourceWrongQuestionId: batch.sourceWrongQuestionId, sourceErrorType: batch.sourceErrorType, knowledgePoint: batch.knowledgePoint, subKnowledgePoint: batch.subKnowledgePoint, questionType: index === 4 ? "original_retry" : "subjective", stem: `${index === 4 ? "原错题重新作答" : "复测题"}：围绕 ${batch.subKnowledgePoint} 独立完成。`, answer: "按步骤完整作答", detailedSolution: {} })), status: "waiting_answer", result: null, createdAt: nowIso() };
+      let questionsForRetest;
+      try {
+        questionsForRetest = buildStaticRetestFromBatch(batch);
+      } catch (error) {
+        return json({ error: error.message || "复测题生成失败" }, 400);
+      }
+      const retest = { id: `retest_${Date.now()}`, studentId: batch.studentId, trainingBatchId: batch.id, sourceWrongQuestionId: batch.sourceWrongQuestionId, sourceErrorType: batch.sourceErrorType, questions: questionsForRetest, status: "waiting_answer", result: null, createdAt: nowIso() };
       store.retestRecords = store.retestRecords || [];
       store.retestRecords.push(retest);
       writeStore(store);
