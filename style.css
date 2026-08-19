@@ -64,6 +64,13 @@ canvas{display:block;width:100%;height:68vh;min-height:560px;border:0;background
 @media(max-width:900px){.section-heading{flex-direction:column}.chapter-card-grid{grid-template-columns:1fr}.practice-context strong{width:100%;margin-left:0}.practice-choice-list{grid-template-columns:1fr}.chooser-head h2{font-size:26px}.fixed-practice-count label{width:100%;margin-left:0}}
 @media(max-width:900px){.practice-type-tabs,.practice-chapter-grid{grid-template-columns:1fr}.practice-start-row{align-items:stretch}.practice-start-row button{width:100%}}
 
+/* Keep imported questions readable even when an original page image is unavailable. */
+.exam-question-text{font-size:22px;line-height:1.85;white-space:pre-wrap;overflow-wrap:anywhere}
+.exam-question-text .math-display{font-size:1.05em}
+.source-page-figure{margin:18px 0 0;padding-top:14px;border-top:1px solid #e5e7eb}
+.question-only .exam-paper p,.question-only .exam-question-text{font-size:24px;line-height:1.65}
+.question-only .source-page-figure{margin-top:14px}
+
 /* Exam-style explanation layout: prose first, equations centered, conclusion boxed. */
 .solution-paper{margin:18px auto 4px;max-width:900px;padding:4px 8px 8px;font-family:"SimSun","宋体","Times New Roman",serif;color:#111827;background:#fff;line-height:1.8}
 .solution-paper-heading{padding-bottom:10px;border-bottom:1px solid #e4e7ec;font-family:system-ui,"Microsoft YaHei",sans-serif;font-size:16px;font-weight:800;color:#344054}

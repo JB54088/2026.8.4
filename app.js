@@ -307,6 +307,13 @@ function renderMathBlock(value) {
   return latex ? `<div class="math-text math-display">\\[${latex}\\]</div>` : "";
 }
 
+function assetUrl(value) {
+  const raw = String(value || "").trim();
+  if (!raw || /^(?:https?:|data:|blob:)/i.test(raw)) return raw;
+  const clean = raw.replace(/^\/+/, "");
+  return `${APP_BASE_PATH ? `${APP_BASE_PATH}/` : "/"}${clean}`;
+}
+
 function fallbackDetailedSolution(question = {}) {
   const stem = String(question.stem || question.title || "");
   const point = question.point || question.subKnowledgePoint || "本题对应知识点";
@@ -827,20 +834,20 @@ function difficultyText(value) {
 }
 
 function questionStem(q) {
-  if (q.sourceType === "past_exam") {
-    const body = q.stemHtml
-      ? `<div class="typeset-stem">${renderStemHtml(q.stemHtml)}</div>`
-      : (q.stemImage ? `<img class="stem-image exam" src="${escapeHtml(q.stemImage)}" alt="${escapeHtml(q.stem)}">` : `<p>${escapeHtml(q.stem)}</p>`);
-    return `<div class="exam-stem">
-      <div class="exam-paper">
-        ${body}
-      </div>
-    </div>`;
-  }
-  return `<div class="exam-stem text-mode">
-    <div class="exam-paper">
-      ${renderMathText(q.stem, { display: true })}
-    </div>
+  const stem = String(q.stem || q.title || q.question || q.content?.stem?.value || "题目内容加载中").trim();
+  const image = q.stemImage ? assetUrl(q.stemImage) : "";
+  const textMarkup = q.stemHtml
+    ? `<div class="typeset-stem">${renderStemHtml(q.stemHtml)}</div>`
+    : `<div class="exam-question-text">${renderMathText(stem, { display: false })}</div>`;
+  const imageMarkup = image
+    ? `<figure class="source-page-figure"><img class="stem-image exam" src="${escapeHtml(image)}" alt="原卷题目" onerror="this.closest('.source-page-figure').remove()"><figcaption>原卷题面</figcaption></figure>`
+    : "";
+  return `<div class="exam-stem ${q.sourceType === "past_exam" ? "past-exam-stem" : "text-mode"}">
+    <article class="exam-paper">
+      ${textMarkup}
+      ${imageMarkup}
+      ${q.formula ? renderMathBlock(q.formula) : ""}
+    </article>
   </div>`;
 }
 
@@ -1126,7 +1133,7 @@ function renderRoundResults() {
     return `<article class="result-card">
       <h3>第 ${index + 1} 题 <span class="badge ${badge}">${label}</span></h3>
       <p class="stem">${escapeHtml(question.chapterName)} · ${escapeHtml(question.point || question.stem)}</p>
-      ${question.stemHtml ? `<div class="exam-paper result-paper"><div class="typeset-stem">${question.stemHtml}</div></div>` : (question.stemImage ? `<div class="exam-paper result-paper"><img class="stem-image exam small" src="${escapeHtml(question.stemImage)}" alt="${escapeHtml(question.stem)}"></div>` : "")}
+      ${questionStem(question)}
       <div class="result-grid">
         <p><span>你的答案</span><strong>${escapeHtml(userAnswer)}</strong></p>
         <p><span>标准答案</span><strong>${escapeHtml(standardAnswer)}</strong></p>
@@ -1560,7 +1567,7 @@ async function renderCollection() {
       <td>${index + 1}</td>
       <td><span class="badge ${badge}">${status}</span></td>
       <td>${escapeHtml(question.chapterName)}<br><small>${escapeHtml(question.point)}</small></td>
-      <td>${question.stemImage ? `<img class="collection-thumb" src="${escapeHtml(question.stemImage)}" alt="${escapeHtml(question.stem)}">` : escapeHtml(question.stem)}</td>
+      <td>${question.stemImage ? `<img class="collection-thumb" src="${escapeHtml(assetUrl(question.stemImage))}" alt="原卷题目" onerror="this.remove()">${escapeHtml(question.stem || "题目")}` : escapeHtml(question.stem)}</td>
       <td>${times}刷</td>
       <td>${escapeHtml(attempt.reason)}</td>
     </tr>`;
@@ -2086,7 +2093,7 @@ async function renderOriginalRetry() {
     <article class="training-question original-retry-question">
       <div class="training-question-number">原题</div>
       <div class="training-stem">${retryQuestion.stemHtml ? `<div class="typeset-stem">${retryQuestion.stemHtml}</div>` : renderMathText(retryQuestion.stem || "原题内容暂不可用", { display: true })}</div>
-      ${retryQuestion.stemImage ? `<img class="stem-image exam" src="${escapeHtml(retryQuestion.stemImage)}" alt="原题图片">` : ""}
+      ${retryQuestion.stemImage ? `<img class="stem-image exam" src="${escapeHtml(assetUrl(retryQuestion.stemImage))}" alt="原题图片" onerror="this.remove()">` : ""}
       ${retryQuestion.formula ? renderMathBlock(retryQuestion.formula) : ""}
       ${answerArea}
     </article>
