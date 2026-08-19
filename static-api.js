@@ -435,7 +435,7 @@
   const originalFetch = window.fetch.bind(window);
   let questionCatalogReady = Promise.resolve();
   if (isStaticHost) {
-    const catalogUrl = `${window.__APP_BASE_PATH__ || ""}/imported-question-catalog.json?v=20260813-imported-only`;
+    const catalogUrl = `${window.__APP_BASE_PATH__ || ""}/imported-question-catalog.json?v=20260819-colleague-bank-2399`;
     questionCatalogReady = originalFetch(catalogUrl)
       .then((response) => response.ok ? response.json() : null)
       .then((catalog) => {
