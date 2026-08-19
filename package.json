@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node server.js",
     "build": "node --check server.js && node --check public/app.js && node --check public/static-api.js && node --check public/choice-grading.js && node --check public/grading-engine.js && node --check public/retest-question.js",
-    "test": "node tests/choice-grading.test.js && node tests/grading-engine.test.js && node tests/grading-integration.test.js && node tests/solution-catalog.test.js && node tests/retest-question.test.js && node tests/colleague-question-bank.test.js",
+    "test": "node tests/choice-grading.test.js && node tests/grading-engine.test.js && node tests/grading-integration.test.js && node tests/solution-catalog.test.js && node tests/retest-question.test.js && node tests/colleague-question-bank.test.js && node tests/question-scope.test.js",
     "catalog:export": "node tools/export-question-catalog.js",
     "solutions:generate": "node tools/generate-ai-solutions.js",
     "questions:sync-colleague": "node tools/sync-colleague-question-bank.js",

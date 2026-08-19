@@ -5,6 +5,7 @@ const crypto = require("crypto");
 const { createTrainingQuestion: createGeneratedTrainingQuestion, validateTrainingQuestion } = require("./public/training-factory.js");
 const { gradeQuestion: runCanonicalGrading, canonicalQuestionType } = require("./public/grading-engine.js");
 const { createOriginalRetryQuestion } = require("./public/retest-question.js");
+const { questionAppliesToMathType, chapterSubjects, countsByMathType } = require("./public/question-scope.js");
 
 const ROOT = __dirname;
 const PUBLIC = path.join(ROOT, "public");
@@ -1090,8 +1091,8 @@ async function api(req, res) {
     const attempts = store.attempts.filter((a) => a.studentId === student.id);
     const attemptedIds = new Set(attempts.map((a) => a.questionId));
     const mathType = student.mathType || "数学二";
-    let pool = store.questions.filter((q) => q.sourceType === IMPORTED_SOURCE_TYPE && q.subjects.includes(mathType) && (chapterId === "all" || q.chapterId === chapterId));
-    if (!pool.length && chapterId === "all") pool = store.questions.filter((q) => q.sourceType === IMPORTED_SOURCE_TYPE && q.subjects.includes(mathType));
+    let pool = store.questions.filter((q) => q.sourceType === IMPORTED_SOURCE_TYPE && questionAppliesToMathType(q, mathType) && (chapterId === "all" || q.chapterId === chapterId));
+    if (!pool.length && chapterId === "all") pool = store.questions.filter((q) => q.sourceType === IMPORTED_SOURCE_TYPE && questionAppliesToMathType(q, mathType));
     const basePool = pool;
     const sourcePool = basePool;
     if (!sourcePool.length) {
@@ -1570,14 +1571,14 @@ function chapterSummary(questions) {
   const map = new Map();
   questions.forEach((q) => {
     if (!map.has(q.chapterId)) {
-      map.set(q.chapterId, { id: q.chapterId, name: q.chapterName, subjects: q.subjects, count: 0, countsByMathType: {} });
+      map.set(q.chapterId, { id: q.chapterId, name: q.chapterName, subjects: [], count: 0, countsByMathType: {} });
     }
     const item = map.get(q.chapterId);
     item.count += 1;
-    item.subjects = Array.from(new Set([...item.subjects, ...q.subjects]));
-    q.subjects.forEach((mathType) => {
-      item.countsByMathType[mathType] = (item.countsByMathType[mathType] || 0) + 1;
-    });
+  });
+  map.forEach((item) => {
+    item.subjects = chapterSubjects(questions, item.id);
+    item.countsByMathType = countsByMathType(questions, item.id);
   });
   return Array.from(map.values());
 }

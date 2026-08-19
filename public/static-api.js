@@ -20,6 +20,14 @@
   localStorage.setItem("demoSessionId", sessionId);
 
   const IMPORTED_SOURCE_TYPE = "past_exam";
+  const questionScope = window.QuestionScope || {};
+  const questionAppliesToMathType = questionScope.questionAppliesToMathType || ((item, mathType) => (item.subjects || []).includes(mathType));
+  const chapterSubjects = questionScope.chapterSubjects || ((items, chapterId) => Array.from(new Set(items.filter((item) => item.chapterId === chapterId).flatMap((item) => item.subjects || []))));
+  const countsByMathType = questionScope.countsByMathType || ((items, chapterId) => {
+    const counts = {};
+    items.filter((item) => item.chapterId === chapterId).forEach((item) => (item.subjects || []).forEach((mathType) => { counts[mathType] = (counts[mathType] || 0) + 1; }));
+    return counts;
+  });
   let chapters = [
     { id: "limit", name: "函数、极限与连续", subjects: ["数学一", "数学二", "数学三"], count: 24 },
     { id: "diff", name: "一元函数微分学", subjects: ["数学一", "数学二", "数学三"], count: 28 },
@@ -114,12 +122,8 @@
   });
 
   chapters.forEach((chapter) => {
-    chapter.countsByMathType = {};
-    questions.filter((item) => item.chapterId === chapter.id).forEach((item) => {
-      (item.subjects || []).forEach((mathType) => {
-        chapter.countsByMathType[mathType] = (chapter.countsByMathType[mathType] || 0) + 1;
-      });
-    });
+    chapter.subjects = chapterSubjects(questions, chapter.id);
+    chapter.countsByMathType = countsByMathType(questions, chapter.id);
   });
 
   const key = `staticDemo:${sessionId}`;
@@ -440,14 +444,18 @@
       .then((response) => response.ok ? response.json() : null)
       .then((catalog) => {
         if (!catalog || !Array.isArray(catalog.questions) || !catalog.questions.length) return;
-        questions = catalog.questions.filter((item) => item.sourceType === IMPORTED_SOURCE_TYPE);
+        questions = catalog.questions.filter((item) => item.sourceType === IMPORTED_SOURCE_TYPE).map((item) => ({
+          ...item,
+          stem: item.stem || item.title || item.question || item.content?.stem?.value || "",
+          questionType: item.questionType || item.type || "subjective"
+        }));
         const importedChapters = new Map();
         questions.forEach((item) => {
           if (!importedChapters.has(item.chapterId)) {
             importedChapters.set(item.chapterId, {
               id: item.chapterId,
               name: item.chapterName || item.chapterId,
-              subjects: item.subjects || [],
+              subjects: [],
               count: 0
             });
           }
@@ -457,10 +465,8 @@
         chapters.forEach((chapter) => {
           const available = questions.filter((item) => item.chapterId === chapter.id);
           chapter.count = available.length;
-          chapter.countsByMathType = {};
-          available.forEach((item) => (item.subjects || []).forEach((mathType) => {
-            chapter.countsByMathType[mathType] = (chapter.countsByMathType[mathType] || 0) + 1;
-          }));
+          chapter.subjects = chapterSubjects(questions, chapter.id);
+          chapter.countsByMathType = countsByMathType(questions, chapter.id);
         });
       })
       .catch(() => {});
@@ -507,9 +513,9 @@
       const difficulty = url.searchParams.get("difficulty") || "all";
       const sourceType = IMPORTED_SOURCE_TYPE;
       const mode = url.searchParams.get("mode") || "reinforce";
-      let pool = questions.filter((item) => item.sourceType === IMPORTED_SOURCE_TYPE && item.subjects.includes(student.mathType) && (chapterId === "all" || item.chapterId === chapterId));
+      let pool = questions.filter((item) => item.sourceType === IMPORTED_SOURCE_TYPE && questionAppliesToMathType(item, student.mathType) && (chapterId === "all" || item.chapterId === chapterId));
       if (!["all", "mode"].includes(difficulty)) pool = pool.filter((item) => String(item.difficulty) === String(difficulty));
-      if (!pool.length && chapterId === "all") pool = questions.filter((item) => item.sourceType === IMPORTED_SOURCE_TYPE && item.subjects.includes(student.mathType));
+      if (!pool.length && chapterId === "all") pool = questions.filter((item) => item.sourceType === IMPORTED_SOURCE_TYPE && questionAppliesToMathType(item, student.mathType));
       const modeDifficulty = { foundation: ["1", "2"], reinforce: ["3", "4"], mock: ["1", "2", "3", "4", "5"] }[mode] || ["3", "4"];
       const modePool = ["all", "mode"].includes(difficulty) ? pool.filter((item) => modeDifficulty.includes(String(item.difficulty))) : pool;
       const candidates = uniqueQuestions(modePool.length >= count ? modePool : pool);
