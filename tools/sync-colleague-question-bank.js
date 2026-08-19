@@ -75,6 +75,20 @@ function normalizeQuestion(question, previous) {
   };
 }
 
+function toPublicQuestion(question) {
+  const compact = { ...question };
+  // These nested fields duplicate the public stem, answer and explanation and
+  // make the static catalog unnecessarily large.
+  delete compact.content;
+  delete compact.section;
+  delete compact.solution;
+  delete compact.sourceSpec;
+  delete compact.practiceMeta;
+  delete compact.choiceOptions;
+  delete compact.answerSpec;
+  return compact;
+}
+
 if (!fs.existsSync(sourceFile)) throw new Error(`题库源文件不存在：${sourceFile}`);
 const source = readJson(sourceFile);
 if (!Array.isArray(source)) throw new Error("题库源文件必须是数组");
@@ -94,12 +108,13 @@ for (const question of imported) {
 }
 
 writeJson(serverQuestionsFile, imported);
+const publicQuestions = imported.map(toPublicQuestion);
 writeJson(publicCatalogFile, {
   schemaVersion: 2,
   generatedAt: new Date().toISOString(),
   source: "colleague-imported-question-bank",
-  questionCount: imported.length,
-  questions: imported
+  questionCount: publicQuestions.length,
+  questions: publicQuestions
 });
 
 console.log(JSON.stringify({
