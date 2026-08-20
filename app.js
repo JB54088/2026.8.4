@@ -833,20 +833,27 @@ function difficultyText(value) {
   return difficultyOptions.find(([key]) => key === String(value))?.[1] || "3星 易错";
 }
 
-function questionStem(q) {
-  const stem = String(q.stem || q.title || q.question || q.content?.stem?.value || "题目内容加载中").trim();
-  const image = q.stemImage ? assetUrl(q.stemImage) : "";
+function questionStem(q, displayNumber = "") {
+  const rawStem = String(q.stem || q.title || q.question || q.content?.stem?.value || "题目内容加载中").trim();
+  const stem = q.sourceType === "past_exam" ? rawStem.replace(/\s+/g, " ").trim() : rawStem;
+  const isFill = ["fill", "fill_blank", "numeric"].includes(String(q.type || q.questionType || "").toLowerCase());
+  const hasBlank = /_{2,}|（\s*）|\(\s*\)/.test(stem);
+  const inlineFormula = q.formula ? `<span class="exam-inline-formula">${renderMathText(q.formula)}</span>` : "";
   const textMarkup = q.stemHtml
-    ? `<div class="typeset-stem">${renderStemHtml(q.stemHtml)}</div>`
-    : `<div class="exam-question-text">${renderMathText(stem, { display: false })}</div>`;
+    ? `<span class="exam-line-text typeset-stem">${renderStemHtml(q.stemHtml)}</span>`
+    : `<span class="exam-line-text">${renderMathText(stem)}${inlineFormula}${isFill && !hasBlank ? `<span class="exam-answer-blank" aria-label="填空线"></span>` : ""}</span>`;
+  const isQuestionSlice = /^\/?past-exam-slices\/[^/]+\/q\d+\.(?:png|jpe?g|webp)$/i.test(String(q.stemImage || ""));
+  const image = isQuestionSlice ? assetUrl(q.stemImage) : "";
   const imageMarkup = image
     ? `<figure class="source-page-figure"><img class="stem-image exam" src="${escapeHtml(image)}" alt="原卷题目" onerror="this.closest('.source-page-figure').remove()"><figcaption>原卷题面</figcaption></figure>`
     : "";
   return `<div class="exam-stem ${q.sourceType === "past_exam" ? "past-exam-stem" : "text-mode"}">
-    <article class="exam-paper">
-      ${textMarkup}
+    <article class="exam-paper exam-paper-line">
+      <div class="exam-line">
+        ${displayNumber ? `<span class="exam-item-number">（${escapeHtml(displayNumber)}）</span>` : ""}
+        ${textMarkup}
+      </div>
       ${imageMarkup}
-      ${q.formula ? renderMathBlock(q.formula) : ""}
     </article>
   </div>`;
 }
@@ -878,7 +885,7 @@ async function renderPractice() {
     <section class="question-only">
       <div class="practice-context"><span>${escapeHtml(state.student.mathType)}</span><span>${escapeHtml(chapter?.name || q.chapterName || "当前章节")}</span><span>${escapeHtml(q.point || "本题知识点")}</span><strong>已完成 ${answeredCount} / ${state.questions.length}</strong><button class="ghost" id="refreshPractice">刷新本轮20题</button></div>
       <div class="question-count">第${state.current + 1}题 / 共${state.questions.length}题</div>
-      ${questionStem(q)}
+      ${questionStem(q, state.current + 1)}
       ${questionAnswerControls(q)}
     </section>
     ${renderWritingPanel(q)}
@@ -1133,7 +1140,7 @@ function renderRoundResults() {
     return `<article class="result-card">
       <h3>第 ${index + 1} 题 <span class="badge ${badge}">${label}</span></h3>
       <p class="stem">${escapeHtml(question.chapterName)} · ${escapeHtml(question.point || question.stem)}</p>
-      ${questionStem(question)}
+      ${questionStem(question, index + 1)}
       <div class="result-grid">
         <p><span>你的答案</span><strong>${escapeHtml(userAnswer)}</strong></p>
         <p><span>标准答案</span><strong>${escapeHtml(standardAnswer)}</strong></p>
@@ -1991,8 +1998,7 @@ async function renderSimilarTrainingV2() {
     </div>
     <article class="training-question">
       <div class="training-question-number">题目 ${index + 1}</div>
-      <div class="training-stem">${renderMathText(question.stem, { display: true })}</div>
-      ${question.formula ? renderMathBlock(question.formula) : ""}
+      ${questionStem(question, index + 1)}
       ${renderTrainingAnswerControls(question, record)}
     </article>
     ${trainingFeedback(question, record)}
@@ -2092,9 +2098,7 @@ async function renderOriginalRetry() {
     </div>
     <article class="training-question original-retry-question">
       <div class="training-question-number">原题</div>
-      <div class="training-stem">${retryQuestion.stemHtml ? `<div class="typeset-stem">${retryQuestion.stemHtml}</div>` : renderMathText(retryQuestion.stem || "原题内容暂不可用", { display: true })}</div>
-      ${retryQuestion.stemImage ? `<img class="stem-image exam" src="${escapeHtml(assetUrl(retryQuestion.stemImage))}" alt="原题图片" onerror="this.remove()">` : ""}
-      ${retryQuestion.formula ? renderMathBlock(retryQuestion.formula) : ""}
+      ${questionStem(retryQuestion, 1)}
       ${answerArea}
     </article>
     <div class="row original-retry-actions">
