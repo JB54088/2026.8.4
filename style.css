@@ -85,6 +85,14 @@ canvas{display:block;width:100%;height:68vh;min-height:560px;border:0;background
 .training-question .exam-paper-line{border:0;box-shadow:none;padding:0}
 @media(max-width:900px){.exam-line{font-size:19px}.exam-paper-line .typeset-stem{font-size:19px}.exam-answer-blank{width:86px}}
 
+/* Textbook-style refinements: the paper carries the hierarchy, not nested cards. */
+.exam-paper-line{border:0;border-radius:0;box-shadow:none;padding:10px 0}
+.question-only .exam-paper-line{padding:8px 0}
+.practice-choice-list{gap:4px;margin-top:18px;border-top:1px solid #e5e7eb;padding-top:10px}
+.practice-choice{min-height:40px;border:0;border-radius:0;background:transparent;padding:6px 10px;font-family:"Times New Roman","SimSun","宋体",serif;font-size:20px;line-height:1.6}
+.practice-choice:hover,.practice-choice.active{border:0;background:#f3f6fa;color:#174ca8}
+@media(max-width:900px){.practice-choice{font-size:18px}}
+
 /* Exam-style explanation layout: prose first, equations centered, conclusion boxed. */
 .solution-paper{margin:18px auto 4px;max-width:900px;padding:4px 8px 8px;font-family:"SimSun","宋体","Times New Roman",serif;color:#111827;background:#fff;line-height:1.8}
 .solution-paper-heading{padding-bottom:10px;border-bottom:1px solid #e4e7ec;font-family:system-ui,"Microsoft YaHei",sans-serif;font-size:16px;font-weight:800;color:#344054}

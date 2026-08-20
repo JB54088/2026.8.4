@@ -838,7 +838,9 @@ function questionStem(q, displayNumber = "") {
   const stem = q.sourceType === "past_exam" ? rawStem.replace(/\s+/g, " ").trim() : rawStem;
   const isFill = ["fill", "fill_blank", "numeric"].includes(String(q.type || q.questionType || "").toLowerCase());
   const hasBlank = /_{2,}|（\s*）|\(\s*\)/.test(stem);
-  const inlineFormula = q.formula ? `<span class="exam-inline-formula">${renderMathText(q.formula)}</span>` : "";
+  const formula = String(q.formula || q.formulaExtraction?.latex || "").trim();
+  const formulaSource = formula.startsWith("\\") ? `\\(${formula}\\)` : formula;
+  const inlineFormula = formulaSource ? `<span class="exam-inline-formula">${renderMathText(formulaSource)}</span>` : "";
   const textMarkup = q.stemHtml
     ? `<span class="exam-line-text typeset-stem">${renderStemHtml(q.stemHtml)}</span>`
     : `<span class="exam-line-text">${renderMathText(stem)}${inlineFormula}${isFill && !hasBlank ? `<span class="exam-answer-blank" aria-label="填空线"></span>` : ""}</span>`;
