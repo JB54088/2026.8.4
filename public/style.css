@@ -71,6 +71,20 @@ canvas{display:block;width:100%;height:68vh;min-height:560px;border:0;background
 .question-only .exam-paper p,.question-only .exam-question-text{font-size:24px;line-height:1.65}
 .question-only .source-page-figure{margin-top:14px}
 
+/* Compact paper-like question line: number, stem, inline formula and fill line. */
+.exam-paper-line{padding:16px 20px;background:#fff}
+.exam-line{display:flex;align-items:baseline;gap:8px;min-width:0;font-family:"Times New Roman","SimSun","宋体",serif;font-size:22px;line-height:1.9;color:#101010}
+.exam-item-number{flex:0 0 auto;font-size:18px;white-space:nowrap}
+.exam-line-text{min-width:0;white-space:normal;overflow-wrap:anywhere}
+.exam-line-text .math-display{display:inline;padding:0;overflow:visible;text-align:left}
+.exam-inline-formula{display:inline;margin-left:8px}
+.exam-answer-blank{display:inline-block;width:112px;margin-left:10px;border-bottom:1px solid #111;vertical-align:baseline}
+.exam-paper-line .source-page-figure{margin-top:14px}
+.exam-paper-line .typeset-stem{font-size:22px;line-height:1.9}
+.training-question .exam-stem{margin-top:0}
+.training-question .exam-paper-line{border:0;box-shadow:none;padding:0}
+@media(max-width:900px){.exam-line{font-size:19px}.exam-paper-line .typeset-stem{font-size:19px}.exam-answer-blank{width:86px}}
+
 /* Exam-style explanation layout: prose first, equations centered, conclusion boxed. */
 .solution-paper{margin:18px auto 4px;max-width:900px;padding:4px 8px 8px;font-family:"SimSun","宋体","Times New Roman",serif;color:#111827;background:#fff;line-height:1.8}
 .solution-paper-heading{padding-bottom:10px;border-bottom:1px solid #e4e7ec;font-family:system-ui,"Microsoft YaHei",sans-serif;font-size:16px;font-weight:800;color:#344054}
